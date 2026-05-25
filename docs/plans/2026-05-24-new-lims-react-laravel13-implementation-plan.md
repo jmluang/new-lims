@@ -119,7 +119,7 @@ Install these packages in `backend/`:
 
 ```bash
 composer require spatie/laravel-permission
-composer require spatie/laravel-activitylog
+composer require spatie/laravel-activitylog:^4.12
 composer require spatie/laravel-query-builder
 composer require spatie/laravel-data
 composer require spatie/laravel-medialibrary
@@ -133,7 +133,7 @@ Package responsibilities:
 | Package | Responsibility | Project Rule |
 |---|---|---|
 | `spatie/laravel-permission` | Group/role and permission engine | Product calls roles "groups"; permission names stay explicit |
-| `spatie/laravel-activitylog` | Base activity log infrastructure | Extend with append-only behavior and hash chain for ISO 17025 audit needs |
+| `spatie/laravel-activitylog` | Base activity log infrastructure | Use v4 on PHP 8.3; extend with append-only behavior and hash chain for ISO 17025 audit needs |
 | `spatie/laravel-query-builder` | API filtering, sorting, includes, and allowed fields | All list endpoints must use explicit allowed filters/sorts/fields |
 | `spatie/laravel-data` | Request/response DTOs | Use for stable API payload boundaries where useful |
 | `spatie/laravel-medialibrary` | Equipment images and file attachments | File URLs still obey field-level permissions |
@@ -470,7 +470,7 @@ Mobile
 Run:
 
 ```bash
-composer create-project laravel/laravel backend
+composer create-project laravel/laravel:^13.0 backend
 ```
 
 Expected:
@@ -541,7 +541,7 @@ Run:
 ```bash
 cd backend
 composer require laravel/sanctum
-php artisan vendor:publish --provider="Laravel\\Sanctum\\SanctumServiceProvider"
+php artisan install:api --without-migration-prompt --no-interaction
 ```
 
 Expected:
@@ -556,7 +556,7 @@ Run:
 
 ```bash
 composer require spatie/laravel-permission
-composer require spatie/laravel-activitylog
+composer require spatie/laravel-activitylog:^4.12
 composer require spatie/laravel-query-builder
 composer require spatie/laravel-data
 composer require spatie/laravel-medialibrary
@@ -576,11 +576,10 @@ Generating optimized autoload files
 Run:
 
 ```bash
-php artisan vendor:publish --provider="Spatie\\Permission\\PermissionServiceProvider"
-php artisan vendor:publish --provider="Spatie\\Activitylog\\ActivitylogServiceProvider" --tag="activitylog-migrations"
-php artisan vendor:publish --provider="Spatie\\Activitylog\\ActivitylogServiceProvider" --tag="activitylog-config"
-php artisan vendor:publish --provider="Spatie\\MediaLibrary\\MediaLibraryServiceProvider" --tag="medialibrary-migrations"
-php artisan vendor:publish --provider="Spatie\\Backup\\BackupServiceProvider"
+php artisan vendor:publish --tag=permission-migrations --tag=permission-config
+php artisan vendor:publish --tag=activitylog-migrations --tag=activitylog-config
+php artisan vendor:publish --tag=medialibrary-migrations --tag=medialibrary-config
+php artisan vendor:publish --tag=backup-config
 php artisan vendor:publish --provider="Maatwebsite\\Excel\\ExcelServiceProvider" --tag=config
 ```
 
