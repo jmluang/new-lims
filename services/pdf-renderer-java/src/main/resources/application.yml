@@ -1,0 +1,19 @@
+server:
+  port: 8081
+  shutdown: immediate
+  tomcat:
+    # -1 means unlimited swallow size; avoid 413 on large multipart
+    max-swallow-size: -1
+    # Increase max form POST size (affects multipart form size parsing)
+    max-http-form-post-size: 200MB
+
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+logging:
+  level:
+    com.luang.pdfsigner.service: DEBUG

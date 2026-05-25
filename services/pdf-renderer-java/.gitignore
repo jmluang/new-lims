@@ -1,0 +1,47 @@
+# 编译输出
+target/
+build/
+
+# IDEA / Eclipse / VSCode 等 IDE 生成的文件
+*.iml
+.idea/
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.vscode/
+
+# 日志文件
+*.log
+
+# 操作系统缓存
+.DS_Store
+Thumbs.db
+
+# Maven / Gradle 缓存
+.mvn/wrapper/maven-wrapper.jar
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+*~
+
+# 覆盖率/测试报告
+coverage/
+*.lcov
+*.jacoco*
+
+# 运行时文件
+nohup.out
+
+# 环境配置（可选，如果不想暴露敏感信息）
+application-*.yml
+application-*.properties
+
+./test_*.pdf
+
+*.ttf

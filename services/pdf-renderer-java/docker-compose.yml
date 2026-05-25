@@ -1,0 +1,34 @@
+services:
+  pdf-signer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdf-signer:local
+    ports:
+      - "8080:8081"
+    environment:
+      DEFAULT_PFX_PATH: ${DEFAULT_PFX_PATH:-/keys/signer.pfx}
+      DEFAULT_PFX_PASS: ${DEFAULT_PFX_PASS:-changeit}
+      FUNCTION_STAMP_TOP_MARGIN_MM: ${FUNCTION_STAMP_TOP_MARGIN_MM:-32}
+      FUNCTION_STAMP_LEFT_MARGIN_MM: ${FUNCTION_STAMP_LEFT_MARGIN_MM:-25}
+      FRONT_SEAL_OFFSET_LEFT_MM: ${FRONT_SEAL_OFFSET_LEFT_MM:-45}
+      FRONT_SEAL_OFFSET_UP_MM: ${FRONT_SEAL_OFFSET_UP_MM:-8}
+      FRONT_SEAL_PAGE3_OFFSET_LEFT_MM: ${FRONT_SEAL_PAGE3_OFFSET_LEFT_MM:-15}
+      FRONT_SEAL_PAGE3_OFFSET_UP_MM: ${FRONT_SEAL_PAGE3_OFFSET_UP_MM:-5}
+      FRONT_SEAL_SIZE_MM: ${FRONT_SEAL_SIZE_MM:-40}
+      PERFORATION_STAMP_HEIGHT_MM: ${PERFORATION_STAMP_HEIGHT_MM:-40}
+      PERFORATION_MULTI_STATE_APPEARANCE: false
+
+      # 二维码配置
+      QR_CODE_SIZE_MM: ${QR_CODE_SIZE_MM:-28.6}
+      QR_CODE_MARGIN_MM: ${QR_CODE_MARGIN_MM:-1}
+      QR_CODE_OFFSET_LEFT_MM: ${QR_CODE_OFFSET_LEFT_MM:-16}
+      QR_CODE_OFFSET_TOP_MM: ${QR_CODE_OFFSET_TOP_MM:-40}
+      QR_CODE_WIDTH_PX: ${QR_CODE_WIDTH_PX:-360}
+      QR_CODE_HEIGHT_PX: ${QR_CODE_HEIGHT_PX:-360}
+
+      CERTIFICATE_QUERY_BASE_URL: ${CERTIFICATE_QUERY_BASE_URL:-https://www.verify-pdf.com/certificate-query}
+      
+    volumes:
+      - ./keys:/keys:ro
+    restart: unless-stopped

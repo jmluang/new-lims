@@ -1,0 +1,19 @@
+.DS_Store
+
+/backend/vendor/
+/backend/node_modules/
+/backend/.env
+/backend/storage/*.key
+
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.env
+/frontend/.env.local
+
+/services/pdf-renderer-java/target/
+/services/pdf-renderer-java/keys/
+/services/pdf-renderer-java/test_*.pdf
+
+# Reference-only directories. Keep them local and out of the new project history.
+/example/
+/zs-lims/
