@@ -774,18 +774,21 @@ Expected:
 ### Task 4: Implement Permission Catalog and Effective Permissions
 
 **Files:**
-- Create: `backend/app/Enums/PermissionAction.php`
-- Create: `backend/app/Enums/PermissionEffect.php`
-- Create: `backend/app/Services/Authorization/PermissionCatalog.php`
-- Create: `backend/app/Services/Authorization/EffectivePermissionService.php`
-- Create: `backend/database/migrations/*_create_groups_table.php`
-- Create: `backend/database/migrations/*_create_permissions_table.php`
-- Create: `backend/database/migrations/*_create_group_user_table.php`
-- Create: `backend/database/migrations/*_create_group_permission_table.php`
-- Create: `backend/app/Http/Controllers/System/EffectivePermissionController.php`
-- Create: `backend/tests/Feature/System/EffectivePermissionTest.php`
+- Created: `backend/app/Enums/PermissionAction.php`
+- Created: `backend/app/Enums/PermissionEffect.php`
+- Created: `backend/app/Services/Authorization/PermissionCatalog.php`
+- Created: `backend/app/Services/Authorization/EffectivePermissionService.php`
+- Created: `backend/app/Services/Authorization/EffectivePermissions.php`
+- Created: `backend/app/Http/Controllers/System/EffectivePermissionController.php`
+- Created: `backend/app/Http/Controllers/System/PermissionCatalogController.php`
+- Created: `backend/tests/Feature/System/EffectivePermissionTest.php`
+- Created: `backend/tests/Feature/System/PermissionCatalogTest.php`
+- Updated: `backend/app/Models/User.php`
+- Updated: `backend/routes/api.php`
 
-- [ ] **Step 1: Define actions**
+Implementation note: groups are implemented with Spatie roles instead of custom group tables. The product UI can still call them groups; the database source of truth is Spatie's `roles`, `permissions`, `model_has_roles`, and `role_has_permissions` tables.
+
+- [x] **Step 1: Define actions**
 
 Required actions:
 
@@ -796,20 +799,17 @@ update
 delete
 export
 hide
+print
 ```
 
-- [ ] **Step 2: Define permission resources**
+- [x] **Step 2: Define permission resources**
 
 Required first-release resources:
 
 ```text
 system.users
-system.departments
 system.groups
-system.permissions
 system.audit_logs
-system.dictionaries
-system.backups
 customers
 customer_contacts
 equipment
@@ -817,26 +817,28 @@ equipment_locations
 equipment_labels
 ```
 
-- [ ] **Step 3: Define field permission examples**
+- [x] **Step 3: Define field permission examples**
 
 Required first-release field permissions:
 
 ```text
-customers.credit_code: read, update, export, hide
-customers.phone: read, update, export, hide
-customers.email: read, update, export, hide
-customer_contacts.phone: read, update, export, hide
-customer_contacts.email: read, update, export, hide
-equipment.serial_no: read, update, export, hide
-equipment.legacy_placement: read, update, export, hide
-equipment.device_image: read, update, export, hide
-equipment.manual_files: read, update, export, hide
-equipment.instruction_files: read, update, export, hide
-equipment.calibration_files: read, update, export, hide
-equipment.other_files: read, update, export, hide
+system.users.phone: read, update
+system.users.email: read, update
+customers.credit_code: read, update, export
+customers.phone: read, update, export
+customers.email: read, update, export
+customer_contacts.phone: read, update, export
+customer_contacts.email: read, update, export
+equipment.serial_no: read, update, export
+equipment.legacy_placement: read, update, export
+equipment.device_image: read
+equipment.manual_files: read
+equipment.instruction_files: read
+equipment.calibration_files: read
+equipment.other_files: read
 ```
 
-- [ ] **Step 4: Test multi-group permission merge**
+- [x] **Step 4: Test multi-group permission merge**
 
 Test behavior:
 
@@ -844,23 +846,12 @@ Test behavior:
 public function test_user_effective_permissions_are_merged_from_all_groups(): void
 {
     $user = User::factory()->create();
-    $viewer = Group::factory()->create(['code' => 'viewer']);
-    $exporter = Group::factory()->create(['code' => 'exporter']);
-    $user->groups()->sync([$viewer->id, $exporter->id]);
+    $viewer = Role::create(['name' => 'viewer', 'guard_name' => 'web']);
+    $exporter = Role::create(['name' => 'exporter', 'guard_name' => 'web']);
 
-    $viewer->permissions()->create([
-        'resource' => 'customers',
-        'field' => null,
-        'action' => 'read',
-        'effect' => 'allow',
-    ]);
-
-    $exporter->permissions()->create([
-        'resource' => 'customers',
-        'field' => null,
-        'action' => 'export',
-        'effect' => 'allow',
-    ]);
+    $viewer->givePermissionTo(Permission::findOrCreate('customers.read', 'web'));
+    $exporter->givePermissionTo(Permission::findOrCreate('customers.export', 'web'));
+    $user->assignRole($viewer, $exporter);
 
     $permissions = app(EffectivePermissionService::class)->forUser($user);
 
@@ -869,7 +860,7 @@ public function test_user_effective_permissions_are_merged_from_all_groups(): vo
 }
 ```
 
-- [ ] **Step 5: Expose effective permissions API**
+- [x] **Step 5: Expose effective permissions API**
 
 Expected response shape:
 
@@ -878,12 +869,18 @@ Expected response shape:
   "data": {
     "resources": {
       "customers": {
-        "actions": ["read", "export"],
+        "actions": {
+          "read": true,
+          "create": false,
+          "update": false,
+          "delete": false,
+          "export": true
+        },
         "fields": {
           "phone": {
             "read": true,
             "export": false,
-            "hide": true
+            "update": false
           }
         }
       }

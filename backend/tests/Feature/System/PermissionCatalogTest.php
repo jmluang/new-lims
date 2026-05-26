@@ -1,0 +1,104 @@
+<?php
+
+namespace Tests\Feature\System;
+
+use App\Models\User;
+use App\Services\Authorization\PermissionCatalog;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class PermissionCatalogTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_catalog_contains_first_release_resource_and_field_permissions(): void
+    {
+        $permissionNames = app(PermissionCatalog::class)->permissionNames();
+
+        $this->assertSame($permissionNames, array_values(array_unique($permissionNames)));
+        $this->assertEqualsCanonicalizing($this->expectedPermissionNames(), $permissionNames);
+    }
+
+    public function test_catalog_api_returns_assignable_permission_matrix(): void
+    {
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/system/permissions/catalog')
+            ->assertOk()
+            ->assertJsonPath('data.resources.customers.actions', ['read', 'create', 'update', 'delete', 'export'])
+            ->assertJsonPath('data.resources.customers.fields.phone', ['read', 'update', 'export'])
+            ->assertJsonPath('data.resources.equipment.fields.serial_no', ['read', 'update', 'export']);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function expectedPermissionNames(): array
+    {
+        return [
+            'system.users.read',
+            'system.users.create',
+            'system.users.update',
+            'system.users.delete',
+            'system.users.export',
+            'system.users.field.phone.read',
+            'system.users.field.phone.update',
+            'system.users.field.email.read',
+            'system.users.field.email.update',
+            'system.groups.read',
+            'system.groups.create',
+            'system.groups.update',
+            'system.groups.delete',
+            'system.audit_logs.read',
+            'system.audit_logs.export',
+            'customers.read',
+            'customers.create',
+            'customers.update',
+            'customers.delete',
+            'customers.export',
+            'customers.field.credit_code.read',
+            'customers.field.credit_code.update',
+            'customers.field.credit_code.export',
+            'customers.field.phone.read',
+            'customers.field.phone.update',
+            'customers.field.phone.export',
+            'customers.field.email.read',
+            'customers.field.email.update',
+            'customers.field.email.export',
+            'customer_contacts.read',
+            'customer_contacts.create',
+            'customer_contacts.update',
+            'customer_contacts.delete',
+            'customer_contacts.export',
+            'customer_contacts.field.phone.read',
+            'customer_contacts.field.phone.update',
+            'customer_contacts.field.phone.export',
+            'customer_contacts.field.email.read',
+            'customer_contacts.field.email.update',
+            'customer_contacts.field.email.export',
+            'equipment.read',
+            'equipment.create',
+            'equipment.update',
+            'equipment.delete',
+            'equipment.export',
+            'equipment.field.serial_no.read',
+            'equipment.field.serial_no.update',
+            'equipment.field.serial_no.export',
+            'equipment.field.legacy_placement.read',
+            'equipment.field.legacy_placement.update',
+            'equipment.field.legacy_placement.export',
+            'equipment.field.device_image.read',
+            'equipment.field.manual_files.read',
+            'equipment.field.instruction_files.read',
+            'equipment.field.calibration_files.read',
+            'equipment.field.other_files.read',
+            'equipment_locations.read',
+            'equipment_locations.create',
+            'equipment_locations.update',
+            'equipment_locations.delete',
+            'equipment_labels.read',
+            'equipment_labels.print',
+        ];
+    }
+}
