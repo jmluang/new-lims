@@ -1225,19 +1225,20 @@ Expected:
 ### Task 8: Implement Equipment APIs and Label Printing
 
 **Files:**
-- Create: `backend/database/migrations/*_create_equipment_locations_table.php`
-- Create: `backend/database/migrations/*_create_equipment_table.php`
-- Create: `backend/database/migrations/*_create_equipment_label_print_jobs_table.php`
-- Create: `backend/app/Models/Equipment.php`
-- Create: `backend/app/Models/EquipmentLocation.php`
-- Create: `backend/app/Models/EquipmentLabelPrintJob.php`
-- Create: `backend/app/Http/Controllers/EquipmentController.php`
-- Create: `backend/app/Http/Controllers/EquipmentLocationController.php`
-- Create: `backend/app/Http/Controllers/EquipmentLabelController.php`
-- Create: `backend/tests/Feature/Equipment/EquipmentApiTest.php`
-- Create: `backend/tests/Feature/Equipment/EquipmentLabelTest.php`
+- Created: `backend/database/migrations/2026_05_27_030000_create_equipment_locations_table.php`
+- Created: `backend/database/migrations/2026_05_27_030100_create_equipment_table.php`
+- Created: `backend/database/migrations/2026_05_27_030200_create_equipment_label_print_jobs_table.php`
+- Created: `backend/app/Models/Equipment.php`
+- Created: `backend/app/Models/EquipmentLocation.php`
+- Created: `backend/app/Models/EquipmentLabelPrintJob.php`
+- Created: `backend/app/Http/Controllers/EquipmentController.php`
+- Created: `backend/app/Http/Controllers/EquipmentLocationController.php`
+- Created: `backend/app/Http/Controllers/EquipmentLabelController.php`
+- Created: `backend/tests/Feature/Equipment/EquipmentApiTest.php`
+- Created: `backend/tests/Feature/Equipment/EquipmentFieldPermissionTest.php`
+- Created: `backend/tests/Feature/Equipment/EquipmentLabelTest.php`
 
-- [ ] **Step 1: Implement equipment location tree**
+- [x] **Step 1: Implement equipment location tree**
 
 Required behavior:
 
@@ -1250,7 +1251,7 @@ return locations as tree
 prevent deleting a location that has equipment
 ```
 
-- [ ] **Step 2: Implement equipment CRUD**
+- [x] **Step 2: Implement equipment CRUD**
 
 Required fields:
 
@@ -1276,7 +1277,7 @@ other_files
 remark
 ```
 
-- [ ] **Step 3: Implement label print preview API**
+- [x] **Step 3: Implement label print preview API**
 
 Required input:
 
@@ -1302,7 +1303,7 @@ Required output:
 }
 ```
 
-- [ ] **Step 4: Commit equipment APIs**
+- [x] **Step 4: Commit equipment APIs**
 
 Run:
 

@@ -2,6 +2,9 @@
 
 use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\EquipmentController;
+use App\Http\Controllers\EquipmentLabelController;
+use App\Http\Controllers\EquipmentLocationController;
 use App\Http\Controllers\System\BackupController;
 use App\Http\Controllers\System\DepartmentController;
 use App\Http\Controllers\System\DictionaryController;
@@ -50,6 +53,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/customers/{customer}/contacts', [CustomerContactController::class, 'store']);
     Route::put('/customers/{customer}/contacts/{customerContact}', [CustomerContactController::class, 'update']);
     Route::delete('/customers/{customer}/contacts/{customerContact}', [CustomerContactController::class, 'destroy']);
+
+    Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
+    Route::apiResource('/equipment', EquipmentController::class);
+    Route::post('/equipment-labels/preview', [EquipmentLabelController::class, 'preview']);
 });
 
 Route::get('/user', function (Request $request) {
