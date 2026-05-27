@@ -1694,7 +1694,7 @@ Expected:
 - Create: `docs/plans/2026-05-24-new-lims-acceptance-test-plan.md`
 - Create: `docs/plans/2026-05-24-new-lims-react-laravel13-implementation-plan.md`
 
-- [ ] **Step 1: Verify backend**
+- [x] **Step 1: Verify backend**
 
 Run:
 
@@ -1709,7 +1709,7 @@ Expected:
 Tests: ... passed
 ```
 
-- [ ] **Step 2: Verify frontend build**
+- [x] **Step 2: Verify frontend build**
 
 Run:
 
@@ -1724,7 +1724,7 @@ Expected:
 built in
 ```
 
-- [ ] **Step 3: Verify acceptance workflow**
+- [x] **Step 3: Verify acceptance workflow**
 
 Use the detailed release gate and test matrix from:
 
@@ -1732,7 +1732,7 @@ Use the detailed release gate and test matrix from:
 docs/plans/2026-05-24-new-lims-acceptance-test-plan.md
 ```
 
-- [ ] **Step 4: Commit verification additions**
+- [x] **Step 4: Commit verification additions**
 
 Run:
 
@@ -1771,5 +1771,5 @@ Expected:
 ## Verification Checklist
 
 - [ ] Backend full test suite passes with MySQL/MariaDB configuration.
-- [ ] Frontend production build passes.
+- [x] Frontend production build passes.
 - [ ] Permission, field-level visibility, export filtering, audit, customer, equipment, backup, label printing, and Java PDF service gates pass according to `docs/plans/2026-05-24-new-lims-acceptance-test-plan.md`.

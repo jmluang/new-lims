@@ -322,7 +322,7 @@ Acceptance:
 
 ### FP-004: Action Button Visibility
 
-Frontend test file: `frontend/src/components/app/__tests__/permission-gate.test.tsx`
+Frontend test file: `frontend/src/features/system/__tests__/permission-gate.test.tsx`
 
 Acceptance:
 
@@ -621,7 +621,7 @@ backend/tests/Feature/Smoke/AdminWorkflowTest.php
 Frontend:
 
 ```text
-frontend/src/components/app/__tests__/permission-gate.test.tsx
+frontend/src/features/system/__tests__/permission-gate.test.tsx
 frontend/src/features/system/users/__tests__/user-table-permissions.test.tsx
 frontend/src/features/system/groups/__tests__/permission-matrix.test.tsx
 frontend/src/features/customers/__tests__/customer-table-permissions.test.tsx
@@ -646,3 +646,13 @@ The first release is not acceptable until every item below passes:
 - [ ] Audit append-only and hash chain tests pass.
 - [ ] Manual acceptance flow passes with the canonical test users.
 - [ ] Java PDF service build passes if PDF integration is included in the milestone.
+
+Current automated verification:
+
+```text
+backend: php artisan test -> 50 tests, 282 assertions passed
+frontend: npm run test -> 1 test file, 3 tests passed
+frontend: npm run lint -> passed
+frontend: npm run build -> built successfully with the existing large chunk warning
+java pdf: mvn -q -e -B -DskipTests package -> passed
+```
