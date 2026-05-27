@@ -19,15 +19,7 @@ class CustomerController extends Controller
     {
         $this->authorizePermission($request, 'customers.read', self::RESOURCE);
 
-        $query = Customer::query()->orderBy('id');
-
-        if ($search = $request->string('search')->toString()) {
-            $query->where('name', 'like', "%{$search}%");
-        }
-
-        if ($status = $request->string('status')->toString()) {
-            $query->where('status', $status);
-        }
+        $query = $this->filteredQuery($request)->with('contacts')->orderBy('id');
 
         $customers = $query->paginate((int) $request->integer('per_page', 15));
 
@@ -97,7 +89,7 @@ class CustomerController extends Controller
         ]);
     }
 
-    public function destroy(Request $request, Customer $customer, AuditLogger $auditLogger): JsonResponse
+    public function destroy(Request $request, Customer $customer, AuditLogger $auditLogger, FieldPermissionFilter $fieldPermissionFilter): JsonResponse
     {
         $this->authorizePermission($request, 'customers.delete', self::RESOURCE, $customer);
 
@@ -113,7 +105,7 @@ class CustomerController extends Controller
             after: $this->auditValues($customer->fresh()),
         );
 
-        return response()->json(['data' => $customer->fresh()]);
+        return response()->json(['data' => $this->serializeCustomer($customer->fresh()->load('contacts'), $request, $fieldPermissionFilter)]);
     }
 
     public function export(Request $request, AuditLogger $auditLogger, FieldPermissionFilter $fieldPermissionFilter): JsonResponse
@@ -121,7 +113,7 @@ class CustomerController extends Controller
         $this->authorizePermission($request, 'customers.export', self::RESOURCE);
 
         $fields = $fieldPermissionFilter->exportableFields($request->user(), self::RESOURCE, ['name', 'type', 'level', 'source', 'industry', 'address', 'remark', 'status']);
-        $rows = Customer::query()
+        $rows = $this->filteredQuery($request)
             ->orderBy('id')
             ->get()
             ->map(fn (Customer $customer): array => collect($fields)->mapWithKeys(
@@ -143,6 +135,25 @@ class CustomerController extends Controller
             'headers' => $fields,
             'data' => $rows,
         ]);
+    }
+
+    private function filteredQuery(Request $request)
+    {
+        return Customer::query()
+            ->when($request->filled('search'), function ($query) use ($request): void {
+                $search = $request->string('search')->toString();
+
+                $query->where(function ($query) use ($search): void {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('credit_code', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->filled('type'), fn ($query) => $query->where('type', $request->string('type')->toString()))
+            ->when($request->filled('level'), fn ($query) => $query->where('level', $request->string('level')->toString()))
+            ->when($request->filled('source'), fn ($query) => $query->where('source', $request->string('source')->toString()))
+            ->when($request->filled('industry'), fn ($query) => $query->where('industry', $request->string('industry')->toString()))
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()));
     }
 
     private function rejectForbiddenSensitiveFields(Request $request, FieldPermissionFilter $fieldPermissionFilter, ?Customer $customer = null): void
@@ -185,7 +196,21 @@ class CustomerController extends Controller
 
     private function serializeCustomer(Customer $customer, Request $request, FieldPermissionFilter $fieldPermissionFilter): array
     {
-        return $fieldPermissionFilter->filterRecord($request->user(), self::RESOURCE, $this->auditValues($customer));
+        $record = $fieldPermissionFilter->filterRecord($request->user(), self::RESOURCE, $this->auditValues($customer));
+        $defaultContact = $customer->contacts->firstWhere('is_default', true);
+        $record['default_contact'] = $defaultContact === null
+            ? null
+            : $fieldPermissionFilter->filterRecord($request->user(), 'customer_contacts', [
+                'id' => $defaultContact->id,
+                'customer_id' => $defaultContact->customer_id,
+                'name' => $defaultContact->name,
+                'phone' => $defaultContact->phone,
+                'email' => $defaultContact->email,
+                'is_default' => $defaultContact->is_default,
+                'status' => $defaultContact->status,
+            ]);
+
+        return $record;
     }
 
     private function auditValues(Customer $customer): array

@@ -126,6 +126,28 @@ class CustomerFieldPermissionTest extends TestCase
         $this->assertSame(3, AuditLog::query()->where('action', 'authorization.denied')->count());
     }
 
+    public function test_customer_delete_response_hides_sensitive_fields_without_field_read_permission(): void
+    {
+        $deleter = $this->userWithPermissions(['customers.delete']);
+        $customer = Customer::query()->create([
+            'name' => 'Delete Sensitive Customer',
+            'credit_code' => '91330000123456789X',
+            'phone' => '13800000000',
+            'email' => 'delete-secret@example.test',
+            'status' => 'active',
+        ]);
+
+        $response = $this->deleteJsonAs($deleter, "/api/customers/{$customer->id}")
+            ->assertOk()
+            ->assertJsonPath('data.credit_code', null)
+            ->assertJsonPath('data.phone', null)
+            ->assertJsonPath('data.email', null);
+
+        $this->assertStringNotContainsString('91330000123456789X', $response->getContent());
+        $this->assertStringNotContainsString('13800000000', $response->getContent());
+        $this->assertStringNotContainsString('delete-secret@example.test', $response->getContent());
+    }
+
     private function userWithPermissions(array $permissions): User
     {
         $role = Role::create(['name' => 'test_customer_permission_'.str()->random(8), 'guard_name' => 'web']);

@@ -466,6 +466,11 @@ Acceptance:
 - Sensitive fields obey field read/update/export permissions.
 - Customer list supports search, filters, pagination, and export.
 
+Current backend coverage:
+
+- `backend/tests/Feature/Customers/CustomerApiTest.php` covers customer list search/filter by name/credit code/phone, type, level, source, industry, status, default contact serialization, and filtered export.
+- `backend/tests/Feature/Customers/CustomerFieldPermissionTest.php` covers sensitive field read hiding, update rejection, export exclusion, delete response filtering, and authorization denial audit.
+
 ### CUS-2: Customer Contacts
 
 Acceptance:
@@ -475,6 +480,10 @@ Acceptance:
 - Contact phone and email obey field permissions.
 - Deleting a non-default contact works with permission.
 - Deleting a default contact requires selecting or promoting another default contact, or backend rejects the action with a clear error.
+
+Current backend coverage:
+
+- `backend/tests/Feature/Customers/CustomerApiTest.php` covers multiple contacts and exactly one default contact after create/update.
 
 ### EQ-1: Equipment Ledger
 

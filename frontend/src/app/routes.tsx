@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, Outlet, redirect } from '@tanstack/react-router'
 import { PlaceholderPage } from '../components/app/PlaceholderPage'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
+import { CustomerListPage } from '../features/customers/CustomerListPage'
 import { getAuthToken } from '../lib/api'
 import { LoginPage } from '../features/auth/LoginPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
@@ -57,7 +58,7 @@ const systemDictionariesRoute = createRoute({
 const customersRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/customers',
-  component: () => <PlaceholderPage title="Customers" resource="customers" />,
+  component: CustomerListPage,
 })
 
 const equipmentRoute = createRoute({

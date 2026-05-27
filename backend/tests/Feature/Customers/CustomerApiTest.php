@@ -108,6 +108,88 @@ class CustomerApiTest extends TestCase
         $this->assertDatabaseHas('customer_contacts', ['id' => $secondContactId, 'is_default' => false]);
     }
 
+    public function test_customer_list_filters_and_includes_default_contact(): void
+    {
+        $admin = $this->userWithPermissions([
+            'customers.read',
+            'customers.field.credit_code.read',
+            'customers.field.phone.read',
+            'customers.field.email.read',
+            'customer_contacts.field.phone.read',
+            'customer_contacts.field.email.read',
+        ]);
+        $target = Customer::query()->create([
+            'name' => 'Filtered Customer',
+            'credit_code' => 'FILTER-CREDIT',
+            'type' => 'enterprise',
+            'level' => 'a',
+            'source' => 'referral',
+            'industry' => 'testing',
+            'phone' => '13800001111',
+            'email' => 'filtered@example.test',
+            'status' => 'active',
+        ]);
+        $target->contacts()->create([
+            'name' => 'Default Contact',
+            'phone' => '13800002222',
+            'email' => 'contact@example.test',
+            'is_default' => true,
+            'status' => 'active',
+        ]);
+        Customer::query()->create([
+            'name' => 'Other Customer',
+            'type' => 'hospital',
+            'level' => 'b',
+            'source' => 'website',
+            'industry' => 'medical',
+            'phone' => '13900001111',
+            'status' => 'disabled',
+        ]);
+
+        $this->getJsonAs($admin, '/api/customers?search=FILTER-CREDIT&type=enterprise&level=a&source=referral&industry=testing&status=active')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $target->id)
+            ->assertJsonPath('data.0.default_contact.name', 'Default Contact')
+            ->assertJsonPath('data.0.default_contact.phone', '13800002222');
+    }
+
+    public function test_customer_export_uses_filters_and_exportable_sensitive_fields(): void
+    {
+        $admin = $this->userWithPermissions([
+            'customers.export',
+            'customers.field.credit_code.export',
+            'customers.field.phone.export',
+        ]);
+        Customer::query()->create([
+            'name' => 'Exported Customer',
+            'credit_code' => 'EXPORT-CREDIT',
+            'type' => 'enterprise',
+            'level' => 'a',
+            'source' => 'referral',
+            'industry' => 'testing',
+            'phone' => '13800003333',
+            'email' => 'exported@example.test',
+            'status' => 'active',
+        ]);
+        Customer::query()->create([
+            'name' => 'Hidden Export Customer',
+            'credit_code' => 'HIDDEN-CREDIT',
+            'type' => 'hospital',
+            'phone' => '13900003333',
+            'status' => 'active',
+        ]);
+
+        $response = $this->getJsonAs($admin, '/api/customers/export?type=enterprise')
+            ->assertOk()
+            ->assertJsonPath('headers.0', 'name');
+
+        $this->assertStringContainsString('EXPORT-CREDIT', $response->getContent());
+        $this->assertStringContainsString('13800003333', $response->getContent());
+        $this->assertStringNotContainsString('exported@example.test', $response->getContent());
+        $this->assertStringNotContainsString('HIDDEN-CREDIT', $response->getContent());
+    }
+
     private function userWithPermissions(array $permissions): User
     {
         $role = Role::create(['name' => 'test_customer_api_'.str()->random(8), 'guard_name' => 'web']);
@@ -141,5 +223,12 @@ class CustomerApiTest extends TestCase
         Sanctum::actingAs($user);
 
         return $this->deleteJson($uri);
+    }
+
+    private function getJsonAs(User $user, string $uri)
+    {
+        Sanctum::actingAs($user);
+
+        return $this->getJson($uri);
     }
 }

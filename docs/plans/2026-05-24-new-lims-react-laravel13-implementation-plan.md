@@ -1451,7 +1451,7 @@ Expected:
 - Create: `frontend/src/features/customers/customerColumns.tsx`
 - Create: `frontend/src/features/customers/customerSchema.ts`
 
-- [ ] **Step 1: Implement desktop customer table**
+- [x] **Step 1: Implement desktop customer table**
 
 Required behavior:
 
@@ -1462,7 +1462,7 @@ hide fields according to backend field permissions
 show export action only when allowed
 ```
 
-- [ ] **Step 2: Implement mobile customer cards**
+- [x] **Step 2: Implement mobile customer cards**
 
 Required behavior:
 
@@ -1473,7 +1473,7 @@ compact card with name, level, status, default contact
 actions in dropdown menu
 ```
 
-- [ ] **Step 3: Implement customer form**
+- [x] **Step 3: Implement customer form**
 
 Required behavior:
 
@@ -1483,7 +1483,7 @@ field-level update permission disables forbidden fields
 contacts can be added, edited, and marked default
 ```
 
-- [ ] **Step 4: Commit customer pages**
+- [x] **Step 4: Commit customer pages**
 
 Run:
 
