@@ -17,7 +17,7 @@ import {
 import { type ApiCollection, inputClass } from '../system/utils'
 import { CustomerContactList } from './CustomerContactList'
 import { CustomerForm } from './CustomerForm'
-import { visibleCustomerColumns } from './customerColumns'
+import { visibleCustomerColumns, visibleCustomerMobileFields } from './customerColumns'
 import type { CustomerFormValues } from './customerSchema'
 
 export type FieldPermissionMeta = Record<string, { read?: boolean; update?: boolean; export?: boolean; hidden?: boolean }>
@@ -118,6 +118,7 @@ export function CustomerListPage() {
   const customers = customersQuery.data?.data ?? []
   const fieldPermissions = (customersQuery.data?.meta?.fields ?? selectedCustomer?._field_permissions) as FieldPermissionMeta | undefined
   const columns = visibleCustomerColumns(fieldPermissions)
+  const mobileFields = visibleCustomerMobileFields(fieldPermissions)
 
   function startCreate() {
     setSelectedCustomer(null)
@@ -254,7 +255,7 @@ export function CustomerListPage() {
                         <dt className="text-slate-500">Default contact</dt>
                         <dd className="font-medium text-slate-800">{customer.default_contact?.name ?? '-'}</dd>
                       </div>
-                      {!fieldPermissions?.phone?.hidden ? (
+                      {mobileFields.phone ? (
                         <div>
                           <dt className="text-slate-500">Phone</dt>
                           <dd className="font-medium text-slate-800">{customer.phone ?? '-'}</dd>

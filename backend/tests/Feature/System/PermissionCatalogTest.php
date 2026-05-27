@@ -62,6 +62,7 @@ class PermissionCatalogTest extends TestCase
             'system.dictionaries.delete',
             'system.backups.read',
             'system.backups.create',
+            'system.backups.restore',
             'customers.read',
             'customers.create',
             'customers.update',

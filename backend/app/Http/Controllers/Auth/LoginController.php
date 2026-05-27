@@ -91,6 +91,35 @@ class LoginController extends Controller
         return response()->json(['data' => ['logged_out' => true]]);
     }
 
+    public function changePassword(Request $request, AuditLogger $auditLogger): JsonResponse
+    {
+        $user = $request->user();
+        $data = $request->validate([
+            'current_password' => ['required', 'string', 'current_password:sanctum'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user->forceFill([
+            'password' => $data['password'],
+            'password_changed_at' => Carbon::now(),
+            'must_change_password' => false,
+        ])->save();
+
+        $auditLogger->record(
+            actor: $user,
+            action: 'auth.password_changed',
+            module: 'auth',
+            subject: $user,
+            after: ['email' => $user->email, 'must_change_password' => false],
+        );
+
+        return response()->json([
+            'data' => [
+                'must_change_password' => false,
+            ],
+        ]);
+    }
+
     private function recordFailedAttempt(User $user, AuditLogger $auditLogger): void
     {
         $user->forceFill([

@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class LoginEndpointTest extends TestCase
@@ -60,5 +61,31 @@ class LoginEndpointTest extends TestCase
         $this->assertSame(5, $user->fresh()->failed_login_attempts);
         $this->assertSame('locked', $user->fresh()->status);
         $this->assertNotNull($user->fresh()->locked_at);
+    }
+
+    public function test_user_must_change_password_before_accessing_business_apis(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'first-login@example.test',
+            'password' => Hash::make('Password123!'),
+            'status' => 'active',
+            'must_change_password' => true,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/customers')
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'password_change_required');
+
+        $this->postJson('/api/auth/password', [
+            'current_password' => 'Password123!',
+            'password' => 'NewPassword123!',
+            'password_confirmation' => 'NewPassword123!',
+        ])->assertOk()
+            ->assertJsonPath('data.must_change_password', false);
+
+        $this->assertFalse($user->fresh()->must_change_password);
+        $this->assertTrue(Hash::check('NewPassword123!', $user->fresh()->password));
     }
 }

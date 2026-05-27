@@ -9,11 +9,20 @@ use App\Services\Authorization\FieldPermissionFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class EquipmentController extends Controller
 {
     private const RESOURCE = 'equipment';
+
+    private const FILE_FIELDS = [
+        'device_image',
+        'manual_files',
+        'instruction_files',
+        'calibration_files',
+        'other_files',
+    ];
 
     public function index(Request $request, FieldPermissionFilter $fieldPermissionFilter): JsonResponse
     {
@@ -103,6 +112,28 @@ class EquipmentController extends Controller
         );
 
         return response()->json(['data' => $this->serializeEquipment($equipment->fresh()->load('location'), $request, $fieldPermissionFilter)]);
+    }
+
+    public function downloadFile(Request $request, Equipment $equipment, string $field, ?int $index = null)
+    {
+        $this->authorizePermission($request, 'equipment.read', self::RESOURCE, $equipment);
+
+        if (! in_array($field, self::FILE_FIELDS, true)) {
+            abort(404);
+        }
+
+        $this->authorizePermission($request, "equipment.field.{$field}.read", self::RESOURCE, $equipment);
+
+        $path = $this->filePath($equipment, $field, $index);
+
+        if ($path === null || ! Storage::disk('local')->exists($path)) {
+            abort(404);
+        }
+
+        return response(Storage::disk('local')->get($path), 200, [
+            'Content-Type' => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="'.basename($path).'"',
+        ]);
     }
 
     /**
@@ -219,5 +250,18 @@ class EquipmentController extends Controller
             'other_files' => $equipment->other_files,
             'remark' => $equipment->remark,
         ];
+    }
+
+    private function filePath(Equipment $equipment, string $field, ?int $index): ?string
+    {
+        $value = $equipment->{$field};
+
+        if (is_array($value)) {
+            return is_int($index) && isset($value[$index]) && is_string($value[$index])
+                ? $value[$index]
+                : null;
+        }
+
+        return is_string($value) ? $value : null;
     }
 }

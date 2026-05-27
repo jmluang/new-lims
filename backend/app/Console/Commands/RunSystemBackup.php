@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\BackupRun;
 use App\Services\Audit\AuditLogger;
+use App\Services\System\BackupService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Throwable;
@@ -14,7 +15,7 @@ class RunSystemBackup extends Command
 
     protected $description = 'Record a LIMS backup run';
 
-    public function handle(AuditLogger $auditLogger): int
+    public function handle(AuditLogger $auditLogger, BackupService $backupService): int
     {
         $backupRun = BackupRun::query()->create([
             'type' => $this->option('type'),
@@ -23,20 +24,14 @@ class RunSystemBackup extends Command
         ]);
 
         try {
-            $backupRun->update([
-                'status' => 'succeeded',
-                'database_path' => 'pending-spatie-backup-integration',
-                'files_path' => 'pending-spatie-backup-integration',
-                'size_bytes' => 0,
-                'finished_at' => Carbon::now(),
-            ]);
+            $backupRun = $backupService->run($backupRun);
 
             $auditLogger->record(
                 actor: null,
                 action: 'system.backups.run',
                 module: 'system.backups',
-                subject: $backupRun->fresh(),
-                after: $backupRun->fresh()->only(['type', 'status', 'database_path', 'files_path', 'size_bytes']),
+                subject: $backupRun,
+                after: $backupRun->only(['type', 'status', 'database_path', 'files_path', 'size_bytes']),
                 requestMeta: ['request_id' => 'console-backup-'.$backupRun->id],
             );
 

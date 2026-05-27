@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { useEffectivePermissions } from '../../auth/useCurrentUser'
 import { Button, ErrorNotice, Field } from '../shared'
 import { inputClass } from '../utils'
+import { canUpdateUserPhone } from './userPermissions'
 
 export type UserGroupOption = {
   id: number
@@ -63,7 +64,7 @@ export function UserForm({
   onCancel: () => void
 }) {
   const permissions = useEffectivePermissions()
-  const canUpdatePhone = Boolean(permissions.data?.resources['system.users']?.fields.phone?.update)
+  const canUpdatePhone = canUpdateUserPhone(permissions.data)
   const isEditing = Boolean(user)
   const form = useForm<UserFormValues>({
     resolver: zodResolver(

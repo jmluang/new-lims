@@ -1,6 +1,7 @@
 import { Save } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from '../shared'
+import { fieldPermissionName, resourcePermissionName } from './permissionNames'
 
 export type PermissionCatalog = {
   resources: Record<
@@ -55,8 +56,7 @@ export function PermissionMatrix({
             <div className="p-3">
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {config.actions.map((action) => {
-                  const permission = `${resource}.${action}`
-
+                  const permission = resourcePermissionName(resource, action)
                   return (
                     <PermissionCheckbox
                       label={action}
@@ -77,8 +77,7 @@ export function PermissionMatrix({
                       <div className="text-sm font-medium text-slate-700">{field}</div>
                       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {actions.map((action) => {
-                          const permission = `${resource}.field.${field}.${action}`
-
+                          const permission = fieldPermissionName(resource, field, action)
                           return (
                             <PermissionCheckbox
                               label={action}

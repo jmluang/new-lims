@@ -21,3 +21,10 @@ export const customerColumns: CustomerColumn[] = [
 export function visibleCustomerColumns(fields?: FieldPermissionMeta) {
   return customerColumns.filter((column) => !column.sensitive || !fields?.[column.key as string]?.hidden)
 }
+
+export function visibleCustomerMobileFields(fields?: FieldPermissionMeta) {
+  return {
+    defaultContact: true,
+    phone: !fields?.phone?.hidden,
+  }
+}

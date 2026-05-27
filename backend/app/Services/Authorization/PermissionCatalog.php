@@ -15,7 +15,7 @@ class PermissionCatalog
             'system.groups' => ['read', 'create', 'update', 'delete'],
             'system.audit_logs' => ['read', 'export'],
             'system.dictionaries' => ['read', 'create', 'update', 'delete'],
-            'system.backups' => ['read', 'create'],
+            'system.backups' => ['read', 'create', 'restore'],
             'customers' => ['read', 'create', 'update', 'delete', 'export'],
             'customer_contacts' => ['read', 'create', 'update', 'delete', 'export'],
             'equipment' => ['read', 'create', 'update', 'delete', 'export'],

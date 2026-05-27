@@ -5,6 +5,7 @@ namespace Tests\Feature\Equipment;
 use App\Models\Equipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -20,6 +21,7 @@ class EquipmentFieldPermissionTest extends TestCase
         parent::setUp();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+        Storage::disk('local')->deleteDirectory('equipment');
     }
 
     public function test_equipment_detail_hides_file_fields_without_file_read_permissions(): void
@@ -71,6 +73,28 @@ class EquipmentFieldPermissionTest extends TestCase
 
         $this->assertStringNotContainsString('private/delete-device.jpg', $response->getContent());
         $this->assertStringNotContainsString('delete-manual.pdf', $response->getContent());
+    }
+
+    public function test_equipment_file_download_requires_matching_field_read_permission(): void
+    {
+        Storage::disk('local')->put('equipment/manuals/manual.pdf', 'manual-bytes');
+        $equipment = Equipment::query()->create([
+            'equipment_no' => 'EQ-DOWNLOAD',
+            'name' => 'Download Equipment',
+            'status' => 'active',
+            'manual_files' => ['equipment/manuals/manual.pdf'],
+        ]);
+
+        $this->getJsonAs(
+            $this->userWithPermissions(['equipment.read']),
+            "/api/equipment/{$equipment->id}/files/manual_files/0"
+        )->assertForbidden();
+
+        $this->getJsonAs(
+            $this->userWithPermissions(['equipment.read', 'equipment.field.manual_files.read']),
+            "/api/equipment/{$equipment->id}/files/manual_files/0"
+        )->assertOk()
+            ->assertSee('manual-bytes', false);
     }
 
     private function userWithPermissions(array $permissions): User

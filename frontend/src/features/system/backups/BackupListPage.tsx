@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { DatabaseBackup } from 'lucide-react'
+import { DatabaseBackup, RotateCcw } from 'lucide-react'
 import { PermissionGate } from '../../../components/app/PermissionGate'
 import { api } from '../../../lib/api'
 import {
@@ -42,12 +42,18 @@ export function BackupListPage() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['backups'] }),
   })
+  const restoreBackup = useMutation({
+    mutationFn: async (backup: BackupRun) => {
+      await api.post(`/api/backups/${backup.id}/restore`)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['backups'] }),
+  })
   const backups = backupsQuery.data ?? []
 
   return (
     <PageShell
       title="Backup Runs"
-      description="Manual backup run history. Restore and download remain disabled until file backup integration is attached."
+      description="Manual backup run history, generated artifacts and permission-gated restore actions."
       actions={
         <PermissionGate resource="system.backups" action="create">
           <Button variant="primary" disabled={runBackup.isPending} onClick={() => runBackup.mutate()}>
@@ -58,6 +64,7 @@ export function BackupListPage() {
       }
     >
       {runBackup.error ? <ErrorNotice error={runBackup.error} fallback="Unable to start backup" /> : null}
+      {restoreBackup.error ? <ErrorNotice error={restoreBackup.error} fallback="Unable to restore backup" /> : null}
       {backupsQuery.isPending ? <LoadingState label="Loading backup runs" /> : null}
       {backupsQuery.isError ? <ErrorNotice error={backupsQuery.error} fallback="Unable to load backups" /> : null}
       {!backupsQuery.isPending && backups.length === 0 ? (
@@ -72,6 +79,7 @@ export function BackupListPage() {
             <th className="px-3 py-2 font-medium">Artifacts</th>
             <th className="px-3 py-2 font-medium">Size</th>
             <th className="px-3 py-2 font-medium">Time</th>
+            <th className="px-3 py-2 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200">
@@ -94,6 +102,9 @@ export function BackupListPage() {
                 <div>{formatDateTime(backup.started_at)}</div>
                 <div>{formatDateTime(backup.finished_at)}</div>
               </td>
+              <td className="px-3 py-3">
+                <RestoreButton backup={backup} pending={restoreBackup.isPending} onRestore={(target) => restoreBackup.mutate(target)} />
+              </td>
             </tr>
           ))}
         </tbody>
@@ -115,10 +126,24 @@ export function BackupListPage() {
                 <div className="text-xs text-slate-500">Started</div>
                 <div className="font-medium text-slate-900">{formatDateTime(backup.started_at)}</div>
               </div>
+              <div className="col-span-2">
+                <RestoreButton backup={backup} pending={restoreBackup.isPending} onRestore={(target) => restoreBackup.mutate(target)} />
+              </div>
             </div>
           </Panel>
         ))}
       </div>
     </PageShell>
+  )
+}
+
+function RestoreButton({ backup, pending, onRestore }: { backup: BackupRun; pending: boolean; onRestore: (backup: BackupRun) => void }) {
+  return (
+    <PermissionGate resource="system.backups" action="restore">
+      <Button variant="secondary" disabled={pending || backup.status !== 'succeeded'} onClick={() => onRestore(backup)}>
+        <RotateCcw className="size-4" aria-hidden="true" />
+        Restore
+      </Button>
+    </PermissionGate>
   )
 }

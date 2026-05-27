@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { api } from '../../lib/api'
 import { Button, EmptyState, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { inputClass } from '../system/utils'
+import { equipmentLabelSpec } from './equipmentLabelSpec'
 
 type LabelPreview = {
   equipment_no: string
@@ -19,8 +20,8 @@ export function EquipmentLabelPrintPage() {
     mutationFn: async (equipmentIds: number[]) => {
       const response = await api.post<{ data: LabelPreview[]; meta: { label_width_mm: 40; label_height_mm: 60 } }>('/api/equipment-labels/preview', {
         equipment_ids: equipmentIds,
-        label_width_mm: 40,
-        label_height_mm: 60,
+        label_width_mm: equipmentLabelSpec.widthMm,
+        label_height_mm: equipmentLabelSpec.heightMm,
       })
 
       return response.data
@@ -63,7 +64,7 @@ export function EquipmentLabelPrintPage() {
     >
       <style>{`
         @page {
-          size: 40mm 60mm;
+          size: ${equipmentLabelSpec.widthMm}mm ${equipmentLabelSpec.heightMm}mm;
           margin: 0;
         }
 
@@ -88,8 +89,8 @@ export function EquipmentLabelPrintPage() {
         }
 
         .equipment-label {
-          width: 40mm;
-          height: 60mm;
+          width: ${equipmentLabelSpec.widthMm}mm;
+          height: ${equipmentLabelSpec.heightMm}mm;
           page-break-after: always;
         }
 

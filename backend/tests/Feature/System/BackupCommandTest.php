@@ -2,25 +2,116 @@
 
 namespace Tests\Feature\System;
 
+use App\Models\BackupRun;
+use App\Models\User;
+use App\Services\System\BackupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
+use Laravel\Sanctum\Sanctum;
+use RuntimeException;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class BackupCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_backup_command_records_backup_run_and_audit_log(): void
+    protected function setUp(): void
     {
+        parent::setUp();
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        Storage::disk('local')->deleteDirectory('backups');
+        Storage::disk('local')->deleteDirectory('uploads');
+    }
+
+    public function test_backup_command_writes_database_dump_file_archive_and_audit_log(): void
+    {
+        Storage::disk('local')->put('uploads/evidence.txt', 'file evidence');
+
         $this->artisan('lims:backup', ['--type' => 'daily'])
             ->assertSuccessful();
 
-        $this->assertDatabaseHas('backup_runs', [
-            'type' => 'daily',
-            'status' => 'succeeded',
-        ]);
+        $backupRun = BackupRun::query()->firstOrFail();
+
+        $this->assertSame('daily', $backupRun->type);
+        $this->assertSame('succeeded', $backupRun->status);
+        $this->assertNotNull($backupRun->database_path);
+        $this->assertNotNull($backupRun->files_path);
+        Storage::disk('local')->assertExists($backupRun->database_path);
+        Storage::disk('local')->assertExists($backupRun->files_path);
+        $this->assertStringContainsString('backup_runs', Storage::disk('local')->get($backupRun->database_path));
+        $this->assertGreaterThan(0, $backupRun->size_bytes);
+
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'system.backups.run',
             'module' => 'system.backups',
         ]);
+    }
+
+    public function test_backup_command_records_failed_run_when_backup_service_fails(): void
+    {
+        $this->mock(BackupService::class)
+            ->shouldReceive('run')
+            ->once()
+            ->andThrow(new RuntimeException('backup disk unavailable'));
+
+        $this->artisan('lims:backup', ['--type' => 'daily'])
+            ->assertFailed();
+
+        $this->assertDatabaseHas('backup_runs', [
+            'type' => 'daily',
+            'status' => 'failed',
+            'error_message' => 'backup disk unavailable',
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'system.backups.failed',
+            'module' => 'system.backups',
+        ]);
+    }
+
+    public function test_backup_restore_requires_permission_and_records_audit_log(): void
+    {
+        Storage::disk('local')->put('backups/test/database.sql', '-- restore candidate');
+        Storage::disk('local')->put('backups/test/files.zip', 'zip-bytes');
+        $backupRun = BackupRun::query()->create([
+            'type' => 'manual',
+            'status' => 'succeeded',
+            'database_path' => 'backups/test/database.sql',
+            'files_path' => 'backups/test/files.zip',
+            'size_bytes' => 32,
+            'started_at' => now(),
+            'finished_at' => now(),
+        ]);
+
+        Sanctum::actingAs($this->userWithPermissions(['system.backups.read']));
+        $this->postJson("/api/backups/{$backupRun->id}/restore")->assertForbidden();
+
+        Sanctum::actingAs($this->userWithPermissions(['system.backups.restore']));
+        $this->postJson("/api/backups/{$backupRun->id}/restore")
+            ->assertOk()
+            ->assertJsonPath('data.restored', true);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'system.backups.restore',
+            'module' => 'system.backups',
+            'subject_id' => (string) $backupRun->id,
+        ]);
+    }
+
+    private function userWithPermissions(array $permissions): User
+    {
+        $role = Role::create(['name' => 'test_backup_'.str()->random(8), 'guard_name' => 'web']);
+        $role->givePermissionTo(collect($permissions)->map(
+            fn (string $permission): Permission => Permission::findOrCreate($permission, 'web')
+        ));
+
+        $user = User::factory()->create();
+        $user->assignRole($role);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        return $user;
     }
 }

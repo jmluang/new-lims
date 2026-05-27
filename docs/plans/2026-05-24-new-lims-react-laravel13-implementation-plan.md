@@ -465,7 +465,7 @@ Mobile
 - Create: `docs/plans/`
 - Keep: `zs-lims/`
 
-- [ ] **Step 1: Create the Laravel API project**
+- [x] **Step 1: Create the Laravel API project**
 
 Run:
 
@@ -479,7 +479,7 @@ Expected:
 Application key set successfully.
 ```
 
-- [ ] **Step 2: Create the React SPA project**
+- [x] **Step 2: Create the React SPA project**
 
 Run:
 
@@ -493,7 +493,7 @@ Expected:
 Done. Now run:
 ```
 
-- [ ] **Step 3: Verify the root layout**
+- [x] **Step 3: Verify the root layout**
 
 Run:
 
@@ -510,7 +510,7 @@ docs
 zs-lims
 ```
 
-- [ ] **Step 4: Commit scaffold**
+- [x] **Step 4: Commit scaffold**
 
 Run:
 
@@ -534,7 +534,7 @@ Expected:
 - Modify: `backend/routes/api.php`
 - Create: `backend/tests/Feature/Auth/MeEndpointTest.php`
 
-- [ ] **Step 1: Install Sanctum**
+- [x] **Step 1: Install Sanctum**
 
 Run:
 
@@ -550,7 +550,7 @@ Expected:
 Publishing complete.
 ```
 
-- [ ] **Step 2: Install backend infrastructure packages**
+- [x] **Step 2: Install backend infrastructure packages**
 
 Run:
 
@@ -571,7 +571,7 @@ Expected:
 Generating optimized autoload files
 ```
 
-- [ ] **Step 3: Publish package configuration and migrations**
+- [x] **Step 3: Publish package configuration and migrations**
 
 Run:
 
@@ -589,7 +589,7 @@ Expected:
 Publishing complete.
 ```
 
-- [ ] **Step 4: Set MySQL/MariaDB defaults in `.env.example`**
+- [x] **Step 4: Set MySQL/MariaDB defaults in `.env.example`**
 
 Use these values:
 
@@ -606,7 +606,7 @@ SANCTUM_STATEFUL_DOMAINS=localhost:5173,127.0.0.1:5173
 SESSION_DOMAIN=localhost
 ```
 
-- [ ] **Step 5: Add a protected `/api/me` route**
+- [x] **Step 5: Add a protected `/api/me` route**
 
 Expected route behavior:
 
@@ -622,7 +622,7 @@ Route::middleware('auth:sanctum')->get('/me', function (Request $request) {
 });
 ```
 
-- [ ] **Step 6: Write the auth feature test**
+- [x] **Step 6: Write the auth feature test**
 
 Test behavior:
 
@@ -639,7 +639,7 @@ public function test_me_endpoint_returns_authenticated_user(): void
 }
 ```
 
-- [ ] **Step 7: Run backend tests**
+- [x] **Step 7: Run backend tests**
 
 Run:
 
@@ -653,7 +653,7 @@ Expected:
 PASS  Tests\Feature\Auth\MeEndpointTest
 ```
 
-- [ ] **Step 8: Commit backend auth foundation**
+- [x] **Step 8: Commit backend auth foundation**
 
 Run:
 
@@ -678,7 +678,7 @@ Expected:
 - Create: `frontend/src/lib/query-client.ts`
 - Create: `frontend/src/styles/globals.css`
 
-- [ ] **Step 1: Install frontend dependencies**
+- [x] **Step 1: Install frontend dependencies**
 
 Run:
 
@@ -696,7 +696,7 @@ Expected:
 added
 ```
 
-- [ ] **Step 2: Initialize shadcn/ui**
+- [x] **Step 2: Initialize shadcn/ui**
 
 Run:
 
@@ -712,7 +712,7 @@ Base color: Zinc
 CSS variables: yes
 ```
 
-- [ ] **Step 3: Add required shadcn/ui primitives**
+- [x] **Step 3: Add required shadcn/ui primitives**
 
 Run:
 
@@ -726,7 +726,7 @@ Expected:
 Created
 ```
 
-- [ ] **Step 4: Create API client**
+- [x] **Step 4: Create API client**
 
 Expected behavior:
 
@@ -742,7 +742,7 @@ export const api = axios.create({
 });
 ```
 
-- [ ] **Step 5: Run frontend typecheck and build**
+- [x] **Step 5: Run frontend typecheck and build**
 
 Run:
 
@@ -756,7 +756,7 @@ Expected:
 built in
 ```
 
-- [ ] **Step 6: Commit frontend foundation**
+- [x] **Step 6: Commit frontend foundation**
 
 Run:
 
@@ -1043,7 +1043,7 @@ Expected:
 - Created: `backend/tests/Feature/System/DictionaryManagementTest.php`
 - Created: `backend/tests/Feature/System/BackupCommandTest.php`
 
-Implementation note: this slice implements the system management API foundation, role-as-group management, audit-backed mutations, and backup run metadata. Full login-runtime enforcement for failed attempts/first password change and real database/file archive execution remain separate follow-up slices.
+Implementation note: this slice implements the system management API foundation, role-as-group management, audit-backed mutations, first-login password-change enforcement, failed-attempt lockout, generated database/file backup artifacts, failed backup recording, and permission-gated restore audit logging.
 
 - [x] **Step 1: Implement user management**
 
@@ -1098,7 +1098,7 @@ equipment.status
 equipment.calibration_duration
 ```
 
-- [ ] **Step 5: Implement backup command**
+- [x] **Step 5: Implement backup command**
 
 Required command:
 
@@ -1116,7 +1116,7 @@ record success or failure
 record audit log for manual backup trigger
 ```
 
-Current status: `lims:backup` writes `backup_runs` metadata and audit logs. Actual MySQL/MariaDB dump and file archive execution still need to be wired to `spatie/laravel-backup` or an equivalent backup runner before SYS-12 is complete.
+Current status: `lims:backup` writes `backup_runs` metadata, creates a portable database SQL dump, creates a private file archive, records failed runs with error messages, and records audit logs. Restore is exposed through `POST /api/backups/{backupRun}/restore` with explicit `system.backups.restore` permission and audit logging.
 
 - [x] **Step 6: Commit system APIs**
 
@@ -1770,6 +1770,6 @@ Expected:
 
 ## Verification Checklist
 
-- [ ] Backend full test suite passes with MySQL/MariaDB configuration.
+- [x] Backend full test suite passes with MySQL/MariaDB configuration.
 - [x] Frontend production build passes.
-- [ ] Permission, field-level visibility, export filtering, audit, customer, equipment, backup, label printing, and Java PDF service gates pass according to `docs/plans/2026-05-24-new-lims-acceptance-test-plan.md`.
+- [x] Permission, field-level visibility, export filtering, audit, customer, equipment, backup, label printing, and Java PDF service gates pass according to `docs/plans/2026-05-24-new-lims-acceptance-test-plan.md`.

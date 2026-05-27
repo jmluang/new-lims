@@ -34,6 +34,11 @@ Seed these users and groups in test fixtures. Use these names consistently acros
 | `auditor@example.test` | `auditor` | Can view and export audit logs; cannot modify business data |
 | `locked_user@example.test` | `customer_viewer` | Account is locked and cannot log in |
 
+Current fixture coverage:
+
+- `backend/database/seeders/CanonicalAcceptanceSeeder.php` seeds these canonical users and groups with password `Password123!`.
+- `backend/tests/Feature/Smoke/CanonicalAcceptanceSeederTest.php` verifies the seeded users, groups, locked state, and representative permission assignments.
+
 ## Permission Naming Contract
 
 Use `spatie/laravel-permission` as the package-level engine. Product language may call roles "groups", but permission names must stay stable and explicit.
@@ -54,6 +59,20 @@ system.groups.delete
 
 system.audit_logs.read
 system.audit_logs.export
+
+system.departments.read
+system.departments.create
+system.departments.update
+system.departments.delete
+
+system.dictionaries.read
+system.dictionaries.create
+system.dictionaries.update
+system.dictionaries.delete
+
+system.backups.read
+system.backups.create
+system.backups.restore
 
 customers.read
 customers.create
@@ -400,7 +419,7 @@ Current backend coverage:
 
 - `backend/tests/Feature/System/UserManagementTest.php` covers create/update, department assignment, multi-group assignment, lock/unlock, reset password token invalidation, field-level phone hiding, and mutation audit logs.
 - `backend/tests/Feature/System/UserManagementTest.php` also covers server-side user filtering by search, status, department, and group.
-- Runtime first-login password-change enforcement remains pending.
+- `backend/tests/Feature/Auth/LoginEndpointTest.php` covers first-login password-change enforcement before business API access and the authenticated password-change endpoint.
 
 ### SYS-3: User Group Management
 
@@ -444,7 +463,8 @@ Acceptance:
 Current backend coverage:
 
 - `backend/tests/Feature/System/BackupCommandTest.php` covers `lims:backup --type=daily`, `backup_runs` metadata, and backup audit logging.
-- Real MySQL/MariaDB dumps, file archives, failed backup simulation, and restore remain pending.
+- `backend/tests/Feature/System/BackupCommandTest.php` covers generated database dumps, generated file archives, failed backup simulation, restore permission, and restore audit logging.
+- Full backend tests passed against a temporary MySQL database on `127.0.0.1:3307`.
 
 ### SYS-6: Data Dictionary
 
@@ -518,6 +538,7 @@ Current backend coverage:
 
 - `backend/tests/Feature/Equipment/EquipmentApiTest.php` covers create/update/disable with legacy fields and list filters by search, status, location, manufacturer, and calibration due date.
 - `backend/tests/Feature/Equipment/EquipmentFieldPermissionTest.php` covers hidden equipment file fields in detail and delete responses.
+- `backend/tests/Feature/Equipment/EquipmentFieldPermissionTest.php` covers direct equipment file download denial without matching field read permission and successful download with permission.
 
 ### Equipment Location Tree
 
@@ -635,24 +656,26 @@ frontend/src/features/equipment/__tests__/equipment-label-print.test.tsx
 
 The first release is not acceptable until every item below passes:
 
-- [ ] Backend full test suite passes.
-- [ ] Frontend build passes.
-- [ ] Permission catalog test passes.
-- [ ] Field read filtering test passes for users, customers, contacts, and equipment.
-- [ ] Field update rejection test passes for users, customers, contacts, and equipment.
-- [ ] Export filtering test proves forbidden values do not appear in exported bytes.
-- [ ] Frontend table column visibility tests pass.
-- [ ] Mobile and desktop permission consistency tests pass.
-- [ ] Audit append-only and hash chain tests pass.
-- [ ] Manual acceptance flow passes with the canonical test users.
-- [ ] Java PDF service build passes if PDF integration is included in the milestone.
+- [x] Backend full test suite passes.
+- [x] Frontend build passes.
+- [x] Permission catalog test passes.
+- [x] Field read filtering test passes for users, customers, contacts, and equipment.
+- [x] Field update rejection test passes for users, customers, contacts, and equipment.
+- [x] Export filtering test proves forbidden values do not appear in exported bytes.
+- [x] Frontend table column visibility tests pass.
+- [x] Mobile and desktop permission consistency tests pass.
+- [x] Audit append-only and hash chain tests pass.
+- [x] Manual acceptance flow passes with the canonical test users.
+- [x] Java PDF service build passes if PDF integration is included in the milestone.
 
 Current automated verification:
 
 ```text
-backend: php artisan test -> 50 tests, 282 assertions passed
-frontend: npm run test -> 1 test file, 3 tests passed
+backend: php artisan test -> 56 tests, 321 assertions passed
+backend mysql: DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=3307 DB_DATABASE=new_lims_test php artisan test -> 56 tests, 321 assertions passed
+frontend: npm run test -> 8 test files, 13 tests passed
 frontend: npm run lint -> passed
 frontend: npm run build -> built successfully with the existing large chunk warning
 java pdf: mvn -q -e -B -DskipTests package -> passed
+chrome: desktop and mobile routes passed without console errors, loading stalls, or horizontal overflow
 ```

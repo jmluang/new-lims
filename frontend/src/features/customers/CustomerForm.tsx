@@ -6,6 +6,7 @@ import { type UseFormRegisterReturn, useForm } from 'react-hook-form'
 import { Button, ErrorNotice, Field } from '../system/shared'
 import { inputClass, textareaClass } from '../system/utils'
 import { type Customer, type DictionarySet, type FieldPermissionMeta } from './CustomerListPage'
+import { filterForbiddenCustomerFields } from './customerPermissions'
 import { customerSchema, type CustomerFormValues } from './customerSchema'
 
 type DictionaryCodes = 'customer.type' | 'customer.level' | 'customer.source' | 'customer.industry' | 'customer.status'
@@ -37,7 +38,7 @@ export function CustomerForm({
   }, [customer, form])
 
   async function submit(values: CustomerFormValues) {
-    await onSubmit(filterForbiddenFields(values, fieldPermissions))
+    await onSubmit(filterForbiddenCustomerFields(values, fieldPermissions))
   }
 
   return (
@@ -159,15 +160,6 @@ function defaultValues(customer?: Customer | null): CustomerFormValues {
     address: customer?.address ?? '',
     remark: customer?.remark ?? '',
     status: customer?.status ?? 'active',
-  }
-}
-
-function filterForbiddenFields(values: CustomerFormValues, permissions?: FieldPermissionMeta): CustomerFormValues {
-  return {
-    ...values,
-    credit_code: canUpdate(permissions, 'credit_code') ? values.credit_code : undefined,
-    phone: canUpdate(permissions, 'phone') ? values.phone : undefined,
-    email: canUpdate(permissions, 'email') ? values.email : undefined,
   }
 }
 
