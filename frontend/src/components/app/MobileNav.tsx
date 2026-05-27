@@ -9,6 +9,8 @@ const navItems = [
   { label: 'Dictionaries', to: '/system/dictionaries' },
   { label: 'Customers', to: '/customers' },
   { label: 'Equipment', to: '/equipment' },
+  { label: 'Locations', to: '/equipment/locations' },
+  { label: 'Labels', to: '/equipment/labels' },
   { label: 'Audit Logs', to: '/audit-logs' },
   { label: 'Backups', to: '/backups' },
 ]

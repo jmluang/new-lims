@@ -1508,7 +1508,7 @@ Expected:
 - Create: `frontend/src/features/equipment/equipmentColumns.tsx`
 - Create: `frontend/src/features/equipment/equipmentSchema.ts`
 
-- [ ] **Step 1: Implement equipment table and cards**
+- [x] **Step 1: Implement equipment table and cards**
 
 Required behavior:
 
@@ -1520,7 +1520,7 @@ mobile card list
 batch select for label printing
 ```
 
-- [ ] **Step 2: Implement equipment location tree**
+- [x] **Step 2: Implement equipment location tree**
 
 Required behavior:
 
@@ -1532,7 +1532,7 @@ disable location
 prevent destructive action when backend rejects it
 ```
 
-- [ ] **Step 3: Implement label print page**
+- [x] **Step 3: Implement label print page**
 
 Required print layout:
 
@@ -1562,7 +1562,7 @@ QR code
 footer text: XPD_LIMS
 ```
 
-- [ ] **Step 4: Commit equipment pages**
+- [x] **Step 4: Commit equipment pages**
 
 Run:
 

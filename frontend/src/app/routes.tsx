@@ -1,7 +1,9 @@
 import { createRootRoute, createRoute, Outlet, redirect } from '@tanstack/react-router'
-import { PlaceholderPage } from '../components/app/PlaceholderPage'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { CustomerListPage } from '../features/customers/CustomerListPage'
+import { EquipmentLabelPrintPage } from '../features/equipment/EquipmentLabelPrintPage'
+import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
+import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
 import { getAuthToken } from '../lib/api'
 import { LoginPage } from '../features/auth/LoginPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
@@ -64,7 +66,19 @@ const customersRoute = createRoute({
 const equipmentRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment',
-  component: () => <PlaceholderPage title="Equipment" resource="equipment" />,
+  component: EquipmentListPage,
+})
+
+const equipmentLocationsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/locations',
+  component: EquipmentLocationTreePage,
+})
+
+const equipmentLabelsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/labels',
+  component: EquipmentLabelPrintPage,
 })
 
 const auditLogsRoute = createRoute({
@@ -88,6 +102,8 @@ export const routeTree = rootRoute.addChildren([
     systemDictionariesRoute,
     customersRoute,
     equipmentRoute,
+    equipmentLocationsRoute,
+    equipmentLabelsRoute,
     auditLogsRoute,
     backupsRoute,
   ]),

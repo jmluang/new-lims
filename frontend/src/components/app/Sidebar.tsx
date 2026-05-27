@@ -1,5 +1,17 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { BookOpen, ClipboardList, DatabaseBackup, FlaskConical, LayoutDashboard, ScrollText, Settings, ShieldCheck, Users } from 'lucide-react'
+import {
+  BookOpen,
+  ClipboardList,
+  DatabaseBackup,
+  FlaskConical,
+  LayoutDashboard,
+  MapPinned,
+  Printer,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  Users,
+} from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
@@ -9,6 +21,8 @@ const navItems = [
   { label: 'Dictionaries', to: '/system/dictionaries', icon: BookOpen },
   { label: 'Customers', to: '/customers', icon: Users },
   { label: 'Equipment', to: '/equipment', icon: ClipboardList },
+  { label: 'Locations', to: '/equipment/locations', icon: MapPinned },
+  { label: 'Labels', to: '/equipment/labels', icon: Printer },
   { label: 'Audit Logs', to: '/audit-logs', icon: ScrollText },
   { label: 'Backups', to: '/backups', icon: DatabaseBackup },
 ]

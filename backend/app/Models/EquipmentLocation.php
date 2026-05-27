@@ -11,7 +11,7 @@ class EquipmentLocation extends Model
 {
     public function children(): HasMany
     {
-        return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order')->orderBy('id');
+        return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order')->orderBy('id')->with('children');
     }
 
     public function equipment(): HasMany

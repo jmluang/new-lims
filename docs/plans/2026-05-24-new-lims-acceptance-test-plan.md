@@ -514,6 +514,11 @@ Acceptance:
 - New records use `equipment_locations`.
 - Equipment file fields obey field read permissions.
 
+Current backend coverage:
+
+- `backend/tests/Feature/Equipment/EquipmentApiTest.php` covers create/update/disable with legacy fields and list filters by search, status, location, manufacturer, and calibration due date.
+- `backend/tests/Feature/Equipment/EquipmentFieldPermissionTest.php` covers hidden equipment file fields in detail and delete responses.
+
 ### Equipment Location Tree
 
 Acceptance:
@@ -524,6 +529,10 @@ Acceptance:
 - A location with equipment cannot be deleted.
 - Disabled locations cannot be selected for new equipment.
 
+Current backend coverage:
+
+- `backend/tests/Feature/Equipment/EquipmentApiTest.php` covers root/child location tree responses and rejection when disabling a location with equipment.
+
 ### Equipment Label Printing
 
 Acceptance:
@@ -533,6 +542,10 @@ Acceptance:
 - Label includes equipment number, equipment name, QR code, and `XPD_LIMS` footer.
 - Multiple labels page-break correctly.
 - Print UI works from desktop browser.
+
+Current backend coverage:
+
+- `backend/tests/Feature/Equipment/EquipmentLabelTest.php` covers label preview permission, 40mm x 60mm dimensions, equipment number/name, QR text, and `XPD_LIMS` footer.
 
 ## Java PDF Service Acceptance Tests
 

@@ -112,6 +112,35 @@ class EquipmentApiTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'equipment.delete', 'subject_id' => (string) $equipmentId]);
     }
 
+    public function test_equipment_list_filters_by_status_location_manufacturer_and_calibration_due_date(): void
+    {
+        $admin = $this->userWithPermissions(['equipment.read']);
+        $location = EquipmentLocation::query()->create(['name' => 'Main Lab', 'code' => 'MAIN', 'status' => 'active']);
+        $target = Equipment::query()->create([
+            'equipment_no' => 'EQ-FILTER',
+            'name' => 'Filtered Balance',
+            'manufacturer' => 'Scale Inc',
+            'model' => 'B100',
+            'location_id' => $location->id,
+            'next_calibration_date' => '2026-06-01',
+            'status' => 'maintenance',
+        ]);
+        Equipment::query()->create([
+            'equipment_no' => 'EQ-FILTER-OTHER',
+            'name' => 'Filtered Other Balance',
+            'manufacturer' => 'Other Inc',
+            'model' => 'B200',
+            'next_calibration_date' => '2027-01-01',
+            'status' => 'active',
+        ]);
+
+        $this->getJsonAs($admin, "/api/equipment?search=FILTER&status=maintenance&location_id={$location->id}&manufacturer=Scale&calibration_due_to=2026-06-30")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $target->id)
+            ->assertJsonPath('meta.total', 1);
+    }
+
     private function userWithPermissions(array $permissions): User
     {
         $role = Role::create(['name' => 'test_equipment_api_'.str()->random(8), 'guard_name' => 'web']);

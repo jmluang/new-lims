@@ -6,6 +6,7 @@ use App\Models\Equipment;
 use App\Models\EquipmentLocation;
 use App\Services\Audit\AuditLogger;
 use App\Services\Authorization\FieldPermissionFilter;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -18,14 +19,7 @@ class EquipmentController extends Controller
     {
         $this->authorizePermission($request, 'equipment.read', self::RESOURCE);
 
-        $query = Equipment::query()->with('location')->orderBy('id');
-
-        if ($search = $request->string('search')->toString()) {
-            $query->where(fn ($builder) => $builder
-                ->where('name', 'like', "%{$search}%")
-                ->orWhere('equipment_no', 'like', "%{$search}%")
-                ->orWhere('model', 'like', "%{$search}%"));
-        }
+        $query = $this->filteredQuery($request)->with('location')->orderBy('id');
 
         $equipment = $query->paginate((int) $request->integer('per_page', 15));
 
@@ -92,7 +86,7 @@ class EquipmentController extends Controller
         return response()->json(['data' => $this->serializeEquipment($equipment->fresh(), $request, $fieldPermissionFilter)]);
     }
 
-    public function destroy(Request $request, Equipment $equipment, AuditLogger $auditLogger): JsonResponse
+    public function destroy(Request $request, Equipment $equipment, AuditLogger $auditLogger, FieldPermissionFilter $fieldPermissionFilter): JsonResponse
     {
         $this->authorizePermission($request, 'equipment.delete', self::RESOURCE, $equipment);
 
@@ -108,7 +102,28 @@ class EquipmentController extends Controller
             after: $this->auditValues($equipment->fresh()),
         );
 
-        return response()->json(['data' => $equipment->fresh()]);
+        return response()->json(['data' => $this->serializeEquipment($equipment->fresh()->load('location'), $request, $fieldPermissionFilter)]);
+    }
+
+    /**
+     * @return Builder<Equipment>
+     */
+    private function filteredQuery(Request $request): Builder
+    {
+        return Equipment::query()
+            ->when($request->filled('search'), function (Builder $query) use ($request): void {
+                $search = $request->string('search')->toString();
+
+                $query->where(fn (Builder $builder): Builder => $builder
+                    ->where('name', 'like', "%{$search}%")
+                    ->orWhere('equipment_no', 'like', "%{$search}%")
+                    ->orWhere('model', 'like', "%{$search}%"));
+            })
+            ->when($request->filled('status'), fn (Builder $query): Builder => $query->where('status', $request->string('status')->toString()))
+            ->when($request->filled('location_id'), fn (Builder $query): Builder => $query->where('location_id', $request->integer('location_id')))
+            ->when($request->filled('manufacturer'), fn (Builder $query): Builder => $query->where('manufacturer', 'like', '%'.$request->string('manufacturer')->toString().'%'))
+            ->when($request->filled('calibration_due_from'), fn (Builder $query): Builder => $query->whereDate('next_calibration_date', '>=', $request->date('calibration_due_from')))
+            ->when($request->filled('calibration_due_to'), fn (Builder $query): Builder => $query->whereDate('next_calibration_date', '<=', $request->date('calibration_due_to')));
     }
 
     private function rejectForbiddenSensitiveFields(Request $request, FieldPermissionFilter $fieldPermissionFilter, ?Equipment $equipment = null): void

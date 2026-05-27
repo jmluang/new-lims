@@ -53,6 +53,26 @@ class EquipmentFieldPermissionTest extends TestCase
         $this->assertStringNotContainsString('manual.pdf', $response->getContent());
     }
 
+    public function test_equipment_delete_response_hides_file_fields_without_file_read_permissions(): void
+    {
+        $manager = $this->userWithPermissions(['equipment.delete']);
+        $equipment = Equipment::query()->create([
+            'equipment_no' => 'EQ-DELETE-FILE',
+            'name' => 'Delete File Equipment',
+            'status' => 'active',
+            'device_image' => 'private/delete-device.jpg',
+            'manual_files' => ['delete-manual.pdf'],
+        ]);
+
+        $response = $this->deleteJsonAs($manager, "/api/equipment/{$equipment->id}")
+            ->assertOk()
+            ->assertJsonPath('data.device_image', null)
+            ->assertJsonPath('data.manual_files', null);
+
+        $this->assertStringNotContainsString('private/delete-device.jpg', $response->getContent());
+        $this->assertStringNotContainsString('delete-manual.pdf', $response->getContent());
+    }
+
     private function userWithPermissions(array $permissions): User
     {
         $role = Role::create(['name' => 'test_equipment_field_'.str()->random(8), 'guard_name' => 'web']);
@@ -72,5 +92,12 @@ class EquipmentFieldPermissionTest extends TestCase
         Sanctum::actingAs($user);
 
         return $this->getJson($uri);
+    }
+
+    private function deleteJsonAs(User $user, string $uri)
+    {
+        Sanctum::actingAs($user);
+
+        return $this->deleteJson($uri);
     }
 }
