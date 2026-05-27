@@ -1586,7 +1586,7 @@ Expected:
 - Create: `backend/app/Http/Controllers/System/PdfServiceHealthController.php`
 - Create: `backend/tests/Feature/System/PdfServiceHealthTest.php`
 
-- [ ] **Step 1: Copy the legacy Java PDF service as a starting point**
+- [x] **Step 1: Copy the legacy Java PDF service as a starting point**
 
 Run:
 
@@ -1602,7 +1602,7 @@ services/pdf-renderer-java/pom.xml
 services/pdf-renderer-java/src/main/java/com/luang/pdfsigner/web/PdfController.java
 ```
 
-- [ ] **Step 2: Preserve the existing endpoint contracts**
+- [x] **Step 2: Preserve the existing endpoint contracts**
 
 Required legacy-compatible endpoints:
 
@@ -1622,7 +1622,7 @@ extract-cover returns report_number, product_name, model_specification, entrust_
 entrust-order and contract return application/pdf bytes
 ```
 
-- [ ] **Step 3: Add Laravel PDF service configuration**
+- [x] **Step 3: Add Laravel PDF service configuration**
 
 Required config values:
 
@@ -1634,7 +1634,7 @@ return [
 ];
 ```
 
-- [ ] **Step 4: Implement Laravel client wrapper**
+- [x] **Step 4: Implement Laravel client wrapper**
 
 Required methods:
 
@@ -1656,7 +1656,7 @@ decode pdf_base64 into a temporary PDF path
 return cover_fields when present
 ```
 
-- [ ] **Step 5: Verify Java service build**
+- [x] **Step 5: Verify Java service build**
 
 Run:
 
@@ -1671,7 +1671,7 @@ Expected:
 target/pdf-signer-*.jar
 ```
 
-- [ ] **Step 6: Commit Java PDF service foundation**
+- [x] **Step 6: Commit Java PDF service foundation**
 
 Run:
 

@@ -41,6 +41,14 @@ public class PdfController {
         this.pdfCoverExtractor = new PdfCoverExtractor();
     }
 
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> health() {
+        return ResponseEntity.ok(Map.of(
+                "status", "ok",
+                "service", "pdf-renderer-java"
+        ));
+    }
+
     @PostMapping(value = "/process", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, Object>> process(
             @RequestPart("pdf") MultipartFile pdf,

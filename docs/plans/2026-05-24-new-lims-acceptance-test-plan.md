@@ -556,6 +556,10 @@ Acceptance:
 - Laravel PDF client returns healthy when `PDF_SERVICE_ENABLED=true` and Java service is reachable.
 - Laravel returns a controlled service unavailable error when Java service is not reachable.
 
+Current backend coverage:
+
+- `backend/tests/Feature/System/PdfServiceHealthTest.php` covers healthy, disabled, and failing-client responses.
+
 ### PDF-002: Legacy Endpoint Compatibility
 
 Acceptance:
@@ -564,6 +568,11 @@ Acceptance:
 - Response includes `pdf_base64`.
 - Response includes `cover_fields` when extraction succeeds.
 - Laravel client decodes `pdf_base64` into a stored PDF path.
+
+Current implementation coverage:
+
+- `backend/app/Services/Pdf/PdfRendererClient.php` preserves the legacy Java endpoint paths and decodes `pdf_base64` responses into private storage.
+- `services/pdf-renderer-java/src/main/java/com/luang/pdfsigner/web/PdfController.java` keeps the legacy process, extract-cover, entrust-order, and contract endpoints.
 
 ### PDF-003: Build Verification
 
@@ -580,6 +589,10 @@ Expected:
 target/pdf-signer-*.jar
 ```
 
+Current verification:
+
+- `mvn -q -e -B -DskipTests package` passed for `services/pdf-renderer-java`.
+
 ## Minimum Automated Test Files
 
 Backend:
@@ -592,6 +605,7 @@ backend/tests/Feature/System/SuperAdminPermissionTest.php
 backend/tests/Feature/System/UserManagementTest.php
 backend/tests/Feature/System/DictionaryManagementTest.php
 backend/tests/Feature/System/BackupCommandTest.php
+backend/tests/Feature/System/PdfServiceHealthTest.php
 backend/tests/Feature/Customers/CustomerApiTest.php
 backend/tests/Feature/Customers/CustomerFieldPermissionTest.php
 backend/tests/Feature/Customers/CustomerExportPermissionTest.php

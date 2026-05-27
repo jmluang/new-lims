@@ -12,6 +12,7 @@ use App\Http\Controllers\System\DepartmentController;
 use App\Http\Controllers\System\DictionaryController;
 use App\Http\Controllers\System\EffectivePermissionController;
 use App\Http\Controllers\System\GroupController;
+use App\Http\Controllers\System\PdfServiceHealthController;
 use App\Http\Controllers\System\PermissionCatalogController;
 use App\Http\Controllers\System\UserController;
 use Illuminate\Http\Request;
@@ -51,6 +52,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/backups', [BackupController::class, 'index']);
     Route::post('/backups', [BackupController::class, 'store']);
+    Route::get('/system/pdf-service/health', PdfServiceHealthController::class);
 
     Route::get('/audit-logs/export', [AuditLogController::class, 'export']);
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
