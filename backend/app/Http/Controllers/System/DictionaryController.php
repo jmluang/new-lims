@@ -21,6 +21,17 @@ class DictionaryController extends Controller
         ]);
     }
 
+    public function options(): JsonResponse
+    {
+        return response()->json([
+            'data' => DictionarySet::query()
+                ->where('status', 'active')
+                ->with(['items' => fn ($query) => $query->where('status', 'active')])
+                ->orderBy('code')
+                ->get(),
+        ]);
+    }
+
     public function store(Request $request, AuditLogger $auditLogger): JsonResponse
     {
         $this->authorizePermission($request, 'system.dictionaries.create');

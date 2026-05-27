@@ -475,6 +475,10 @@ Acceptance:
 - Customer and equipment forms load dictionary options from API.
 - Disabled dictionary items cannot be selected for new records but remain displayable on old records.
 
+Current backend coverage:
+
+- `backend/tests/Feature/System/DictionaryManagementTest.php` covers dictionary set/item management and the authenticated business option endpoint that returns only active sets and active items without requiring management permissions.
+
 ## Business Module Acceptance Tests
 
 ### CUS-1: Customer Basic Information
@@ -650,6 +654,7 @@ frontend/src/features/customers/__tests__/customer-form-permissions.test.tsx
 frontend/src/features/customers/__tests__/customer-responsive-permissions.test.tsx
 frontend/src/features/equipment/__tests__/equipment-table-permissions.test.tsx
 frontend/src/features/equipment/__tests__/equipment-label-print.test.tsx
+frontend/src/app/__tests__/route-permissions.test.ts
 ```
 
 ## Release Gate
@@ -671,9 +676,9 @@ The first release is not acceptable until every item below passes:
 Current automated verification:
 
 ```text
-backend: php artisan test -> 56 tests, 321 assertions passed
-backend mysql: DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=3307 DB_DATABASE=new_lims_test php artisan test -> 56 tests, 321 assertions passed
-frontend: npm run test -> 8 test files, 13 tests passed
+backend: php artisan test -> 57 tests, 326 assertions passed
+backend mysql: DB_CONNECTION=mysql DB_HOST=127.0.0.1 DB_PORT=3307 DB_DATABASE=new_lims_test php artisan test -> 57 tests, 326 assertions passed
+frontend: npm run test -> 9 test files, 14 tests passed
 frontend: npm run lint -> passed
 frontend: npm run build -> built successfully with the existing large chunk warning
 java pdf: mvn -q -e -B -DskipTests package -> passed

@@ -86,9 +86,9 @@ export function CustomerListPage() {
     },
   })
   const dictionariesQuery = useQuery({
-    queryKey: ['dictionaries'],
+    queryKey: ['dictionary-options'],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<DictionarySet>>('/api/dictionaries')
+      const response = await api.get<ApiCollection<DictionarySet>>('/api/dictionary-options')
 
       return response.data.data
     },

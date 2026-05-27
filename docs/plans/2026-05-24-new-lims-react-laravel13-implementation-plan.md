@@ -360,6 +360,7 @@ POST   /api/login
 POST   /api/logout
 GET    /api/me
 GET    /api/permissions/effective
+GET    /api/dictionary-options
 
 GET    /api/system/users
 POST   /api/system/users
@@ -1691,6 +1692,8 @@ Expected:
 **Files:**
 - Create: `backend/tests/Feature/Smoke/AdminWorkflowTest.php`
 - Create: `frontend/src/features/system/__tests__/permission-gate.test.tsx`
+- Create: `frontend/src/app/routePermissions.ts`
+- Create: `frontend/src/app/__tests__/route-permissions.test.ts`
 - Create: `docs/plans/2026-05-24-new-lims-acceptance-test-plan.md`
 - Create: `docs/plans/2026-05-24-new-lims-react-laravel13-implementation-plan.md`
 
@@ -1722,6 +1725,13 @@ Expected:
 
 ```text
 built in
+```
+
+Current frontend route gate:
+
+```text
+TanStack Router protected feature routes call /api/permissions/effective before loading.
+Unauthorized feature routes redirect to the dashboard instead of rendering the page.
 ```
 
 - [x] **Step 3: Verify acceptance workflow**

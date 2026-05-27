@@ -39,6 +39,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::middleware(EnsurePasswordChangeIsNotRequired::class)->group(function (): void {
         Route::get('/system/permissions/catalog', PermissionCatalogController::class);
+        Route::get('/dictionary-options', [DictionaryController::class, 'options']);
 
         Route::apiResource('/system/users', UserController::class)->except(['destroy']);
         Route::post('/system/users/{user}/reset-password', [UserController::class, 'resetPassword']);

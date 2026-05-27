@@ -11,6 +11,7 @@ import { BackupListPage } from '../features/system/backups/BackupListPage'
 import { DictionaryListPage } from '../features/system/dictionaries/DictionaryListPage'
 import { GroupListPage } from '../features/system/groups/GroupListPage'
 import { UserListPage } from '../features/system/users/UserListPage'
+import { requireRoutePermission } from './routePermissions'
 
 export const rootRoute = createRootRoute({
   component: Outlet,
@@ -42,54 +43,63 @@ export const loginRoute = createRoute({
 const systemRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/system',
+  beforeLoad: () => requireRoutePermission('system.users'),
   component: UserListPage,
 })
 
 const systemGroupsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/system/groups',
+  beforeLoad: () => requireRoutePermission('system.groups'),
   component: GroupListPage,
 })
 
 const systemDictionariesRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/system/dictionaries',
+  beforeLoad: () => requireRoutePermission('system.dictionaries'),
   component: DictionaryListPage,
 })
 
 const customersRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/customers',
+  beforeLoad: () => requireRoutePermission('customers'),
   component: CustomerListPage,
 })
 
 const equipmentRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment',
+  beforeLoad: () => requireRoutePermission('equipment'),
   component: EquipmentListPage,
 })
 
 const equipmentLocationsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment/locations',
+  beforeLoad: () => requireRoutePermission('equipment_locations'),
   component: EquipmentLocationTreePage,
 })
 
 const equipmentLabelsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment/labels',
+  beforeLoad: () => requireRoutePermission('equipment_labels', 'print'),
   component: EquipmentLabelPrintPage,
 })
 
 const auditLogsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/audit-logs',
+  beforeLoad: () => requireRoutePermission('system.audit_logs'),
   component: AuditLogListPage,
 })
 
 const backupsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/backups',
+  beforeLoad: () => requireRoutePermission('system.backups'),
   component: BackupListPage,
 })
 
