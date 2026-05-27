@@ -1321,16 +1321,21 @@ Expected:
 ### Task 9: Implement Frontend App Shell and Auth
 
 **Files:**
-- Create: `frontend/src/app/App.tsx`
-- Create: `frontend/src/app/routes.tsx`
-- Create: `frontend/src/features/auth/LoginPage.tsx`
-- Create: `frontend/src/features/auth/useCurrentUser.ts`
-- Create: `frontend/src/components/app/AppLayout.tsx`
-- Create: `frontend/src/components/app/Sidebar.tsx`
-- Create: `frontend/src/components/app/MobileNav.tsx`
-- Create: `frontend/src/components/app/PermissionGate.tsx`
+- Created: `backend/app/Http/Controllers/Auth/LoginController.php`
+- Created: `backend/tests/Feature/Auth/LoginEndpointTest.php`
+- Created: `frontend/src/app/App.tsx`
+- Created: `frontend/src/app/routes.tsx`
+- Created: `frontend/src/features/auth/LoginPage.tsx`
+- Created: `frontend/src/features/auth/useCurrentUser.ts`
+- Created: `frontend/src/features/dashboard/DashboardPage.tsx`
+- Created: `frontend/src/components/app/Sidebar.tsx`
+- Created: `frontend/src/components/app/MobileNav.tsx`
+- Created: `frontend/src/components/app/PermissionGate.tsx`
+- Created: `frontend/src/components/app/PlaceholderPage.tsx`
+- Updated: `frontend/src/components/app/AppLayout.tsx`
+- Updated: `frontend/src/lib/api.ts`
 
-- [ ] **Step 1: Build responsive shell**
+- [x] **Step 1: Build responsive shell**
 
 Required layout:
 
@@ -1339,7 +1344,7 @@ desktop: fixed sidebar + top header + content area
 mobile: top header + sheet menu + content cards
 ```
 
-- [ ] **Step 2: Implement login page**
+- [x] **Step 2: Implement login page**
 
 Required behavior:
 
@@ -1350,7 +1355,7 @@ redirect to dashboard after login
 show validation errors from API
 ```
 
-- [ ] **Step 3: Implement permission gate**
+- [x] **Step 3: Implement permission gate**
 
 Expected usage:
 
@@ -1360,7 +1365,7 @@ Expected usage:
 </PermissionGate>
 ```
 
-- [ ] **Step 4: Commit frontend shell**
+- [x] **Step 4: Commit frontend shell**
 
 Run:
 

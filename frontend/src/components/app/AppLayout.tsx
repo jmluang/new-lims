@@ -1,43 +1,39 @@
 import type { PropsWithChildren } from 'react'
-import { ShieldCheck } from 'lucide-react'
-
-const navItems = ['System', 'Customers', 'Equipment', 'Audit Logs']
+import { LogOut } from 'lucide-react'
+import { MobileNav } from './MobileNav'
+import { Sidebar } from './Sidebar'
+import { useCurrentUser, useLogout } from '../../features/auth/useCurrentUser'
 
 export function AppLayout({ children }: PropsWithChildren) {
+  const currentUser = useCurrentUser()
+  const logout = useLogout()
+
   return (
     <div className="min-h-svh bg-slate-50 text-slate-950">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white lg:block">
-        <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
-          <div className="flex size-9 items-center justify-center rounded-md bg-emerald-600 text-white">
-            <ShieldCheck size={20} aria-hidden="true" />
-          </div>
-          <div>
-            <div className="text-sm font-semibold">New LIMS</div>
-            <div className="text-xs text-slate-500">Admin Console</div>
-          </div>
-        </div>
-        <nav className="space-y-1 p-3">
-          {navItems.map((item) => (
-            <a
-              className="block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-              href="/"
-              key={item}
-            >
-              {item}
-            </a>
-          ))}
-        </nav>
-      </aside>
+      <Sidebar />
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-            <div>
-              <div className="text-base font-semibold">Dashboard</div>
-              <div className="text-xs text-slate-500">React SPA + Laravel API</div>
+            <div className="flex items-center gap-3">
+              <MobileNav />
+              <div>
+                <div className="text-base font-semibold">Dashboard</div>
+                <div className="text-xs text-slate-500">React SPA + Laravel API</div>
+              </div>
             </div>
-            <div className="rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600">
-              API-first
+            <div className="flex items-center gap-2">
+              <div className="hidden rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 sm:block">
+                {currentUser.data?.name ?? 'Not signed in'}
+              </div>
+              <button
+                className="inline-flex size-9 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100"
+                type="button"
+                aria-label="Sign out"
+                onClick={() => logout.mutate()}
+              >
+                <LogOut className="size-4" aria-hidden="true" />
+              </button>
             </div>
           </div>
         </header>

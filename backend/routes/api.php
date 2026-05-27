@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EquipmentController;
@@ -15,6 +16,8 @@ use App\Http\Controllers\System\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+Route::post('/login', [LoginController::class, 'login']);
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', function (Request $request) {
         return response()->json([
@@ -27,6 +30,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
 
     Route::get('/permissions/effective', EffectivePermissionController::class);
+    Route::post('/logout', [LoginController::class, 'logout']);
     Route::get('/system/permissions/catalog', PermissionCatalogController::class);
 
     Route::apiResource('/system/users', UserController::class)->except(['destroy']);
