@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\CustomerContactController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\System\BackupController;
 use App\Http\Controllers\System\DepartmentController;
 use App\Http\Controllers\System\DictionaryController;
@@ -41,6 +43,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/backups', [BackupController::class, 'index']);
     Route::post('/backups', [BackupController::class, 'store']);
+
+    Route::get('/customers/export', [CustomerController::class, 'export']);
+    Route::apiResource('/customers', CustomerController::class);
+    Route::get('/customers/{customer}/contacts', [CustomerContactController::class, 'index']);
+    Route::post('/customers/{customer}/contacts', [CustomerContactController::class, 'store']);
+    Route::put('/customers/{customer}/contacts/{customerContact}', [CustomerContactController::class, 'update']);
+    Route::delete('/customers/{customer}/contacts/{customerContact}', [CustomerContactController::class, 'destroy']);
 });
 
 Route::get('/user', function (Request $request) {

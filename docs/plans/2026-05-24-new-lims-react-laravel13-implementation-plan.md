@@ -1118,7 +1118,7 @@ record audit log for manual backup trigger
 
 Current status: `lims:backup` writes `backup_runs` metadata and audit logs. Actual MySQL/MariaDB dump and file archive execution still need to be wired to `spatie/laravel-backup` or an equivalent backup runner before SYS-12 is complete.
 
-- [ ] **Step 6: Commit system APIs**
+- [x] **Step 6: Commit system APIs**
 
 Run:
 
@@ -1136,17 +1136,17 @@ Expected:
 ### Task 7: Implement Customer APIs
 
 **Files:**
-- Create: `backend/database/migrations/*_create_customers_table.php`
-- Create: `backend/database/migrations/*_create_customer_contacts_table.php`
-- Create: `backend/app/Models/Customer.php`
-- Create: `backend/app/Models/CustomerContact.php`
-- Create: `backend/app/Http/Controllers/CustomerController.php`
-- Create: `backend/app/Http/Controllers/CustomerContactController.php`
-- Create: `backend/app/Services/Authorization/FieldPermissionFilter.php`
-- Create: `backend/tests/Feature/Customers/CustomerApiTest.php`
-- Create: `backend/tests/Feature/Customers/CustomerFieldPermissionTest.php`
+- Created: `backend/database/migrations/2026_05_27_020000_create_customers_table.php`
+- Created: `backend/database/migrations/2026_05_27_020100_create_customer_contacts_table.php`
+- Created: `backend/app/Models/Customer.php`
+- Created: `backend/app/Models/CustomerContact.php`
+- Created: `backend/app/Http/Controllers/CustomerController.php`
+- Created: `backend/app/Http/Controllers/CustomerContactController.php`
+- Created: `backend/app/Services/Authorization/FieldPermissionFilter.php`
+- Created: `backend/tests/Feature/Customers/CustomerApiTest.php`
+- Created: `backend/tests/Feature/Customers/CustomerFieldPermissionTest.php`
 
-- [ ] **Step 1: Implement customer CRUD**
+- [x] **Step 1: Implement customer CRUD**
 
 Required fields:
 
@@ -1164,7 +1164,7 @@ remark
 status
 ```
 
-- [ ] **Step 2: Implement contacts**
+- [x] **Step 2: Implement contacts**
 
 Required behavior:
 
@@ -1175,7 +1175,7 @@ default contact can be changed
 contact phone and email are field-permission controlled
 ```
 
-- [ ] **Step 3: Enforce field-level read permissions**
+- [x] **Step 3: Enforce field-level read permissions**
 
 Expected masked response when phone is hidden:
 
@@ -1197,7 +1197,7 @@ Expected masked response when phone is hidden:
 }
 ```
 
-- [ ] **Step 4: Enforce field-level export permissions**
+- [x] **Step 4: Enforce field-level export permissions**
 
 Required behavior:
 
@@ -1207,7 +1207,7 @@ export records audit log
 export uses the same FieldPermissionFilter as JSON APIs
 ```
 
-- [ ] **Step 5: Commit customer APIs**
+- [x] **Step 5: Commit customer APIs**
 
 Run:
 
