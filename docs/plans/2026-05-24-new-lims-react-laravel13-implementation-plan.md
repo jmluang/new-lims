@@ -133,7 +133,7 @@ Package responsibilities:
 | Package | Responsibility | Project Rule |
 |---|---|---|
 | `spatie/laravel-permission` | Group/role and permission engine | Product calls roles "groups"; permission names stay explicit |
-| `spatie/laravel-activitylog` | Base activity log infrastructure | Use v4 on PHP 8.3; extend with append-only behavior and hash chain for ISO 17025 audit needs |
+| `spatie/laravel-activitylog` | Optional activity helper package | Compliance audit source of truth is the custom `audit_logs` table; Spatie is not used for ISO 17025 hash-chain records |
 | `spatie/laravel-query-builder` | API filtering, sorting, includes, and allowed fields | All list endpoints must use explicit allowed filters/sorts/fields |
 | `spatie/laravel-data` | Request/response DTOs | Use for stable API payload boundaries where useful |
 | `spatie/laravel-medialibrary` | Equipment images and file attachments | File URLs still obey field-level permissions |
@@ -889,7 +889,7 @@ Expected response shape:
 }
 ```
 
-- [ ] **Step 6: Commit permission foundation**
+- [x] **Step 6: Commit permission foundation**
 
 Run:
 
@@ -907,14 +907,18 @@ Expected:
 ### Task 5: Implement Audit Logging Infrastructure
 
 **Files:**
-- Create: `backend/database/migrations/*_create_audit_logs_table.php`
-- Create: `backend/app/Models/AuditLog.php`
-- Create: `backend/app/Services/Audit/AuditLogger.php`
-- Create: `backend/app/Services/Audit/AuditHashService.php`
-- Create: `backend/app/Http/Middleware/AttachRequestId.php`
-- Create: `backend/tests/Feature/Audit/AuditLoggerTest.php`
+- Created: `backend/database/migrations/2026_05_27_000000_create_audit_logs_table.php`
+- Created: `backend/app/Models/AuditLog.php`
+- Created: `backend/app/Services/Audit/AuditLogger.php`
+- Created: `backend/app/Services/Audit/AuditHashService.php`
+- Created: `backend/app/Http/Middleware/AttachRequestId.php`
+- Created: `backend/tests/Feature/Audit/AuditLoggerTest.php`
+- Created: `backend/tests/Unit/Audit/AuditHashServiceTest.php`
+- Updated: `backend/bootstrap/app.php`
 
-- [ ] **Step 1: Create append-only audit table**
+Implementation note: ISO 17025 audit records use the custom `audit_logs` table as the only compliance audit source of truth. Spatie Activitylog remains installed but is not the hash-chain audit store.
+
+- [x] **Step 1: Create append-only audit table**
 
 Required columns:
 
@@ -937,7 +941,7 @@ hash
 created_at
 ```
 
-- [ ] **Step 2: Implement hash chain calculation**
+- [x] **Step 2: Implement hash chain calculation**
 
 Expected hash input:
 
@@ -945,7 +949,16 @@ Expected hash input:
 prev_hash + request_id + actor_user_id + action + module + subject_type + subject_id + before_values + after_values + changed_values + created_at
 ```
 
-- [ ] **Step 3: Test before/after logging**
+Hash rules:
+
+```text
+JSON payloads are canonicalized by recursive key sorting.
+Timestamps are normalized to Y-m-d H:i:s.
+The logger calculates and inserts records inside a database transaction.
+The previous audit row is selected with lockForUpdate before prev_hash is calculated.
+```
+
+- [x] **Step 3: Test before/after logging**
 
 Test behavior:
 
@@ -970,7 +983,7 @@ public function test_audit_logger_records_before_after_and_changed_values(): voi
 }
 ```
 
-- [ ] **Step 4: Block update and delete from application code**
+- [x] **Step 4: Block update and delete from application code**
 
 Expected model behavior:
 
@@ -982,7 +995,15 @@ protected static function booted(): void
 }
 ```
 
-- [ ] **Step 5: Commit audit foundation**
+Boundary:
+
+```text
+Eloquent update/delete is blocked.
+Direct database tampering is detected by AuditHashService::verifyChain().
+Deleting the final row requires an external anchor/count mechanism and is out of scope for Task 5.
+```
+
+- [x] **Step 5: Commit audit foundation**
 
 Run:
 

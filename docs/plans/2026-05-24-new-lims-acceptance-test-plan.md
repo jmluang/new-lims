@@ -367,14 +367,22 @@ Acceptance:
 
 ### AU-003: Audit Append-Only Behavior
 
-Backend test file: `backend/tests/Feature/Audit/AuditAppendOnlyTest.php`
+Backend test files:
+
+```text
+backend/tests/Feature/Audit/AuditLoggerTest.php
+backend/tests/Unit/Audit/AuditHashServiceTest.php
+```
 
 Acceptance:
 
 - Application code cannot update an audit log row.
 - Application code cannot delete an audit log row.
 - Hash chain verification passes for untouched logs.
-- Hash chain verification fails after direct database tampering in a controlled test.
+- Hash chain verification fails after direct database value tampering in a controlled test.
+- Hash chain verification fails after direct database middle-row deletion in a controlled test.
+- Audit hash input uses canonical JSON serialization so key order does not change the hash.
+- API requests preserve a provided `X-Request-Id`, generate one when missing, and return it in the response header.
 
 ## System Management Acceptance Tests
 
