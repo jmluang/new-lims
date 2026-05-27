@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\System;
 
+use App\Models\Department;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -105,6 +106,33 @@ class UserManagementTest extends TestCase
             ->assertJsonPath('meta.fields.phone.read', false);
 
         $this->assertStringNotContainsString('13811112222', $response->getContent());
+    }
+
+    public function test_user_list_can_filter_by_search_status_department_and_group(): void
+    {
+        $admin = $this->userWithPermissions(['system.users.read']);
+        $department = Department::query()->create(['name' => 'QA', 'code' => 'QA', 'status' => 'active']);
+        $targetGroup = Role::create(['name' => 'qa_operator', 'guard_name' => 'web', 'status' => 'active']);
+        $otherGroup = Role::create(['name' => 'other_operator', 'guard_name' => 'web', 'status' => 'active']);
+        $target = User::factory()->create([
+            'name' => 'Filtered Operator',
+            'email' => 'filtered@example.test',
+            'department_id' => $department->id,
+            'status' => 'locked',
+        ]);
+        $target->assignRole($targetGroup);
+        User::factory()->create([
+            'name' => 'Unrelated Operator',
+            'email' => 'unrelated@example.test',
+            'department_id' => null,
+            'status' => 'active',
+        ])->assignRole($otherGroup);
+
+        $this->getJsonAs($admin, "/api/system/users?search=Filtered&status=locked&department_id={$department->id}&group_id={$targetGroup->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $target->id)
+            ->assertJsonPath('meta.total', 1);
     }
 
     private function userWithPermissions(array $permissions): User

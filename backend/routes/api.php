@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerController;
@@ -50,6 +51,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/backups', [BackupController::class, 'index']);
     Route::post('/backups', [BackupController::class, 'store']);
+
+    Route::get('/audit-logs/export', [AuditLogController::class, 'export']);
+    Route::get('/audit-logs', [AuditLogController::class, 'index']);
+    Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
 
     Route::get('/customers/export', [CustomerController::class, 'export']);
     Route::apiResource('/customers', CustomerController::class);

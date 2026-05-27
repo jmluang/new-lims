@@ -399,7 +399,8 @@ Acceptance:
 Current backend coverage:
 
 - `backend/tests/Feature/System/UserManagementTest.php` covers create/update, department assignment, multi-group assignment, lock/unlock, reset password token invalidation, field-level phone hiding, and mutation audit logs.
-- Runtime login blocking, failed-login lock policy, and first-login password-change enforcement remain pending until login APIs are implemented.
+- `backend/tests/Feature/System/UserManagementTest.php` also covers server-side user filtering by search, status, department, and group.
+- Runtime first-login password-change enforcement remains pending.
 
 ### SYS-3: User Group Management
 
@@ -426,6 +427,10 @@ Acceptance:
 - Create, update, delete, export, login, logout, backup, permission changes, and denied authorization events are logged.
 - Audit list supports query by actor, module, action, subject, date range, and request ID.
 - Audit export obeys audit export permission.
+
+Current backend coverage:
+
+- `backend/tests/Feature/Audit/AuditLogAccessTest.php` covers audit list filtering, before/after values, read permission, and export permission.
 
 ### SYS-12: Backup and Restore
 

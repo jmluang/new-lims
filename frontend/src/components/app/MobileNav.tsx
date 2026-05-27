@@ -4,7 +4,9 @@ import { useState } from 'react'
 
 const navItems = [
   { label: 'Dashboard', to: '/' },
-  { label: 'System', to: '/system' },
+  { label: 'Users', to: '/system' },
+  { label: 'Groups', to: '/system/groups' },
+  { label: 'Dictionaries', to: '/system/dictionaries' },
   { label: 'Customers', to: '/customers' },
   { label: 'Equipment', to: '/equipment' },
   { label: 'Audit Logs', to: '/audit-logs' },

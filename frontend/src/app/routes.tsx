@@ -3,6 +3,11 @@ import { PlaceholderPage } from '../components/app/PlaceholderPage'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { getAuthToken } from '../lib/api'
 import { LoginPage } from '../features/auth/LoginPage'
+import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
+import { BackupListPage } from '../features/system/backups/BackupListPage'
+import { DictionaryListPage } from '../features/system/dictionaries/DictionaryListPage'
+import { GroupListPage } from '../features/system/groups/GroupListPage'
+import { UserListPage } from '../features/system/users/UserListPage'
 
 export const rootRoute = createRootRoute({
   component: Outlet,
@@ -34,7 +39,19 @@ export const loginRoute = createRoute({
 const systemRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/system',
-  component: () => <PlaceholderPage title="System Management" resource="system.users" />,
+  component: UserListPage,
+})
+
+const systemGroupsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/system/groups',
+  component: GroupListPage,
+})
+
+const systemDictionariesRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/system/dictionaries',
+  component: DictionaryListPage,
 })
 
 const customersRoute = createRoute({
@@ -52,16 +69,25 @@ const equipmentRoute = createRoute({
 const auditLogsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/audit-logs',
-  component: () => <PlaceholderPage title="Audit Logs" resource="system.audit_logs" />,
+  component: AuditLogListPage,
 })
 
 const backupsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/backups',
-  component: () => <PlaceholderPage title="Backups" resource="system.backups" />,
+  component: BackupListPage,
 })
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
-  protectedRoute.addChildren([indexRoute, systemRoute, customersRoute, equipmentRoute, auditLogsRoute, backupsRoute]),
+  protectedRoute.addChildren([
+    indexRoute,
+    systemRoute,
+    systemGroupsRoute,
+    systemDictionariesRoute,
+    customersRoute,
+    equipmentRoute,
+    auditLogsRoute,
+    backupsRoute,
+  ]),
 ])

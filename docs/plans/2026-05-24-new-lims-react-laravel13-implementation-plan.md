@@ -1391,7 +1391,7 @@ Expected:
 - Create: `frontend/src/features/system/dictionaries/DictionaryListPage.tsx`
 - Create: `frontend/src/features/system/backups/BackupListPage.tsx`
 
-- [ ] **Step 1: Implement user management pages**
+- [x] **Step 1: Implement user management pages**
 
 Required behavior:
 
@@ -1405,7 +1405,7 @@ reset password
 assign groups
 ```
 
-- [ ] **Step 2: Implement permission matrix**
+- [x] **Step 2: Implement permission matrix**
 
 Required behavior:
 
@@ -1416,7 +1416,7 @@ show field-level permissions
 save group permission changes in one request
 ```
 
-- [ ] **Step 3: Implement audit log page**
+- [x] **Step 3: Implement audit log page**
 
 Required behavior:
 
@@ -1427,7 +1427,7 @@ export filtered logs
 no delete action in UI
 ```
 
-- [ ] **Step 4: Commit system pages**
+- [x] **Step 4: Commit system pages**
 
 Run:
 

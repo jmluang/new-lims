@@ -20,13 +20,28 @@ class UserController extends Controller
         $canReadPhone = $request->user()?->hasRole('super_admin') || $request->user()?->can('system.users.field.phone.read');
         $users = User::query()
             ->with(['department', 'roles'])
+            ->when($request->filled('search'), function ($query) use ($request): void {
+                $search = $request->string('search')->toString();
+
+                $query->where(function ($query) use ($search): void {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
+            ->when($request->filled('department_id'), fn ($query) => $query->where('department_id', $request->integer('department_id')))
+            ->when($request->filled('group_id'), fn ($query) => $query->whereHas('roles', fn ($query) => $query->whereKey($request->integer('group_id'))))
             ->orderBy('id')
-            ->get()
-            ->map(fn (User $user): array => $this->serializeUser($user, $canReadPhone));
+            ->paginate(min(max((int) $request->integer('per_page', 20), 1), 100));
 
         return response()->json([
-            'data' => $users,
+            'data' => $users->getCollection()
+                ->map(fn (User $user): array => $this->serializeUser($user, $canReadPhone))
+                ->values(),
             'meta' => [
+                'current_page' => $users->currentPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
                 'fields' => [
                     'phone' => ['read' => (bool) $canReadPhone],
                 ],

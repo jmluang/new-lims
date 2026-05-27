@@ -1,10 +1,12 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { ClipboardList, DatabaseBackup, FlaskConical, LayoutDashboard, ScrollText, Settings, Users } from 'lucide-react'
+import { BookOpen, ClipboardList, DatabaseBackup, FlaskConical, LayoutDashboard, ScrollText, Settings, ShieldCheck, Users } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
 const navItems = [
   { label: 'Dashboard', to: '/', icon: LayoutDashboard },
-  { label: 'System', to: '/system', icon: Settings },
+  { label: 'Users', to: '/system', icon: Settings },
+  { label: 'Groups', to: '/system/groups', icon: ShieldCheck },
+  { label: 'Dictionaries', to: '/system/dictionaries', icon: BookOpen },
   { label: 'Customers', to: '/customers', icon: Users },
   { label: 'Equipment', to: '/equipment', icon: ClipboardList },
   { label: 'Audit Logs', to: '/audit-logs', icon: ScrollText },
