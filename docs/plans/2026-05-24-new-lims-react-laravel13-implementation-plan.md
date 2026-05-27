@@ -808,8 +808,11 @@ Required first-release resources:
 
 ```text
 system.users
+system.departments
 system.groups
 system.audit_logs
+system.dictionaries
+system.backups
 customers
 customer_contacts
 equipment
@@ -1021,19 +1024,28 @@ Expected:
 ### Task 6: Implement System Management APIs
 
 **Files:**
-- Create: `backend/app/Http/Controllers/System/UserController.php`
-- Create: `backend/app/Http/Controllers/System/DepartmentController.php`
-- Create: `backend/app/Http/Controllers/System/GroupController.php`
-- Create: `backend/app/Http/Controllers/System/DictionaryController.php`
-- Create: `backend/app/Http/Controllers/System/BackupController.php`
-- Create: `backend/app/Actions/System/LockUserAction.php`
-- Create: `backend/app/Actions/System/ResetUserPasswordAction.php`
-- Create: `backend/app/Console/Commands/RunSystemBackup.php`
-- Create: `backend/tests/Feature/System/UserManagementTest.php`
-- Create: `backend/tests/Feature/System/DictionaryManagementTest.php`
-- Create: `backend/tests/Feature/System/BackupCommandTest.php`
+- Created: `backend/database/migrations/2026_05_27_005000_create_departments_table.php`
+- Created: `backend/database/migrations/2026_05_27_010000_add_system_management_fields_to_users_table.php`
+- Created: `backend/database/migrations/2026_05_27_010100_add_group_metadata_to_roles_table.php`
+- Created: `backend/database/migrations/2026_05_27_010200_create_dictionary_tables.php`
+- Created: `backend/database/migrations/2026_05_27_010300_create_backup_runs_table.php`
+- Created: `backend/app/Http/Controllers/System/UserController.php`
+- Created: `backend/app/Http/Controllers/System/DepartmentController.php`
+- Created: `backend/app/Http/Controllers/System/GroupController.php`
+- Created: `backend/app/Http/Controllers/System/DictionaryController.php`
+- Created: `backend/app/Http/Controllers/System/BackupController.php`
+- Created: `backend/app/Actions/System/LockUserAction.php`
+- Created: `backend/app/Actions/System/ResetUserPasswordAction.php`
+- Created: `backend/app/Console/Commands/RunSystemBackup.php`
+- Created: `backend/tests/Feature/System/UserManagementTest.php`
+- Created: `backend/tests/Feature/System/DepartmentManagementTest.php`
+- Created: `backend/tests/Feature/System/GroupManagementTest.php`
+- Created: `backend/tests/Feature/System/DictionaryManagementTest.php`
+- Created: `backend/tests/Feature/System/BackupCommandTest.php`
 
-- [ ] **Step 1: Implement user management**
+Implementation note: this slice implements the system management API foundation, role-as-group management, audit-backed mutations, and backup run metadata. Full login-runtime enforcement for failed attempts/first password change and real database/file archive execution remain separate follow-up slices.
+
+- [x] **Step 1: Implement user management**
 
 Required behavior:
 
@@ -1048,7 +1060,7 @@ unlock user
 record audit log for every mutation
 ```
 
-- [ ] **Step 2: Implement department tree management**
+- [x] **Step 2: Implement department tree management**
 
 Required behavior:
 
@@ -1060,7 +1072,7 @@ disable department
 return departments as tree
 ```
 
-- [ ] **Step 3: Implement group permission management**
+- [x] **Step 3: Implement group permission management**
 
 Required behavior:
 
@@ -1072,7 +1084,7 @@ return group permission matrix
 record audit log for permission changes
 ```
 
-- [ ] **Step 4: Implement data dictionary management**
+- [x] **Step 4: Implement data dictionary management**
 
 Required dictionary sets:
 
@@ -1103,6 +1115,8 @@ write backup metadata to backup_runs
 record success or failure
 record audit log for manual backup trigger
 ```
+
+Current status: `lims:backup` writes `backup_runs` metadata and audit logs. Actual MySQL/MariaDB dump and file archive execution still need to be wired to `spatie/laravel-backup` or an equivalent backup runner before SYS-12 is complete.
 
 - [ ] **Step 6: Commit system APIs**
 

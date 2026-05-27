@@ -11,8 +11,11 @@ class PermissionCatalog
     {
         return [
             'system.users' => ['read', 'create', 'update', 'delete', 'export'],
+            'system.departments' => ['read', 'create', 'update', 'delete'],
             'system.groups' => ['read', 'create', 'update', 'delete'],
             'system.audit_logs' => ['read', 'export'],
+            'system.dictionaries' => ['read', 'create', 'update', 'delete'],
+            'system.backups' => ['read', 'create'],
             'customers' => ['read', 'create', 'update', 'delete', 'export'],
             'customer_contacts' => ['read', 'create', 'update', 'delete', 'export'],
             'equipment' => ['read', 'create', 'update', 'delete', 'export'],

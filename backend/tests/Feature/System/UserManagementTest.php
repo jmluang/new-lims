@@ -1,0 +1,144 @@
+<?php
+
+namespace Tests\Feature\System;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
+
+class UserManagementTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    public function test_admin_can_create_update_lock_unlock_and_reset_user_with_audit_logs(): void
+    {
+        $admin = $this->userWithPermissions([
+            'system.users.read',
+            'system.users.create',
+            'system.users.update',
+            'system.users.field.phone.read',
+            'system.users.field.phone.update',
+            'system.departments.create',
+        ]);
+        $group = Role::create(['name' => 'customer_viewer', 'guard_name' => 'web', 'status' => 'active']);
+        $departmentId = $this->postJsonAs($admin, '/api/system/departments', [
+            'name' => 'Lab',
+            'code' => 'LAB',
+            'status' => 'active',
+        ])->json('data.id');
+
+        $createResponse = $this->postJsonAs($admin, '/api/system/users', [
+            'name' => 'New Operator',
+            'email' => 'operator@example.test',
+            'password' => 'Password123!',
+            'phone' => '13800000000',
+            'department_id' => $departmentId,
+            'status' => 'active',
+            'must_change_password' => true,
+            'group_ids' => [$group->id],
+        ])->assertCreated();
+
+        $userId = $createResponse->json('data.id');
+        $createdUser = User::query()->findOrFail($userId);
+
+        $this->assertSame('13800000000', $createdUser->phone);
+        $this->assertSame($departmentId, $createdUser->department_id);
+        $this->assertTrue($createdUser->must_change_password);
+        $this->assertTrue($createdUser->hasRole($group));
+
+        $this->putJsonAs($admin, "/api/system/users/{$userId}", [
+            'name' => 'Updated Operator',
+            'phone' => '13900000000',
+            'department_id' => $departmentId,
+            'status' => 'active',
+            'must_change_password' => false,
+            'group_ids' => [],
+        ])->assertOk();
+
+        $this->postJsonAs($admin, "/api/system/users/{$userId}/lock", [
+            'reason' => 'Policy',
+        ])->assertOk();
+        $this->assertNotNull($createdUser->fresh()->locked_at);
+
+        $this->postJsonAs($admin, "/api/system/users/{$userId}/unlock")->assertOk();
+        $this->assertNull($createdUser->fresh()->locked_at);
+
+        $createdUser->createToken('active-token');
+        $this->assertSame(1, $createdUser->tokens()->count());
+
+        $this->postJsonAs($admin, "/api/system/users/{$userId}/reset-password", [
+            'password' => 'NewPassword123!',
+            'must_change_password' => true,
+        ])->assertOk();
+        $this->assertTrue($createdUser->fresh()->must_change_password);
+        $this->assertSame(0, $createdUser->tokens()->count());
+
+        $this->assertDatabaseHas('audit_logs', ['action' => 'system.users.create', 'subject_id' => (string) $userId]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'system.users.update', 'subject_id' => (string) $userId]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'system.users.lock', 'subject_id' => (string) $userId]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'system.users.unlock', 'subject_id' => (string) $userId]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'system.users.reset_password', 'subject_id' => (string) $userId]);
+    }
+
+    public function test_user_list_hides_phone_without_field_read_permission(): void
+    {
+        $admin = $this->userWithPermissions(['system.users.read']);
+        User::factory()->create([
+            'name' => 'Hidden Phone User',
+            'email' => 'hidden-phone@example.test',
+            'phone' => '13811112222',
+        ]);
+
+        $response = $this->getJsonAs($admin, '/api/system/users')
+            ->assertOk()
+            ->assertJsonPath('meta.fields.phone.read', false);
+
+        $this->assertStringNotContainsString('13811112222', $response->getContent());
+    }
+
+    private function userWithPermissions(array $permissions): User
+    {
+        $role = Role::create(['name' => 'test_admin_'.str()->random(8), 'guard_name' => 'web']);
+        $role->givePermissionTo(collect($permissions)->map(
+            fn (string $permission): Permission => Permission::findOrCreate($permission, 'web')
+        ));
+
+        $user = User::factory()->create();
+        $user->assignRole($role);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        return $user;
+    }
+
+    private function postJsonAs(User $user, string $uri, array $data = [])
+    {
+        Sanctum::actingAs($user);
+
+        return $this->postJson($uri, $data);
+    }
+
+    private function putJsonAs(User $user, string $uri, array $data = [])
+    {
+        Sanctum::actingAs($user);
+
+        return $this->putJson($uri, $data);
+    }
+
+    private function getJsonAs(User $user, string $uri)
+    {
+        Sanctum::actingAs($user);
+
+        return $this->getJson($uri);
+    }
+}

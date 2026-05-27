@@ -396,6 +396,11 @@ Acceptance:
 - Failed login attempts increment and eventually lock the account according to configured policy.
 - Reset password invalidates active sessions or tokens according to the chosen auth contract.
 
+Current backend coverage:
+
+- `backend/tests/Feature/System/UserManagementTest.php` covers create/update, department assignment, multi-group assignment, lock/unlock, reset password token invalidation, field-level phone hiding, and mutation audit logs.
+- Runtime login blocking, failed-login lock policy, and first-login password-change enforcement remain pending until login APIs are implemented.
+
 ### SYS-3: User Group Management
 
 Acceptance:
@@ -430,6 +435,11 @@ Acceptance:
 - Scheduled backup command creates a `backup_runs` row.
 - Failed backup records error message.
 - Restore action requires explicit permission and records audit log.
+
+Current backend coverage:
+
+- `backend/tests/Feature/System/BackupCommandTest.php` covers `lims:backup --type=daily`, `backup_runs` metadata, and backup audit logging.
+- Real MySQL/MariaDB dumps, file archives, failed backup simulation, and restore remain pending.
 
 ### SYS-6: Data Dictionary
 

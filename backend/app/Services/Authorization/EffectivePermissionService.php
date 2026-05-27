@@ -49,8 +49,15 @@ class EffectivePermissionService
             return collect($this->catalog->permissionNames());
         }
 
-        return $user->getAllPermissions()
-            ->pluck('name')
+        $directPermissions = $user->getDirectPermissions()->pluck('name');
+        $activeRolePermissions = $user->roles()
+            ->where('status', 'active')
+            ->with('permissions')
+            ->get()
+            ->flatMap(fn ($role) => $role->permissions->pluck('name'));
+
+        return $directPermissions
+            ->merge($activeRolePermissions)
             ->unique()
             ->values();
     }
