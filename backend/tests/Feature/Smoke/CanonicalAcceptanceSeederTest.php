@@ -5,6 +5,7 @@ namespace Tests\Feature\Smoke;
 use App\Models\User;
 use Database\Seeders\CanonicalAcceptanceSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -32,5 +33,12 @@ class CanonicalAcceptanceSeederTest extends TestCase
         $this->assertTrue(Role::query()->where('name', 'system_admin')->firstOrFail()->hasPermissionTo('system.backups.restore'));
         $this->assertTrue(Role::query()->where('name', 'customer_viewer')->firstOrFail()->hasPermissionTo('customers.read'));
         $this->assertFalse(Role::query()->where('name', 'customer_viewer')->firstOrFail()->hasPermissionTo('customers.field.phone.read'));
+
+        $equipmentManager = Role::query()->where('name', 'equipment_manager')->firstOrFail();
+        foreach (['device_image', 'manual_files', 'instruction_files', 'calibration_files', 'other_files'] as $field) {
+            $this->assertTrue($equipmentManager->hasPermissionTo("equipment.field.{$field}.read"));
+            $this->assertTrue($equipmentManager->hasPermissionTo("equipment.field.{$field}.update"));
+            $this->assertFalse(Permission::query()->where('name', "equipment.field.{$field}.export")->exists());
+        }
     }
 }

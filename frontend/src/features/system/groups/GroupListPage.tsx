@@ -10,6 +10,7 @@ import {
   ErrorNotice,
   Field,
   LoadingState,
+  Modal,
   PageShell,
   Panel,
   StatusBadge,
@@ -39,6 +40,7 @@ export function GroupListPage() {
   const queryClient = useQueryClient()
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
   const [editingGroup, setEditingGroup] = useState<Group | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<GroupForm>(emptyForm)
   const groupsQuery = useQuery({
     queryKey: ['system-groups'],
@@ -67,6 +69,7 @@ export function GroupListPage() {
     },
     onSuccess: async () => {
       setEditingGroup(null)
+      setFormOpen(false)
       setForm(emptyForm)
       await queryClient.invalidateQueries({ queryKey: ['system-groups'] })
     },
@@ -82,6 +85,7 @@ export function GroupListPage() {
 
   function editGroup(group: Group) {
     setEditingGroup(group)
+    setFormOpen(true)
     setForm({
       name: group.name,
       description: group.description ?? '',
@@ -101,6 +105,7 @@ export function GroupListPage() {
             onClick={() => {
               setEditingGroup(null)
               setForm(emptyForm)
+              setFormOpen(true)
             }}
           >
             <Plus className="size-4" aria-hidden="true" />
@@ -111,48 +116,6 @@ export function GroupListPage() {
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,420px)_1fr]">
         <div className="space-y-4">
-          <Panel title={editingGroup ? 'Edit group' : 'Create group'}>
-            {saveGroup.error ? <ErrorNotice error={saveGroup.error} fallback="Unable to save group" /> : null}
-            <form className="mt-3 space-y-3" onSubmit={(event) => event.preventDefault()}>
-              <Field label="Name">
-                <input className={inputClass} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-              </Field>
-              <Field label="Description">
-                <textarea
-                  className={textareaClass}
-                  value={form.description}
-                  onChange={(event) => setForm({ ...form, description: event.target.value })}
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Status">
-                  <select
-                    className={inputClass}
-                    value={form.status}
-                    onChange={(event) => setForm({ ...form, status: event.target.value as GroupForm['status'] })}
-                  >
-                    <option value="active">active</option>
-                    <option value="disabled">disabled</option>
-                  </select>
-                </Field>
-                <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">
-                  <input
-                    className="size-4 rounded border-slate-300 text-emerald-600"
-                    type="checkbox"
-                    checked={form.is_system}
-                    onChange={(event) => setForm({ ...form, is_system: event.target.checked })}
-                  />
-                  System group
-                </label>
-              </div>
-              <PermissionGate resource="system.groups" action={editingGroup ? 'update' : 'create'}>
-                <Button variant="primary" disabled={saveGroup.isPending || form.name === ''} onClick={() => saveGroup.mutate()}>
-                  Save group
-                </Button>
-              </PermissionGate>
-            </form>
-          </Panel>
-
           <Panel title="Groups">
             {groupsQuery.isPending ? <LoadingState label="Loading groups" /> : null}
             {groupsQuery.isError ? <ErrorNotice error={groupsQuery.error} fallback="Unable to load groups" /> : null}
@@ -203,6 +166,55 @@ export function GroupListPage() {
           ) : null}
         </Panel>
       </div>
+
+      <Modal
+        title={editingGroup ? 'Edit group' : 'Create group'}
+        open={formOpen}
+        onClose={() => {
+          setFormOpen(false)
+          setEditingGroup(null)
+        }}
+      >
+        {saveGroup.error ? <ErrorNotice error={saveGroup.error} fallback="Unable to save group" /> : null}
+        <form className="space-y-3" onSubmit={(event) => event.preventDefault()}>
+          <Field label="Name">
+            <input className={inputClass} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+          </Field>
+          <Field label="Description">
+            <textarea
+              className={textareaClass}
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Status">
+              <select
+                className={inputClass}
+                value={form.status}
+                onChange={(event) => setForm({ ...form, status: event.target.value as GroupForm['status'] })}
+              >
+                <option value="active">active</option>
+                <option value="disabled">disabled</option>
+              </select>
+            </Field>
+            <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">
+              <input
+                className="size-4 rounded border-slate-300 text-emerald-600"
+                type="checkbox"
+                checked={form.is_system}
+                onChange={(event) => setForm({ ...form, is_system: event.target.checked })}
+              />
+              System group
+            </label>
+          </div>
+          <PermissionGate resource="system.groups" action={editingGroup ? 'update' : 'create'}>
+            <Button variant="primary" disabled={saveGroup.isPending || form.name === ''} onClick={() => saveGroup.mutate()}>
+              Save group
+            </Button>
+          </PermissionGate>
+        </form>
+      </Modal>
 
       <DataTable>
         <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">

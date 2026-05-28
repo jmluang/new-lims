@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Download, Edit3, Plus, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import {
   Button,
   DataTable,
@@ -16,9 +18,7 @@ import {
 } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
 import { CustomerContactList } from './CustomerContactList'
-import { CustomerForm } from './CustomerForm'
 import { visibleCustomerColumns, visibleCustomerMobileFields } from './customerColumns'
-import type { CustomerFormValues } from './customerSchema'
 
 export type FieldPermissionMeta = Record<string, { read?: boolean; update?: boolean; export?: boolean; hidden?: boolean }>
 
@@ -73,10 +73,10 @@ const emptyFilters: CustomerFilters = {
 }
 
 export function CustomerListPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<CustomerFilters>(emptyFilters)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [formOpen, setFormOpen] = useState(false)
   const customersQuery = useQuery({
     queryKey: ['customers', filters],
     queryFn: async () => {
@@ -93,22 +93,6 @@ export function CustomerListPage() {
       return response.data.data
     },
   })
-  const saveCustomer = useMutation({
-    mutationFn: async (values: CustomerFormValues) => {
-      const payload = normalizeCustomerPayload(values)
-
-      if (selectedCustomer) {
-        await api.put(`/api/customers/${selectedCustomer.id}`, payload)
-        return
-      }
-
-      await api.post('/api/customers', payload)
-    },
-    onSuccess: async () => {
-      setFormOpen(false)
-      await queryClient.invalidateQueries({ queryKey: ['customers'] })
-    },
-  })
   const deleteCustomer = useMutation({
     mutationFn: async (customer: Customer) => {
       await api.delete(`/api/customers/${customer.id}`)
@@ -121,15 +105,11 @@ export function CustomerListPage() {
   const mobileFields = visibleCustomerMobileFields(fieldPermissions)
 
   function startCreate() {
-    setSelectedCustomer(null)
-    setFormOpen(true)
-    saveCustomer.reset()
+    void navigate({ to: '/customers/new' })
   }
 
   function startEdit(customer: Customer) {
-    setSelectedCustomer(customer)
-    setFormOpen(true)
-    saveCustomer.reset()
+    void navigate({ to: '/customers/$customerId/edit', params: { customerId: String(customer.id) } })
   }
 
   async function exportCustomers() {
@@ -176,7 +156,7 @@ export function CustomerListPage() {
                 className={`${inputClass} pl-9`}
                 value={filters.search}
                 onChange={(event) => setFilters({ ...filters, search: event.target.value })}
-                placeholder="name, credit, phone"
+                placeholder={zhText('name, credit, phone') ?? undefined}
               />
             </div>
           </Field>
@@ -198,7 +178,7 @@ export function CustomerListPage() {
       {customersQuery.isError ? <ErrorNotice error={customersQuery.error} fallback="Unable to load customers" /> : null}
       {deleteCustomer.error ? <ErrorNotice error={deleteCustomer.error} fallback="Unable to delete customer" /> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section>
           {customersQuery.isPending ? <LoadingState label="Loading customers" /> : null}
           {!customersQuery.isPending && customers.length === 0 ? (
@@ -273,20 +253,6 @@ export function CustomerListPage() {
         </section>
 
         <div className="space-y-4">
-          {formOpen ? (
-            <Panel title={selectedCustomer ? 'Edit customer' : 'Create customer'}>
-              <CustomerForm
-                customer={selectedCustomer}
-                dictionaries={dictionariesQuery.data ?? []}
-                fieldPermissions={fieldPermissions}
-                submitting={saveCustomer.isPending}
-                error={saveCustomer.error}
-                onSubmit={(values) => saveCustomer.mutateAsync(values)}
-                onCancel={() => setFormOpen(false)}
-              />
-            </Panel>
-          ) : null}
-
           <Panel title="Contacts">
             <CustomerContactList customer={selectedCustomer} />
           </Panel>
@@ -362,8 +328,4 @@ function DictionaryFilter({
 
 function cleanParams(filters: CustomerFilters) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
-}
-
-function normalizeCustomerPayload(values: CustomerFormValues) {
-  return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value === '' ? null : value]))
 }

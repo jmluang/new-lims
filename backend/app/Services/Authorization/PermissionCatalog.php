@@ -46,11 +46,11 @@ class PermissionCatalog
             'equipment' => [
                 'serial_no' => ['read', 'update', 'export'],
                 'legacy_placement' => ['read', 'update', 'export'],
-                'device_image' => ['read', 'update', 'export'],
-                'manual_files' => ['read', 'update', 'export'],
-                'instruction_files' => ['read', 'update', 'export'],
-                'calibration_files' => ['read', 'update', 'export'],
-                'other_files' => ['read', 'update', 'export'],
+                'device_image' => ['read', 'update'],
+                'manual_files' => ['read', 'update'],
+                'instruction_files' => ['read', 'update'],
+                'calibration_files' => ['read', 'update'],
+                'other_files' => ['read', 'update'],
             ],
         ];
     }

@@ -3,7 +3,7 @@ import { Plus, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
-import { Button, EmptyState, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
+import { Button, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
 import type { EquipmentLocation } from './EquipmentListPage'
 
@@ -20,6 +20,7 @@ const emptyForm: LocationForm = { parent_id: '', name: '', code: '', sort_order:
 export function EquipmentLocationTreePage() {
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState<EquipmentLocation | null>(null)
+  const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<LocationForm>(emptyForm)
   const locationsQuery = useQuery({
     queryKey: ['equipment-locations'],
@@ -48,6 +49,7 @@ export function EquipmentLocationTreePage() {
     },
     onSuccess: async () => {
       setEditing(null)
+      setFormOpen(false)
       setForm(emptyForm)
       await queryClient.invalidateQueries({ queryKey: ['equipment-locations'] })
     },
@@ -63,6 +65,7 @@ export function EquipmentLocationTreePage() {
 
   function editLocation(location: EquipmentLocation) {
     setEditing(location)
+    setFormOpen(true)
     setForm({
       parent_id: location.parent_id ? String(location.parent_id) : '',
       name: location.name,
@@ -83,6 +86,7 @@ export function EquipmentLocationTreePage() {
             onClick={() => {
               setEditing(null)
               setForm(emptyForm)
+              setFormOpen(true)
             }}
           >
             <Plus className="size-4" aria-hidden="true" />
@@ -91,22 +95,28 @@ export function EquipmentLocationTreePage() {
         </PermissionGate>
       }
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <Panel title="Location tree">
-          {locationsQuery.isPending ? <LoadingState label="Loading locations" /> : null}
-          {locationsQuery.isError ? <ErrorNotice error={locationsQuery.error} fallback="Unable to load locations" /> : null}
-          {disableLocation.error ? <ErrorNotice error={disableLocation.error} fallback="Location cannot be disabled" /> : null}
-          {!locationsQuery.isPending && locations.length === 0 ? (
-            <EmptyState title="No locations" description="Create a root location, then add child rooms or benches." />
-          ) : null}
-          <div className="space-y-2">
-            {locations.map((location) => (
-              <LocationNode location={location} onEdit={editLocation} onDisable={(target) => disableLocation.mutate(target)} key={location.id} />
-            ))}
-          </div>
-        </Panel>
+      <Panel title="Location tree">
+        {locationsQuery.isPending ? <LoadingState label="Loading locations" /> : null}
+        {locationsQuery.isError ? <ErrorNotice error={locationsQuery.error} fallback="Unable to load locations" /> : null}
+        {disableLocation.error ? <ErrorNotice error={disableLocation.error} fallback="Location cannot be disabled" /> : null}
+        {!locationsQuery.isPending && locations.length === 0 ? (
+          <EmptyState title="No locations" description="Create a root location, then add child rooms or benches." />
+        ) : null}
+        <div className="space-y-2">
+          {locations.map((location) => (
+            <LocationNode location={location} onEdit={editLocation} onDisable={(target) => disableLocation.mutate(target)} key={location.id} />
+          ))}
+        </div>
+      </Panel>
 
-        <Panel title={editing ? 'Edit location' : 'Create location'}>
+      <Modal
+        title={editing ? 'Edit location' : 'Create location'}
+        open={formOpen}
+        onClose={() => {
+          setFormOpen(false)
+          setEditing(null)
+        }}
+      >
           {saveLocation.error ? <ErrorNotice error={saveLocation.error} fallback="Unable to save location" /> : null}
           <div className="space-y-3">
             <Field label="Parent">
@@ -145,8 +155,7 @@ export function EquipmentLocationTreePage() {
               </Button>
             </PermissionGate>
           </div>
-        </Panel>
-      </div>
+      </Modal>
     </PageShell>
   )
 }

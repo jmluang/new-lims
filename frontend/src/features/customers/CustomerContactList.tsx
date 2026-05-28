@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
-import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, StatusBadge } from '../system/shared'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
 import { type Customer, type FieldPermissionMeta } from './CustomerListPage'
 import { contactSchema, type ContactFormValues } from './customerSchema'
@@ -99,7 +99,14 @@ export function CustomerContactList({ customer }: { customer: Customer | null })
       {contactsQuery.isError ? <ErrorNotice error={contactsQuery.error} fallback="Unable to load contacts" /> : null}
       {saveContact.error || deleteContact.error ? <ErrorNotice error={saveContact.error ?? deleteContact.error} fallback="Contact operation failed" /> : null}
 
-      {formOpen ? (
+      <Modal
+        title={editing ? 'Edit contact' : 'Create contact'}
+        open={formOpen}
+        onClose={() => {
+          setFormOpen(false)
+          setEditing(null)
+        }}
+      >
         <ContactForm
           contact={editing}
           fieldPermissions={fieldPermissions}
@@ -110,7 +117,7 @@ export function CustomerContactList({ customer }: { customer: Customer | null })
             setEditing(null)
           }}
         />
-      ) : null}
+      </Modal>
 
       {contacts.length === 0 && !contactsQuery.isPending ? (
         <EmptyState title="No contacts" description="Add a contact and mark one as the default contact." />
@@ -208,7 +215,7 @@ function ContactForm({
   }, [contact, form])
 
   return (
-    <form className="rounded-md border border-slate-200 bg-slate-50 p-3" onSubmit={form.handleSubmit(onSubmit)}>
+    <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Name">
           <input className={inputClass} {...form.register('name')} />

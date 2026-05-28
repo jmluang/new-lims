@@ -1,7 +1,9 @@
 import { createRootRoute, createRoute, Outlet, redirect } from '@tanstack/react-router'
 import { DashboardPage } from '../features/dashboard/DashboardPage'
 import { CustomerListPage } from '../features/customers/CustomerListPage'
+import { CustomerFormPage } from '../features/customers/CustomerFormPage'
 import { EquipmentLabelPrintPage } from '../features/equipment/EquipmentLabelPrintPage'
+import { EquipmentFormPage } from '../features/equipment/EquipmentFormPage'
 import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
 import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
 import { getAuthToken } from '../lib/api'
@@ -10,17 +12,10 @@ import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
 import { BackupListPage } from '../features/system/backups/BackupListPage'
 import { DictionaryListPage } from '../features/system/dictionaries/DictionaryListPage'
 import { GroupListPage } from '../features/system/groups/GroupListPage'
+import { UserFormPage } from '../features/system/users/UserFormPage'
 import { UserListPage } from '../features/system/users/UserListPage'
-import { AppLayout } from '../components/app/AppLayout'
+import { ProtectedLayout } from './ProtectedLayout'
 import { requireRoutePermission } from './routePermissions'
-
-function ProtectedLayout() {
-  return (
-    <AppLayout>
-      <Outlet />
-    </AppLayout>
-  )
-}
 
 export const rootRoute = createRootRoute({
   component: Outlet,
@@ -56,6 +51,20 @@ const systemRoute = createRoute({
   component: UserListPage,
 })
 
+const systemUserCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/system/users/new',
+  beforeLoad: () => requireRoutePermission('system.users', 'create'),
+  component: UserFormPage,
+})
+
+const systemUserEditRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/system/users/$userId/edit',
+  beforeLoad: () => requireRoutePermission('system.users', 'update'),
+  component: UserFormPage,
+})
+
 const systemGroupsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/system/groups',
@@ -77,11 +86,39 @@ const customersRoute = createRoute({
   component: CustomerListPage,
 })
 
+const customerCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/customers/new',
+  beforeLoad: () => requireRoutePermission('customers', 'create'),
+  component: CustomerFormPage,
+})
+
+const customerEditRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/customers/$customerId/edit',
+  beforeLoad: () => requireRoutePermission('customers', 'update'),
+  component: CustomerFormPage,
+})
+
 const equipmentRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment',
   beforeLoad: () => requireRoutePermission('equipment'),
   component: EquipmentListPage,
+})
+
+const equipmentCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/new',
+  beforeLoad: () => requireRoutePermission('equipment', 'create'),
+  component: EquipmentFormPage,
+})
+
+const equipmentEditRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/$equipmentId/edit',
+  beforeLoad: () => requireRoutePermission('equipment', 'update'),
+  component: EquipmentFormPage,
 })
 
 const equipmentLocationsRoute = createRoute({
@@ -117,10 +154,16 @@ export const routeTree = rootRoute.addChildren([
   protectedRoute.addChildren([
     indexRoute,
     systemRoute,
+    systemUserCreateRoute,
+    systemUserEditRoute,
     systemGroupsRoute,
     systemDictionariesRoute,
     customersRoute,
+    customerCreateRoute,
+    customerEditRoute,
     equipmentRoute,
+    equipmentCreateRoute,
+    equipmentEditRoute,
     equipmentLocationsRoute,
     equipmentLabelsRoute,
     auditLogsRoute,

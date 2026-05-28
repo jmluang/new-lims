@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Edit3, Lock, Plus, RotateCcw, Search, Unlock } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../../components/app/PermissionGate'
 import { api } from '../../../lib/api'
+import { zhText } from '../../../lib/zh'
 import {
   Button,
   DataTable,
@@ -15,7 +17,7 @@ import {
   StatusBadge,
 } from '../shared'
 import { type ApiCollection, formatDateTime, inputClass } from '../utils'
-import { type DepartmentOption, type SystemUser, UserForm, type UserFormValues, type UserGroupOption } from './UserForm'
+import { type DepartmentOption, type SystemUser, type UserGroupOption } from './UserForm'
 
 type UserFilters = {
   search: string
@@ -25,10 +27,9 @@ type UserFilters = {
 }
 
 export function UserListPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<UserFilters>({ search: '', status: '', department_id: '', group_id: '' })
-  const [editingUser, setEditingUser] = useState<SystemUser | null>(null)
-  const [formOpen, setFormOpen] = useState(false)
   const usersQuery = useQuery({
     queryKey: ['system-users', filters],
     queryFn: async () => {
@@ -51,23 +52,6 @@ export function UserListPage() {
       const response = await api.get<ApiCollection<DepartmentOption>>('/api/system/departments')
 
       return response.data.data
-    },
-  })
-  const saveUser = useMutation({
-    mutationFn: async (values: UserFormValues) => {
-      const payload = userPayload(values)
-
-      if (editingUser) {
-        await api.put(`/api/system/users/${editingUser.id}`, payload)
-        return
-      }
-
-      await api.post('/api/system/users', payload)
-    },
-    onSuccess: async () => {
-      setFormOpen(false)
-      setEditingUser(null)
-      await queryClient.invalidateQueries({ queryKey: ['system-users'] })
     },
   })
   const lockUser = useMutation({
@@ -94,15 +78,11 @@ export function UserListPage() {
   const users = usersQuery.data?.data ?? []
 
   function startCreate() {
-    setEditingUser(null)
-    setFormOpen(true)
-    saveUser.reset()
+    void navigate({ to: '/system/users/new' })
   }
 
   function startEdit(user: SystemUser) {
-    setEditingUser(user)
-    setFormOpen(true)
-    saveUser.reset()
+    void navigate({ to: '/system/users/$userId/edit', params: { userId: String(user.id) } })
   }
 
   function renderUsers() {
@@ -234,7 +214,7 @@ export function UserListPage() {
                 className={`${inputClass} pl-9`}
                 value={filters.search}
                 onChange={(event) => setFilters({ ...filters, search: event.target.value })}
-                placeholder="name or email"
+                placeholder={zhText('name or email') ?? undefined}
               />
             </div>
           </Field>
@@ -273,26 +253,7 @@ export function UserListPage() {
         </div>
       </Panel>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <section>{renderUsers()}</section>
-
-        {formOpen ? (
-          <Panel title={editingUser ? 'Edit user' : 'Create user'}>
-            <UserForm
-              user={editingUser}
-              groups={groupsQuery.data ?? []}
-              departments={departmentsQuery.data ?? []}
-              submitting={saveUser.isPending}
-              error={saveUser.error}
-              onSubmit={async (values) => saveUser.mutateAsync(values)}
-              onCancel={() => {
-                setFormOpen(false)
-                setEditingUser(null)
-              }}
-            />
-          </Panel>
-        ) : null}
-      </div>
+      {renderUsers()}
       {lockUser.error || unlockUser.error || resetPassword.error ? (
         <ErrorNotice error={lockUser.error ?? unlockUser.error ?? resetPassword.error} fallback="User operation failed" />
       ) : null}
@@ -342,13 +303,4 @@ function UserActions({
 
 function cleanParams(filters: UserFilters) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
-}
-
-function userPayload(values: UserFormValues) {
-  return {
-    ...values,
-    department_id: values.department_id ? Number(values.department_id) : null,
-    phone: values.phone || null,
-    password: values.password || undefined,
-  }
 }

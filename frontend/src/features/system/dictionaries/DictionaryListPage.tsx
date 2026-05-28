@@ -10,6 +10,7 @@ import {
   ErrorNotice,
   Field,
   LoadingState,
+  Modal,
   PageShell,
   Panel,
   StatusBadge,
@@ -59,8 +60,10 @@ export function DictionaryListPage() {
   const queryClient = useQueryClient()
   const [selectedSetId, setSelectedSetId] = useState<number | null>(null)
   const [editingSet, setEditingSet] = useState<DictionarySet | null>(null)
+  const [setFormOpen, setSetFormOpen] = useState(false)
   const [setForm, setSetForm] = useState<SetForm>(emptySetForm)
   const [editingItem, setEditingItem] = useState<DictionaryItem | null>(null)
+  const [itemFormOpen, setItemFormOpen] = useState(false)
   const [itemForm, setItemForm] = useState<ItemForm>(emptyItemForm)
   const dictionariesQuery = useQuery({
     queryKey: ['dictionaries'],
@@ -86,6 +89,7 @@ export function DictionaryListPage() {
     },
     onSuccess: async () => {
       setEditingSet(null)
+      setSetFormOpen(false)
       setSetForm(emptySetForm)
       await queryClient.invalidateQueries({ queryKey: ['dictionaries'] })
     },
@@ -111,6 +115,7 @@ export function DictionaryListPage() {
     },
     onSuccess: async () => {
       setEditingItem(null)
+      setItemFormOpen(false)
       setItemForm(emptyItemForm)
       await queryClient.invalidateQueries({ queryKey: ['dictionaries'] })
     },
@@ -118,6 +123,7 @@ export function DictionaryListPage() {
 
   function editSet(dictionary: DictionarySet) {
     setEditingSet(dictionary)
+    setSetFormOpen(true)
     setSetForm({
       code: dictionary.code,
       name: dictionary.name,
@@ -128,6 +134,7 @@ export function DictionaryListPage() {
 
   function editItem(item: DictionaryItem) {
     setEditingItem(item)
+    setItemFormOpen(true)
     setItemForm({
       label: item.label,
       value: item.value,
@@ -149,6 +156,7 @@ export function DictionaryListPage() {
             onClick={() => {
               setEditingSet(null)
               setSetForm(emptySetForm)
+              setSetFormOpen(true)
             }}
           >
             <Plus className="size-4" aria-hidden="true" />
@@ -160,7 +168,7 @@ export function DictionaryListPage() {
       {dictionariesQuery.isPending ? <LoadingState label="Loading dictionaries" /> : null}
       {dictionariesQuery.isError ? <ErrorNotice error={dictionariesQuery.error} fallback="Unable to load dictionaries" /> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)_360px]">
+      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
         <Panel title="Dictionary sets">
           {dictionaries.length === 0 ? <EmptyState title="No dictionary sets" description="Create a set before adding items." /> : null}
           <div className="space-y-2">
@@ -198,6 +206,7 @@ export function DictionaryListPage() {
                     onClick={() => {
                       setEditingItem(null)
                       setItemForm(emptyItemForm)
+                      setItemFormOpen(true)
                     }}
                   >
                     <Plus className="size-4" aria-hidden="true" />
@@ -256,83 +265,80 @@ export function DictionaryListPage() {
           ) : null}
         </Panel>
 
-        <div className="space-y-4">
-          <Panel title={editingSet ? 'Edit set' : 'Create set'}>
-            {saveSet.error ? <ErrorNotice error={saveSet.error} fallback="Unable to save dictionary set" /> : null}
-            <div className="space-y-3">
-              <Field label="Code">
-                <input className={inputClass} value={setForm.code} onChange={(event) => setSetForm({ ...setForm, code: event.target.value })} />
-              </Field>
-              <Field label="Name">
-                <input className={inputClass} value={setForm.name} onChange={(event) => setSetForm({ ...setForm, name: event.target.value })} />
-              </Field>
-              <Field label="Description">
-                <textarea className={textareaClass} value={setForm.description} onChange={(event) => setSetForm({ ...setForm, description: event.target.value })} />
-              </Field>
-              <Field label="Status">
-                <select className={inputClass} value={setForm.status} onChange={(event) => setSetForm({ ...setForm, status: event.target.value as SetForm['status'] })}>
-                  <option value="active">active</option>
-                  <option value="disabled">disabled</option>
-                </select>
-              </Field>
-              <PermissionGate resource="system.dictionaries" action={editingSet ? 'update' : 'create'}>
-                <Button variant="primary" disabled={saveSet.isPending || setForm.code === '' || setForm.name === ''} onClick={() => saveSet.mutate()}>
-                  <Save className="size-4" aria-hidden="true" />
-                  Save set
-                </Button>
-              </PermissionGate>
-            </div>
-          </Panel>
-
-          <Panel title={editingItem ? 'Edit item' : 'Create item'}>
-            {saveItem.error ? <ErrorNotice error={saveItem.error} fallback="Unable to save dictionary item" /> : null}
-            <div className="space-y-3">
-              <Field label="Label">
-                <input className={inputClass} value={itemForm.label} onChange={(event) => setItemForm({ ...itemForm, label: event.target.value })} />
-              </Field>
-              <Field label="Value">
-                <input className={inputClass} value={itemForm.value} onChange={(event) => setItemForm({ ...itemForm, value: event.target.value })} />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Color">
-                  <input className={inputClass} value={itemForm.color} onChange={(event) => setItemForm({ ...itemForm, color: event.target.value })} />
-                </Field>
-                <Field label="Sort">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    value={itemForm.sort_order}
-                    onChange={(event) => setItemForm({ ...itemForm, sort_order: event.target.value })}
-                  />
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Status">
-                  <select className={inputClass} value={itemForm.status} onChange={(event) => setItemForm({ ...itemForm, status: event.target.value as ItemForm['status'] })}>
-                    <option value="active">active</option>
-                    <option value="disabled">disabled</option>
-                  </select>
-                </Field>
-                <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">
-                  <input
-                    className="size-4 rounded border-slate-300 text-emerald-600"
-                    type="checkbox"
-                    checked={itemForm.is_default}
-                    onChange={(event) => setItemForm({ ...itemForm, is_default: event.target.checked })}
-                  />
-                  Default
-                </label>
-              </div>
-              <PermissionGate resource="system.dictionaries" action="update">
-                <Button variant="primary" disabled={saveItem.isPending || !selectedSet || itemForm.label === '' || itemForm.value === ''} onClick={() => saveItem.mutate()}>
-                  <Save className="size-4" aria-hidden="true" />
-                  Save item
-                </Button>
-              </PermissionGate>
-            </div>
-          </Panel>
-        </div>
       </div>
+      <Modal title={editingSet ? 'Edit set' : 'Create set'} open={setFormOpen} onClose={() => setSetFormOpen(false)}>
+        {saveSet.error ? <ErrorNotice error={saveSet.error} fallback="Unable to save dictionary set" /> : null}
+        <div className="space-y-3">
+          <Field label="Code">
+            <input className={inputClass} value={setForm.code} onChange={(event) => setSetForm({ ...setForm, code: event.target.value })} />
+          </Field>
+          <Field label="Name">
+            <input className={inputClass} value={setForm.name} onChange={(event) => setSetForm({ ...setForm, name: event.target.value })} />
+          </Field>
+          <Field label="Description">
+            <textarea className={textareaClass} value={setForm.description} onChange={(event) => setSetForm({ ...setForm, description: event.target.value })} />
+          </Field>
+          <Field label="Status">
+            <select className={inputClass} value={setForm.status} onChange={(event) => setSetForm({ ...setForm, status: event.target.value as SetForm['status'] })}>
+              <option value="active">active</option>
+              <option value="disabled">disabled</option>
+            </select>
+          </Field>
+          <PermissionGate resource="system.dictionaries" action={editingSet ? 'update' : 'create'}>
+            <Button variant="primary" disabled={saveSet.isPending || setForm.code === '' || setForm.name === ''} onClick={() => saveSet.mutate()}>
+              <Save className="size-4" aria-hidden="true" />
+              Save set
+            </Button>
+          </PermissionGate>
+        </div>
+      </Modal>
+      <Modal title={editingItem ? 'Edit item' : 'Create item'} open={itemFormOpen} onClose={() => setItemFormOpen(false)}>
+        {saveItem.error ? <ErrorNotice error={saveItem.error} fallback="Unable to save dictionary item" /> : null}
+        <div className="space-y-3">
+          <Field label="Label">
+            <input className={inputClass} value={itemForm.label} onChange={(event) => setItemForm({ ...itemForm, label: event.target.value })} />
+          </Field>
+          <Field label="Value">
+            <input className={inputClass} value={itemForm.value} onChange={(event) => setItemForm({ ...itemForm, value: event.target.value })} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Color">
+              <input className={inputClass} value={itemForm.color} onChange={(event) => setItemForm({ ...itemForm, color: event.target.value })} />
+            </Field>
+            <Field label="Sort">
+              <input
+                className={inputClass}
+                type="number"
+                value={itemForm.sort_order}
+                onChange={(event) => setItemForm({ ...itemForm, sort_order: event.target.value })}
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Status">
+              <select className={inputClass} value={itemForm.status} onChange={(event) => setItemForm({ ...itemForm, status: event.target.value as ItemForm['status'] })}>
+                <option value="active">active</option>
+                <option value="disabled">disabled</option>
+              </select>
+            </Field>
+            <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">
+              <input
+                className="size-4 rounded border-slate-300 text-emerald-600"
+                type="checkbox"
+                checked={itemForm.is_default}
+                onChange={(event) => setItemForm({ ...itemForm, is_default: event.target.checked })}
+              />
+              Default
+            </label>
+          </div>
+          <PermissionGate resource="system.dictionaries" action="update">
+            <Button variant="primary" disabled={saveItem.isPending || !selectedSet || itemForm.label === '' || itemForm.value === ''} onClick={() => saveItem.mutate()}>
+              <Save className="size-4" aria-hidden="true" />
+              Save item
+            </Button>
+          </PermissionGate>
+        </div>
+      </Modal>
     </PageShell>
   )
 }

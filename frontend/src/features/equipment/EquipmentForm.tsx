@@ -5,6 +5,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { Button, ErrorNotice, Field } from '../system/shared'
 import { inputClass, textareaClass } from '../system/utils'
+import { zhText } from '../../lib/zh'
 import { type Equipment, type EquipmentLocation, type FieldPermissionMeta } from './EquipmentListPage'
 import { equipmentSchema, type EquipmentFormValues } from './equipmentSchema'
 
@@ -104,7 +105,7 @@ export function EquipmentForm({
         {(['manual_files', 'instruction_files', 'calibration_files', 'other_files'] as const).map((field) =>
           fieldPermissions?.[field]?.hidden ? null : (
             <Field label={fileFieldLabels[field]} key={field}>
-              <input className={inputClass} disabled={!canUpdate(fieldPermissions, field)} placeholder="comma separated file refs" {...form.register(field)} />
+              <input className={inputClass} disabled={!canUpdate(fieldPermissions, field)} placeholder={zhText('comma separated file refs') ?? undefined} {...form.register(field)} />
             </Field>
           ),
         )}

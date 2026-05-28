@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Edit3, Plus, Printer, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import {
   Button,
   DataTable,
@@ -15,9 +17,7 @@ import {
   StatusBadge,
 } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
-import { EquipmentForm } from './EquipmentForm'
 import { visibleEquipmentColumns } from './equipmentColumns'
-import type { EquipmentFormValues } from './equipmentSchema'
 
 export type FieldPermissionMeta = Record<string, { read?: boolean; update?: boolean; export?: boolean; hidden?: boolean }>
 
@@ -75,10 +75,9 @@ const emptyFilters: EquipmentFilters = {
 }
 
 export function EquipmentListPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<EquipmentFilters>(emptyFilters)
-  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null)
-  const [formOpen, setFormOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const equipmentQuery = useQuery({
     queryKey: ['equipment', filters],
@@ -96,22 +95,6 @@ export function EquipmentListPage() {
       return response.data.data
     },
   })
-  const saveEquipment = useMutation({
-    mutationFn: async (values: EquipmentFormValues) => {
-      const payload = normalizeEquipmentPayload(values)
-
-      if (selectedEquipment) {
-        await api.put(`/api/equipment/${selectedEquipment.id}`, payload)
-        return
-      }
-
-      await api.post('/api/equipment', payload)
-    },
-    onSuccess: async () => {
-      setFormOpen(false)
-      await queryClient.invalidateQueries({ queryKey: ['equipment'] })
-    },
-  })
   const deleteEquipment = useMutation({
     mutationFn: async (equipment: Equipment) => {
       await api.delete(`/api/equipment/${equipment.id}`)
@@ -119,20 +102,16 @@ export function EquipmentListPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['equipment'] }),
   })
   const equipment = equipmentQuery.data?.data ?? []
-  const fieldPermissions = (equipmentQuery.data?.meta?.fields ?? selectedEquipment?._field_permissions) as FieldPermissionMeta | undefined
+  const fieldPermissions = equipmentQuery.data?.meta?.fields as FieldPermissionMeta | undefined
   const columns = visibleEquipmentColumns(fieldPermissions)
   const flatLocations = flattenLocations(locationsQuery.data ?? [])
 
   function startCreate() {
-    setSelectedEquipment(null)
-    setFormOpen(true)
-    saveEquipment.reset()
+    void navigate({ to: '/equipment/new' })
   }
 
   function startEdit(target: Equipment) {
-    setSelectedEquipment(target)
-    setFormOpen(true)
-    saveEquipment.reset()
+    void navigate({ to: '/equipment/$equipmentId/edit', params: { equipmentId: String(target.id) } })
   }
 
   function toggleSelected(id: number) {
@@ -174,7 +153,7 @@ export function EquipmentListPage() {
                 className={`${inputClass} pl-9`}
                 value={filters.search}
                 onChange={(event) => setFilters({ ...filters, search: event.target.value })}
-                placeholder="name, no., model"
+                placeholder={zhText('name, no., model') ?? undefined}
               />
             </div>
           </Field>
@@ -222,15 +201,13 @@ export function EquipmentListPage() {
       {equipmentQuery.isError ? <ErrorNotice error={equipmentQuery.error} fallback="Unable to load equipment" /> : null}
       {deleteEquipment.error ? <ErrorNotice error={deleteEquipment.error} fallback="Unable to disable equipment" /> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_440px]">
-        <section>
-          {equipmentQuery.isPending ? <LoadingState label="Loading equipment" /> : null}
-          {!equipmentQuery.isPending && equipment.length === 0 ? (
-            <EmptyState title="No equipment found" description="Adjust filters or create the first equipment record." />
-          ) : null}
-          {equipment.length > 0 ? (
-            <>
-              <DataTable>
+      {equipmentQuery.isPending ? <LoadingState label="Loading equipment" /> : null}
+      {!equipmentQuery.isPending && equipment.length === 0 ? (
+        <EmptyState title="No equipment found" description="Adjust filters or create the first equipment record." />
+      ) : null}
+      {equipment.length > 0 ? (
+        <>
+          <DataTable>
                 <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-3 py-2 font-medium">Print</th>
@@ -266,9 +243,9 @@ export function EquipmentListPage() {
                     </tr>
                   ))}
                 </tbody>
-              </DataTable>
+          </DataTable>
 
-              <div className="space-y-3 md:hidden">
+          <div className="space-y-3 md:hidden">
                 {equipment.map((item) => (
                   <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" key={item.id}>
                     <div className="flex items-start justify-between gap-3">
@@ -303,25 +280,9 @@ export function EquipmentListPage() {
                     </div>
                   </article>
                 ))}
-              </div>
-            </>
-          ) : null}
-        </section>
-
-        {formOpen ? (
-          <Panel title={selectedEquipment ? 'Edit equipment' : 'Create equipment'}>
-            <EquipmentForm
-              equipment={selectedEquipment}
-              locations={locationsQuery.data ?? []}
-              fieldPermissions={fieldPermissions}
-              submitting={saveEquipment.isPending}
-              error={saveEquipment.error}
-              onSubmit={(values) => saveEquipment.mutateAsync(values)}
-              onCancel={() => setFormOpen(false)}
-            />
-          </Panel>
-        ) : null}
-      </div>
+          </div>
+        </>
+      ) : null}
     </PageShell>
   )
 }
@@ -357,34 +318,6 @@ function cleanParams(filters: EquipmentFilters) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }
 
-function normalizeEquipmentPayload(values: EquipmentFormValues) {
-  const payload = Object.fromEntries(
-    Object.entries(values)
-      .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => [key, value === '' ? null : value]),
-  ) as Record<string, unknown>
-
-  payload.location_id = values.location_id ? Number(values.location_id) : null
-
-  for (const field of ['manual_files', 'instruction_files', 'calibration_files', 'other_files'] as const) {
-    if (values[field] !== undefined) {
-      payload[field] = splitFiles(values[field])
-    }
-  }
-
-  return payload
-}
-
-function splitFiles(value?: string) {
-  if (!value) {
-    return null
-  }
-
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
 
 function flattenLocations(locations: EquipmentLocation[], depth = 0): Array<EquipmentLocation & { depth: number }> {
   return locations.flatMap((location) => [{ ...location, depth }, ...flattenLocations(location.children ?? [], depth + 1)])

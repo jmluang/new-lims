@@ -14,7 +14,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { cn } from '../../lib/utils'
 
 type NavItem = {
@@ -66,29 +66,13 @@ function isActivePath(pathname: string, to: string) {
   return pathname === to || (to !== '/' && pathname.startsWith(to))
 }
 
-function activeGroupLabels(pathname: string) {
-  return navGroups
-    .filter((group) => group.items.some((item) => isActivePath(pathname, item.to)))
-    .map((group) => group.label)
-}
+const defaultClosedGroups = Object.fromEntries(
+  navGroups.filter((group) => group.label !== '工作台').map((group) => [group.label, true]),
+)
 
 export function Sidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(navGroups.map((group) => [group.label, group.label === '工作台'])),
-  )
-
-  useEffect(() => {
-    const labels = activeGroupLabels(pathname)
-    if (!labels.length) return
-    setOpenGroups((current) => {
-      const next = { ...current }
-      labels.forEach((label) => {
-        next[label] = true
-      })
-      return next
-    })
-  }, [pathname])
+  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>(() => defaultClosedGroups)
 
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white lg:block">
@@ -103,8 +87,8 @@ export function Sidebar() {
       </div>
       <nav className="space-y-2 p-3">
         {navGroups.map((group) => {
-          const open = openGroups[group.label] ?? false
           const hasActiveItem = group.items.some((item) => isActivePath(pathname, item.to))
+          const open = hasActiveItem || !closedGroups[group.label]
 
           return (
             <div key={group.label}>
@@ -114,7 +98,12 @@ export function Sidebar() {
                   hasActiveItem && 'text-emerald-700',
                 )}
                 type="button"
-                onClick={() => setOpenGroups((current) => ({ ...current, [group.label]: !open }))}
+                onClick={() =>
+                  setClosedGroups((current) => ({
+                    ...current,
+                    [group.label]: open && !hasActiveItem,
+                  }))
+                }
                 aria-expanded={open}
               >
                 <span>{group.label}</span>

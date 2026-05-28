@@ -2,15 +2,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from '@tanstack/react-router'
 import { AlertCircle, FlaskConical, LogIn } from 'lucide-react'
 import { useForm } from 'react-hook-form'
-import { z } from 'zod'
 import { useLogin } from './useCurrentUser'
-
-const loginSchema = z.object({
-  email: z.email(),
-  password: z.string().min(1),
-})
-
-type LoginForm = z.infer<typeof loginSchema>
+import { loginSchema, type LoginForm } from './loginSchema'
 
 export function LoginPage() {
   const navigate = useNavigate()
