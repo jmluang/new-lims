@@ -103,7 +103,7 @@ export function EquipmentForm({
       <div className="grid gap-3 sm:grid-cols-2">
         {(['manual_files', 'instruction_files', 'calibration_files', 'other_files'] as const).map((field) =>
           fieldPermissions?.[field]?.hidden ? null : (
-            <Field label={field.replaceAll('_', ' ')} key={field}>
+            <Field label={fileFieldLabels[field]} key={field}>
               <input className={inputClass} disabled={!canUpdate(fieldPermissions, field)} placeholder="comma separated file refs" {...form.register(field)} />
             </Field>
           ),
@@ -127,6 +127,13 @@ export function EquipmentForm({
     </form>
   )
 }
+
+const fileFieldLabels = {
+  manual_files: '说明书文件',
+  instruction_files: '操作规程文件',
+  calibration_files: '校准文件',
+  other_files: '其他文件',
+} as const
 
 function defaultValues(equipment?: Equipment | null): EquipmentFormValues {
   return {

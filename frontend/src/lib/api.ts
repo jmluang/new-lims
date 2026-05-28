@@ -2,8 +2,10 @@ import axios from 'axios'
 
 const authTokenKey = 'new_lims_auth_token'
 
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || ''
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000',
+  baseURL: apiBaseURL,
   withCredentials: true,
   headers: {
     Accept: 'application/json',

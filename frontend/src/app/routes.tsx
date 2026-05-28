@@ -11,7 +11,16 @@ import { BackupListPage } from '../features/system/backups/BackupListPage'
 import { DictionaryListPage } from '../features/system/dictionaries/DictionaryListPage'
 import { GroupListPage } from '../features/system/groups/GroupListPage'
 import { UserListPage } from '../features/system/users/UserListPage'
+import { AppLayout } from '../components/app/AppLayout'
 import { requireRoutePermission } from './routePermissions'
+
+function ProtectedLayout() {
+  return (
+    <AppLayout>
+      <Outlet />
+    </AppLayout>
+  )
+}
 
 export const rootRoute = createRootRoute({
   component: Outlet,
@@ -25,7 +34,7 @@ const protectedRoute = createRoute({
       throw redirect({ to: '/login' })
     }
   },
-  component: Outlet,
+  component: ProtectedLayout,
 })
 
 export const indexRoute = createRoute({

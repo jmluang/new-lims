@@ -166,7 +166,7 @@ export function EquipmentListPage() {
       }
     >
       <Panel title="Filters">
-        <div className="grid gap-3 md:grid-cols-6">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           <Field label="Search">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden="true" />
@@ -200,7 +200,7 @@ export function EquipmentListPage() {
           <Field label="Manufacturer">
             <input className={inputClass} value={filters.manufacturer} onChange={(event) => setFilters({ ...filters, manufacturer: event.target.value })} />
           </Field>
-          <Field label="Due from">
+          <Field label="Due from" className="sm:col-span-2 lg:col-span-3 2xl:col-span-1">
             <input
               className={inputClass}
               type="date"
@@ -208,7 +208,7 @@ export function EquipmentListPage() {
               onChange={(event) => setFilters({ ...filters, calibration_due_from: event.target.value })}
             />
           </Field>
-          <Field label="Due to">
+          <Field label="Due to" className="sm:col-span-2 lg:col-span-3 2xl:col-span-1">
             <input
               className={inputClass}
               type="date"

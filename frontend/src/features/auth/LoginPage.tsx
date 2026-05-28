@@ -39,13 +39,13 @@ export function LoginPage() {
               </div>
               <div>
                 <div className="text-base font-semibold">New LIMS</div>
-                <div className="text-xs text-slate-300">Laboratory operations console</div>
+                <div className="text-xs text-slate-300">实验室运营管理平台</div>
               </div>
             </div>
             <div className="mt-20 max-w-md">
-              <h1 className="text-3xl font-semibold tracking-normal">LIMS Admin Console</h1>
+              <h1 className="text-3xl font-semibold tracking-normal">LIMS 管理后台</h1>
               <p className="mt-4 text-sm leading-6 text-slate-300">
-                Manage customers, equipment, permissions, backups, and audit records from one API-first workspace.
+                统一管理客户、设备、权限、备份与审计记录。
               </p>
             </div>
           </div>
@@ -58,26 +58,26 @@ export function LoginPage() {
                 </div>
                 <div>
                   <div className="text-base font-semibold">New LIMS</div>
-                  <div className="text-xs text-slate-500">Admin Console</div>
+                  <div className="text-xs text-slate-500">管理后台</div>
                 </div>
               </div>
             </div>
 
             <div className="mt-8 lg:mt-0">
-              <h2 className="text-xl font-semibold">Sign in</h2>
-              <p className="mt-1 text-sm text-slate-500">Use your LIMS operator account.</p>
+              <h2 className="text-xl font-semibold">登录</h2>
+              <p className="mt-1 text-sm text-slate-500">请使用 LIMS 操作员账号登录。</p>
             </div>
 
             {login.isError ? (
               <div className="mt-5 flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span>Invalid credentials or the account is locked.</span>
+                <span>账号或密码错误，或账号已被锁定。</span>
               </div>
             ) : null}
 
             <div className="mt-6 space-y-4">
               <label className="block">
-                <span className="text-sm font-medium text-slate-700">Email</span>
+                <span className="text-sm font-medium text-slate-700">邮箱</span>
                 <input
                   className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                   type="email"
@@ -90,7 +90,7 @@ export function LoginPage() {
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium text-slate-700">Password</span>
+                <span className="text-sm font-medium text-slate-700">密码</span>
                 <input
                   className="mt-1 h-10 w-full rounded-md border border-slate-300 px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                   type="password"
@@ -106,7 +106,7 @@ export function LoginPage() {
               disabled={login.isPending}
             >
               <LogIn className="size-4" aria-hidden="true" />
-              {login.isPending ? 'Signing in' : 'Sign in'}
+              {login.isPending ? '登录中' : '登录'}
             </button>
           </form>
         </section>

@@ -25,3 +25,19 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Prevent mobile browsers (especially iOS Safari) from auto-zooming when focusing form controls. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+
+/* Date inputs have a large native intrinsic width on some mobile browsers; keep them inside cards. */
+input[type="date"] {
+  max-width: 100%;
+  min-width: 0;
+}

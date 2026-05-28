@@ -40,9 +40,9 @@ export function Panel({ title, description, children }: { title: string; descrip
   )
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
-    <label className="block">
+    <label className={cn('block min-w-0', className)}>
       <span className="text-xs font-medium uppercase tracking-normal text-slate-500">{label}</span>
       <div className="mt-1">{children}</div>
     </label>

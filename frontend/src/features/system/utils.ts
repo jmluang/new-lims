@@ -1,3 +1,5 @@
+import { zhErrorText } from '../../lib/zh'
+
 export type ApiCollection<T> = {
   data: T[]
   meta?: Record<string, unknown>
@@ -21,7 +23,7 @@ export function errorMessage(error: unknown, fallback = 'Request failed') {
   const validationErrors = apiError.response?.data?.errors
   const firstValidationError = validationErrors ? Object.values(validationErrors).flat()[0] : undefined
 
-  return firstValidationError ?? apiError.response?.data?.message ?? fallback
+  return zhErrorText(firstValidationError ?? apiError.response?.data?.message ?? fallback) ?? fallback
 }
 
 export function formatDateTime(value?: string | null) {
@@ -66,7 +68,7 @@ export function formatBytes(value?: number | null) {
 }
 
 export const inputClass =
-  'h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100'
+  'h-9 min-w-0 w-full rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100'
 
 export const textareaClass =
-  'min-h-20 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100'
+  'min-h-20 min-w-0 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100'
