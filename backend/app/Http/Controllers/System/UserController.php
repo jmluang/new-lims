@@ -7,6 +7,7 @@ use App\Actions\System\ResetUserPasswordAction;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Services\Authorization\PermissionAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -17,7 +18,7 @@ class UserController extends Controller
     {
         $this->authorizePermission($request, 'system.users.read');
 
-        $canReadPhone = $request->user()?->hasRole('super_admin') || $request->user()?->can('system.users.field.phone.read');
+        $canReadPhone = $this->canReadPhone($request);
         $users = User::query()
             ->with(['department', 'roles'])
             ->when($request->filled('search'), function ($query) use ($request): void {
@@ -53,7 +54,7 @@ class UserController extends Controller
     {
         $this->authorizePermission($request, 'system.users.read');
 
-        $canReadPhone = $request->user()?->hasRole('super_admin') || $request->user()?->can('system.users.field.phone.read');
+        $canReadPhone = $this->canReadPhone($request);
 
         return response()->json([
             'data' => $this->serializeUser($user->load(['department', 'roles']), $canReadPhone),
@@ -194,6 +195,11 @@ class UserController extends Controller
         }
     }
 
+    private function canReadPhone(Request $request): bool
+    {
+        return app(PermissionAccess::class)->userCan($request->user(), 'system.users.field.phone.read');
+    }
+
     private function storeRules(): array
     {
         return [
@@ -237,7 +243,8 @@ class UserController extends Controller
             'lock_reason' => $user->lock_reason,
             'groups' => $user->roles->map(fn ($role): array => [
                 'id' => $role->id,
-                'name' => $role->name,
+                'name' => $role->display_name ?: $role->name,
+                'key' => $role->name,
                 'status' => $role->status,
             ])->values(),
         ];

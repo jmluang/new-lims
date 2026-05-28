@@ -6,11 +6,14 @@ use App\Models\User;
 
 class FieldPermissionFilter
 {
-    public function __construct(private readonly PermissionCatalog $permissionCatalog) {}
+    public function __construct(
+        private readonly PermissionCatalog $permissionCatalog,
+        private readonly PermissionAccess $permissionAccess,
+    ) {}
 
     public function can(User $user, string $resource, string $field, string $action): bool
     {
-        return $user->hasRole('super_admin') || $user->can("{$resource}.field.{$field}.{$action}");
+        return $this->permissionAccess->userCan($user, "{$resource}.field.{$field}.{$action}");
     }
 
     /**

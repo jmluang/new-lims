@@ -7,7 +7,10 @@ use Illuminate\Support\Collection;
 
 class EffectivePermissionService
 {
-    public function __construct(private readonly PermissionCatalog $catalog) {}
+    public function __construct(
+        private readonly PermissionCatalog $catalog,
+        private readonly SuperAdminAccess $superAdminAccess,
+    ) {}
 
     public function forUser(User $user): EffectivePermissions
     {
@@ -45,7 +48,7 @@ class EffectivePermissionService
      */
     private function grantedPermissions(User $user)
     {
-        if ($user->hasRole('super_admin')) {
+        if ($this->superAdminAccess->userHasAccess($user)) {
             return collect($this->catalog->permissionNames());
         }
 

@@ -7,6 +7,8 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Authorization\PermissionCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -35,9 +37,11 @@ class GroupController extends Controller
 
         $data = $request->validate($this->rules());
         $permissions = $data['permissions'] ?? [];
+        $displayName = $data['name'];
         unset($data['permissions']);
         $role = Role::create([
-            'name' => $data['name'],
+            'name' => $this->uniqueRoleName($displayName),
+            'display_name' => $displayName,
             'guard_name' => 'web',
             'description' => $data['description'] ?? null,
             'status' => $data['status'],
@@ -62,6 +66,13 @@ class GroupController extends Controller
 
         $before = $this->auditValues($group->load('permissions'));
         $data = $request->validate($this->rules(ignoreId: $group->id, requireName: false));
+        unset($data['permissions']);
+
+        if (array_key_exists('name', $data)) {
+            $data['display_name'] = $data['name'];
+            unset($data['name']);
+        }
+
         $group->update($data);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -103,13 +114,35 @@ class GroupController extends Controller
     private function rules(?int $ignoreId = null, bool $requireName = true): array
     {
         return [
-            'name' => [$requireName ? 'required' : 'sometimes', 'string', 'max:255', 'unique:roles,name'.($ignoreId ? ",{$ignoreId}" : '')],
+            'name' => [
+                $requireName ? 'required' : 'sometimes',
+                'string',
+                'max:255',
+                Rule::unique('roles', 'display_name')
+                    ->where(fn ($query) => $query->where('guard_name', 'web'))
+                    ->ignore($ignoreId),
+            ],
             'description' => ['nullable', 'string'],
             'is_system' => ['boolean'],
             'status' => ['required', 'in:active,disabled'],
             'permissions' => ['array'],
             'permissions.*' => ['string'],
         ];
+    }
+
+    private function uniqueRoleName(string $displayName): string
+    {
+        $base = Str::slug($displayName, '_');
+        $base = $base === '' ? 'group' : $base;
+        $candidate = $base;
+        $counter = 2;
+
+        while (Role::query()->where('name', $candidate)->where('guard_name', 'web')->exists()) {
+            $candidate = "{$base}_{$counter}";
+            $counter++;
+        }
+
+        return $candidate;
     }
 
     private function syncPermissions(Role $role, array $permissionNames, PermissionCatalog $permissionCatalog): void
@@ -131,7 +164,8 @@ class GroupController extends Controller
     {
         return [
             'id' => $role->id,
-            'name' => $role->name,
+            'key' => $role->name,
+            'name' => $role->display_name ?: $role->name,
             'description' => $role->description,
             'is_system' => (bool) $role->is_system,
             'status' => $role->status,

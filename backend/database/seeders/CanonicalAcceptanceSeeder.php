@@ -19,7 +19,14 @@ class CanonicalAcceptanceSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $this->seedPermissions();
 
-        $superAdmin = $this->group('super_admin');
+        $catalogPermissions = app(PermissionCatalog::class)->permissionNames();
+        $superAdmin = $this->group(
+            'super_admin',
+            $catalogPermissions,
+            displayName: '超级管理员',
+            systemKey: 'super_admin',
+            isSystem: true,
+        );
         $systemAdmin = $this->group('system_admin', [
             'system.users.read',
             'system.users.create',
@@ -104,13 +111,19 @@ class CanonicalAcceptanceSeeder extends Seeder
     /**
      * @param  array<int, string>  $permissions
      */
-    private function group(string $name, array $permissions = []): Role
+    private function group(string $name, array $permissions = [], ?string $displayName = null, ?string $systemKey = null, bool $isSystem = false): Role
     {
         $role = Role::query()->firstOrCreate(
             ['name' => $name, 'guard_name' => 'web'],
             ['status' => 'active']
         );
 
+        $role->forceFill([
+            'display_name' => $displayName ?? $role->display_name ?? $name,
+            'system_key' => $systemKey,
+            'is_system' => $isSystem,
+            'status' => 'active',
+        ])->save();
         $role->syncPermissions($permissions);
 
         return $role;

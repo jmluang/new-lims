@@ -61,6 +61,73 @@ class GroupManagementTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'system.groups.update', 'subject_id' => (string) $groupId]);
     }
 
+    public function test_system_group_display_name_update_does_not_change_authorization_key(): void
+    {
+        $admin = $this->userWithPermissions([
+            'system.groups.read',
+            'system.groups.update',
+        ]);
+        $superAdminUser = User::factory()->create(['email' => 'super_admin@example.test']);
+        $superAdminGroup = Role::create([
+            'name' => 'super_admin',
+            'guard_name' => 'web',
+            'display_name' => 'Super Admin',
+            'system_key' => 'super_admin',
+            'is_system' => true,
+            'status' => 'active',
+        ]);
+        $superAdminUser->assignRole($superAdminGroup);
+
+        $this->putJsonAs($admin, "/api/system/groups/{$superAdminGroup->id}", [
+            'name' => '超级管理员',
+            'description' => 'Full system access',
+            'status' => 'active',
+        ])->assertOk()
+            ->assertJsonPath('data.name', '超级管理员')
+            ->assertJsonPath('data.key', 'super_admin');
+
+        $this->assertDatabaseHas('roles', [
+            'id' => $superAdminGroup->id,
+            'name' => 'super_admin',
+            'display_name' => '超级管理员',
+            'system_key' => 'super_admin',
+        ]);
+        $this->assertTrue(app(EffectivePermissionService::class)->forUser($superAdminUser->fresh())->allows('customers', null, 'delete'));
+
+        Sanctum::actingAs($superAdminUser->fresh());
+        $this->getJson('/api/system/groups')->assertOk();
+        $this->getJson('/api/system/users')->assertOk()
+            ->assertJsonPath('meta.fields.phone.read', true);
+        $this->getJson('/api/customers')->assertOk()
+            ->assertJsonPath('meta.fields.phone.read', true);
+    }
+
+    public function test_disabled_group_permissions_do_not_authorize_api_requests(): void
+    {
+        $user = User::factory()->create();
+        $group = Role::create([
+            'name' => 'disabled_group_admin',
+            'guard_name' => 'web',
+            'status' => 'disabled',
+        ]);
+        $group->givePermissionTo(Permission::findOrCreate('system.groups.read', 'web'));
+        $user->assignRole($group);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/system/groups')->assertForbidden();
+    }
+
+    public function test_direct_permissions_still_authorize_api_requests(): void
+    {
+        $user = User::factory()->create();
+        $user->givePermissionTo(Permission::findOrCreate('system.groups.read', 'web'));
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/system/groups')->assertOk();
+    }
+
     private function userWithPermissions(array $permissions): User
     {
         $role = Role::create(['name' => 'test_group_admin_'.str()->random(8), 'guard_name' => 'web']);

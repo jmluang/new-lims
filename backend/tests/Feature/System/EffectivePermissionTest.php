@@ -94,7 +94,27 @@ class EffectivePermissionTest extends TestCase
     public function test_super_admin_receives_every_catalog_permission(): void
     {
         $user = User::factory()->create(['email' => 'super_admin@example.test']);
-        $role = Role::create(['name' => 'super_admin', 'guard_name' => 'web']);
+        $role = Role::create(['name' => 'super_admin', 'guard_name' => 'web', 'system_key' => 'super_admin']);
+
+        $user->assignRole($role);
+
+        $permissions = app(EffectivePermissionService::class)->forUser($user);
+
+        $this->assertTrue($permissions->allows('customers', null, 'delete'));
+        $this->assertTrue($permissions->allows('equipment', 'serial_no', 'export'));
+        $this->assertTrue($permissions->allows('system.users', 'email', 'update'));
+    }
+
+    public function test_super_admin_system_key_not_display_name_grants_every_catalog_permission(): void
+    {
+        $user = User::factory()->create(['email' => 'super_admin@example.test']);
+        $role = Role::create([
+            'name' => 'localized_super_admin',
+            'guard_name' => 'web',
+            'display_name' => '超级管理员',
+            'system_key' => 'super_admin',
+            'status' => 'active',
+        ]);
 
         $user->assignRole($role);
 

@@ -20,6 +20,7 @@ import { type PermissionCatalog, PermissionMatrix } from './PermissionMatrix'
 
 type Group = {
   id: number
+  key: string
   name: string
   description?: string | null
   is_system: boolean

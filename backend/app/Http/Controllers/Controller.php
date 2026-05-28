@@ -3,13 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Services\Audit\AuditLogger;
+use App\Services\Authorization\PermissionAccess;
 use Illuminate\Http\Request;
 
 abstract class Controller
 {
     protected function authorizePermission(Request $request, string $permission, ?string $module = null, mixed $subject = null): void
     {
-        if ($request->user()?->hasRole('super_admin') || $request->user()?->can($permission)) {
+        if (app(PermissionAccess::class)->userCan($request->user(), $permission)) {
             return;
         }
 

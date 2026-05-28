@@ -10,6 +10,7 @@ import { canUpdateUserPhone } from './userPermissions'
 
 export type UserGroupOption = {
   id: number
+  key?: string
   name: string
   status?: string
 }

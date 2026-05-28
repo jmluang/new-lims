@@ -131,7 +131,7 @@ class AdminWorkflowTest extends TestCase
 
     private function superAdmin(): User
     {
-        $role = Role::create(['name' => 'super_admin', 'guard_name' => 'web']);
+        $role = Role::create(['name' => 'super_admin', 'guard_name' => 'web', 'system_key' => 'super_admin', 'status' => 'active']);
         $user = User::factory()->create();
         $user->assignRole($role);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
