@@ -7,6 +7,8 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EquipmentController;
 use App\Http\Controllers\EquipmentLabelController;
 use App\Http\Controllers\EquipmentLocationController;
+use App\Http\Controllers\SampleController;
+use App\Http\Controllers\SampleFlowController;
 use App\Http\Controllers\StandardCatalogController;
 use App\Http\Controllers\StandardController;
 use App\Http\Controllers\StandardItemController;
@@ -92,6 +94,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/test-orders/export', [TestOrderController::class, 'export']);
         Route::get('/test-orders/{testOrder}/sample-options', [TestOrderController::class, 'sampleOptions']);
         Route::apiResource('/test-orders', TestOrderController::class);
+
+        Route::get('/samples', [SampleController::class, 'index']);
+        Route::post('/samples/receive', [SampleController::class, 'receive']);
+        Route::get('/samples/{sample}', [SampleController::class, 'show']);
+        Route::get('/samples/{sample}/flows', [SampleFlowController::class, 'index']);
+        Route::post('/samples/{sample}/flows', [SampleFlowController::class, 'store']);
 
         Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
