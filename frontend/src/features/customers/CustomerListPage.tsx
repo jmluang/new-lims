@@ -178,86 +178,82 @@ export function CustomerListPage() {
       {customersQuery.isError ? <ErrorNotice error={customersQuery.error} fallback="Unable to load customers" /> : null}
       {deleteCustomer.error ? <ErrorNotice error={deleteCustomer.error} fallback="Unable to delete customer" /> : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <section>
-          {customersQuery.isPending ? <LoadingState label="Loading customers" /> : null}
-          {!customersQuery.isPending && customers.length === 0 ? (
-            <EmptyState title="No customers found" description="Adjust filters or create a new customer." />
-          ) : null}
-          {customers.length > 0 ? (
-            <>
-              <DataTable>
-                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                  <tr>
-                    {columns.map((column) => (
-                      <th className="px-3 py-2 font-medium" key={column.key}>
-                        {column.label}
-                      </th>
-                    ))}
-                    <th className="px-3 py-2 font-medium">Default contact</th>
-                    <th className="px-3 py-2 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {customers.map((customer) => (
-                    <tr className="align-top" key={customer.id}>
-                      {columns.map((column) => (
-                        <td className="px-3 py-3 text-sm text-slate-700" key={column.key}>
-                          {column.key === 'status' ? <StatusBadge status={customer.status} /> : String(customer[column.key] ?? '-')}
-                        </td>
-                      ))}
-                      <td className="px-3 py-3 text-sm text-slate-700">
-                        <div className="font-medium text-slate-900">{customer.default_contact?.name ?? '-'}</div>
-                        <div className="text-xs text-slate-500">{customer.default_contact?.phone ?? ''}</div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <CustomerActions customer={customer} onEdit={startEdit} onSelect={setSelectedCustomer} onDelete={(target) => deleteCustomer.mutate(target)} />
-                      </td>
-                    </tr>
+      <section>
+        {customersQuery.isPending ? <LoadingState label="Loading customers" /> : null}
+        {!customersQuery.isPending && customers.length === 0 ? (
+          <EmptyState title="No customers found" description="Adjust filters or create a new customer." />
+        ) : null}
+        {customers.length > 0 ? (
+          <>
+            <DataTable>
+              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                <tr>
+                  {columns.map((column) => (
+                    <th className="px-3 py-2 font-medium" key={column.key}>
+                      {zhText(column.label)}
+                    </th>
                   ))}
-                </tbody>
-              </DataTable>
-
-              <div className="space-y-3 md:hidden">
+                  <th className="px-3 py-2 font-medium">{zhText('Default contact')}</th>
+                  <th className="px-3 py-2 font-medium">{zhText('Actions')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
                 {customers.map((customer) => (
-                  <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" key={customer.id}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h2 className="truncate text-sm font-semibold text-slate-950">{customer.name}</h2>
-                        <p className="truncate text-xs text-slate-500">
-                          {[customer.level, customer.type, customer.industry].filter(Boolean).join(' · ') || 'Unclassified'}
-                        </p>
-                      </div>
-                      <StatusBadge status={customer.status} />
-                    </div>
-                    <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <dt className="text-slate-500">Default contact</dt>
-                        <dd className="font-medium text-slate-800">{customer.default_contact?.name ?? '-'}</dd>
-                      </div>
-                      {mobileFields.phone ? (
-                        <div>
-                          <dt className="text-slate-500">Phone</dt>
-                          <dd className="font-medium text-slate-800">{customer.phone ?? '-'}</dd>
-                        </div>
-                      ) : null}
-                    </dl>
-                    <div className="mt-3">
+                  <tr className="align-top" key={customer.id}>
+                    {columns.map((column) => (
+                      <td className="px-3 py-3 text-sm text-slate-700" key={column.key}>
+                        {column.key === 'status' ? <StatusBadge status={customer.status} /> : String(customer[column.key] ?? '-')}
+                      </td>
+                    ))}
+                    <td className="px-3 py-3 text-sm text-slate-700">
+                      <div className="font-medium text-slate-900">{customer.default_contact?.name ?? '-'}</div>
+                      <div className="text-xs text-slate-500">{customer.default_contact?.phone ?? ''}</div>
+                    </td>
+                    <td className="px-3 py-3">
                       <CustomerActions customer={customer} onEdit={startEdit} onSelect={setSelectedCustomer} onDelete={(target) => deleteCustomer.mutate(target)} />
-                    </div>
-                  </article>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-            </>
-          ) : null}
-        </section>
+              </tbody>
+            </DataTable>
 
-        <div className="space-y-4">
-          <Panel title="Contacts">
-            <CustomerContactList customer={selectedCustomer} />
-          </Panel>
-        </div>
-      </div>
+            <div className="space-y-3 md:hidden">
+              {customers.map((customer) => (
+                <article className="rounded-lg border border-emerald-900/10 bg-white p-4 shadow-sm" key={customer.id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-semibold text-slate-950">{customer.name}</h2>
+                      <p className="truncate text-xs text-slate-500">
+                        {[customer.level, customer.type, customer.industry].filter(Boolean).join(' · ') || zhText('Unclassified')}
+                      </p>
+                    </div>
+                    <StatusBadge status={customer.status} />
+                  </div>
+                  <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <dt className="text-slate-500">{zhText('Default contact')}</dt>
+                      <dd className="font-medium text-slate-800">{customer.default_contact?.name ?? '-'}</dd>
+                    </div>
+                    {mobileFields.phone ? (
+                      <div>
+                        <dt className="text-slate-500">{zhText('Phone')}</dt>
+                        <dd className="font-medium text-slate-800">{customer.phone ?? '-'}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                  <div className="mt-3">
+                    <CustomerActions customer={customer} onEdit={startEdit} onSelect={setSelectedCustomer} onDelete={(target) => deleteCustomer.mutate(target)} />
+                  </div>
+                </article>
+              ))}
+            </div>
+          </>
+        ) : null}
+      </section>
+
+      <Panel title="Contacts" description={selectedCustomer?.name}>
+        <CustomerContactList customer={selectedCustomer} />
+      </Panel>
     </PageShell>
   )
 }
@@ -276,18 +272,18 @@ function CustomerActions({
   return (
     <div className="flex flex-wrap gap-2">
       <Button variant="secondary" onClick={() => onSelect(customer)}>
-        Contacts
+        {zhText('Contacts')}
       </Button>
       <PermissionGate resource="customers" action="update">
         <Button variant="secondary" onClick={() => onEdit(customer)}>
           <Edit3 className="size-4" aria-hidden="true" />
-          Edit
+          {zhText('Edit')}
         </Button>
       </PermissionGate>
       <PermissionGate resource="customers" action="delete">
         <Button variant="danger" onClick={() => onDelete(customer)}>
           <Trash2 className="size-4" aria-hidden="true" />
-          Disable
+          {zhText('Disable')}
         </Button>
       </PermissionGate>
     </div>
@@ -315,10 +311,10 @@ function DictionaryFilter({
   return (
     <Field label={label}>
       <select className={inputClass} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">All</option>
+        <option value="">{zhText('All')}</option>
         {renderedOptions.map((option) => (
           <option value={option.value} key={option.value}>
-            {option.label}
+            {zhText(option.label)}
           </option>
         ))}
       </select>

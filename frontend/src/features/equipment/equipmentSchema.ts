@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 export const equipmentSchema = z.object({
-  equipment_no: z.string().min(1, 'Equipment number is required'),
-  name: z.string().min(1, 'Name is required'),
+  equipment_no: z.string().min(1, '请填写设备编号'),
+  name: z.string().min(1, '请填写名称'),
   manufacturer: z.string().optional(),
   model: z.string().optional(),
   serial_no: z.string().optional(),

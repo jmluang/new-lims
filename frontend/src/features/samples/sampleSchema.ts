@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const receiveSampleRowSchema = z.object({
   test_order_sample_id: z.number().nullable().optional(),
-  sample_name: z.string().min(1, 'Sample name is required'),
+  sample_name: z.string().min(1, '请填写样品名称'),
   specification: z.string().optional(),
   model: z.string().optional(),
   appearance_check: z.string().optional(),
@@ -10,12 +10,12 @@ export const receiveSampleRowSchema = z.object({
 })
 
 export const receiveSamplesSchema = z.object({
-  test_order_id: z.number().min(1, 'Test order is required'),
+  test_order_id: z.number().min(1, '请选择委托单'),
   received_date: z.string().optional(),
   storage_condition: z.string().optional(),
-  current_location: z.string().min(1, 'Current location is required'),
+  current_location: z.string().min(1, '请填写当前位置'),
   batch_no: z.string().optional(),
-  samples: z.array(receiveSampleRowSchema).min(1, 'At least one sample row is required'),
+  samples: z.array(receiveSampleRowSchema).min(1, '至少需要一条接收明细'),
 })
 
 export const sampleFlowSchema = z.object({

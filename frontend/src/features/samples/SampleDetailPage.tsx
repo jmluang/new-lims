@@ -81,7 +81,7 @@ export function SampleDetailPage() {
       actions={
         <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
           <ArrowLeft className="size-4" aria-hidden="true" />
-          返回列表
+          {zhText('Back to list')}
         </Link>
       }
     >
@@ -102,7 +102,7 @@ export function SampleDetailPage() {
               <Detail label="Model" value={sample.model} />
               <Detail label="Quantity" value={sample.quantity} />
               <div>
-                <div className="text-xs font-medium uppercase text-slate-500">Status</div>
+                <div className="text-xs font-medium uppercase text-slate-500">{zhText('Status')}</div>
                 <div className="mt-1">
                   <StatusBadge status={sample.status} />
                 </div>
@@ -163,7 +163,7 @@ export function SampleDetailPage() {
                 {flows.map((flow) => (
                   <tr key={flow.id}>
                     <td className="px-3 py-3 text-sm text-slate-700">{flow.action_time ?? '-'}</td>
-                    <td className="px-3 py-3 text-sm font-medium text-slate-900">{flow.action_type}</td>
+                    <td className="px-3 py-3 text-sm font-medium text-slate-900">{zhText(flow.action_type)}</td>
                     <td className="px-3 py-3 text-sm text-slate-700">
                       {flow.holder_from ?? '-'} -&gt; {flow.holder_to ?? '-'}
                     </td>
@@ -185,7 +185,7 @@ export function SampleDetailPage() {
 function Detail({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div>
-      <div className="text-xs font-medium uppercase text-slate-500">{label}</div>
+      <div className="text-xs font-medium uppercase text-slate-500">{zhText(label)}</div>
       <div className="mt-1 text-slate-900">{value || '-'}</div>
     </div>
   )

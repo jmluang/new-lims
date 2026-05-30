@@ -65,7 +65,7 @@ export function EquipmentForm({
         </SensitiveField>
         <Field label="Location">
           <select className={inputClass} {...form.register('location_id')}>
-            <option value="">No location</option>
+            <option value="">{zhText('No location')}</option>
             {flatLocations.map((location) => (
               <option value={location.id} key={location.id}>
                 {'-'.repeat(location.depth)} {location.name}
@@ -75,10 +75,11 @@ export function EquipmentForm({
         </Field>
         <Field label="Status">
           <select className={inputClass} {...form.register('status')}>
-            <option value="active">active</option>
-            <option value="maintenance">maintenance</option>
-            <option value="retired">retired</option>
-            <option value="disabled">disabled</option>
+            {['active', 'maintenance', 'retired', 'disabled'].map((status) => (
+              <option value={status} key={status}>
+                {zhText(status)}
+              </option>
+            ))}
           </select>
         </Field>
         <Field label="Purchase date">
@@ -196,7 +197,7 @@ function SensitiveField({
   return (
     <Field label={label}>
       {children}
-      {!canUpdate(permissions, field) ? <span className="mt-1 block text-xs text-slate-500">No update permission</span> : null}
+      {!canUpdate(permissions, field) ? <span className="mt-1 block text-xs text-slate-500">{zhText('No update permission')}</span> : null}
     </Field>
   )
 }

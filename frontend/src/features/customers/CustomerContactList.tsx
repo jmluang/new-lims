@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
 import { type Customer, type FieldPermissionMeta } from './CustomerListPage'
@@ -79,7 +80,7 @@ export function CustomerContactList({ customer }: { customer: Customer | null })
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-medium text-slate-900">Contacts for {customer.name}</div>
+        <div className="text-sm font-medium text-slate-900">{zhText('Contacts for')} {customer.name}</div>
         <PermissionGate resource="customer_contacts" action="create">
           <Button
             variant="secondary"
@@ -90,7 +91,7 @@ export function CustomerContactList({ customer }: { customer: Customer | null })
             }}
           >
             <Plus className="size-4" aria-hidden="true" />
-            Add contact
+            {zhText('Add contact')}
           </Button>
         </PermissionGate>
       </div>
@@ -128,11 +129,11 @@ export function CustomerContactList({ customer }: { customer: Customer | null })
           <DataTable>
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Phone</th>
-                <th className="px-3 py-2 font-medium">Email</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Actions</th>
+                <th className="px-3 py-2 font-medium">{zhText('Name')}</th>
+                <th className="px-3 py-2 font-medium">{zhText('Phone')}</th>
+                <th className="px-3 py-2 font-medium">{zhText('Email')}</th>
+                <th className="px-3 py-2 font-medium">{zhText('Status')}</th>
+                <th className="px-3 py-2 font-medium">{zhText('Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -140,7 +141,7 @@ export function CustomerContactList({ customer }: { customer: Customer | null })
                 <tr key={contact.id}>
                   <td className="px-3 py-2">
                     <div className="font-medium text-slate-900">{contact.name}</div>
-                    {contact.is_default ? <div className="text-xs text-emerald-700">default</div> : null}
+                    {contact.is_default ? <div className="text-xs text-emerald-700">{zhText('default')}</div> : null}
                   </td>
                   <td className="px-3 py-2 text-slate-600">{contact.phone ?? '-'}</td>
                   <td className="px-3 py-2 text-slate-600">{contact.email ?? '-'}</td>
@@ -168,8 +169,8 @@ export function CustomerContactList({ customer }: { customer: Customer | null })
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="text-sm font-semibold text-slate-900">{contact.name}</div>
-                    <div className="text-xs text-slate-500">{contact.phone ?? 'phone hidden'}</div>
-                    <div className="text-xs text-slate-500">{contact.email ?? 'email hidden'}</div>
+                    <div className="text-xs text-slate-500">{contact.phone ?? zhText('phone hidden')}</div>
+                    <div className="text-xs text-slate-500">{contact.email ?? zhText('email hidden')}</div>
                   </div>
                   <StatusBadge status={contact.is_default ? 'active' : contact.status} />
                 </div>
@@ -232,21 +233,21 @@ function ContactForm({
         ) : null}
         <Field label="Status">
           <select className={inputClass} {...form.register('status')}>
-            <option value="active">active</option>
-            <option value="disabled">disabled</option>
+            <option value="active">{zhText('active')}</option>
+            <option value="disabled">{zhText('disabled')}</option>
           </select>
         </Field>
         <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">
           <input className="size-4 rounded border-slate-300 text-emerald-600" type="checkbox" {...form.register('is_default')} />
-          Default contact
+          {zhText('Default contact')}
         </label>
       </div>
       <div className="mt-3 flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onCancel}>
-          Cancel
+          {zhText('Cancel')}
         </Button>
         <Button type="submit" variant="primary" disabled={submitting}>
-          Save contact
+          {zhText('Save contact')}
         </Button>
       </div>
     </form>
@@ -259,13 +260,13 @@ function ContactActions({ contact, onEdit, onDelete }: { contact: CustomerContac
       <PermissionGate resource="customer_contacts" action="update">
         <Button variant="secondary" onClick={onEdit}>
           <Edit3 className="size-4" aria-hidden="true" />
-          Edit
+          {zhText('Edit')}
         </Button>
       </PermissionGate>
       <PermissionGate resource="customer_contacts" action="delete">
         <Button variant="danger" disabled={contact.is_default} onClick={onDelete}>
           <Trash2 className="size-4" aria-hidden="true" />
-          Delete
+          {zhText('Delete')}
         </Button>
       </PermissionGate>
     </div>

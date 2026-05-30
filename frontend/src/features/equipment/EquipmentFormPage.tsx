@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import { ErrorNotice, LoadingState, PageShell, Panel } from '../system/shared'
 import type { ApiCollection, ApiResource } from '../system/utils'
 import { EquipmentForm } from './EquipmentForm'
@@ -69,7 +70,7 @@ export function EquipmentFormPage() {
       actions={
         <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/equipment">
           <ArrowLeft className="size-4" aria-hidden="true" />
-          返回列表
+          {zhText('Back to list')}
         </Link>
       }
     >

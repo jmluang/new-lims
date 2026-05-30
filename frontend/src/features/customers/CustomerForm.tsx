@@ -3,6 +3,7 @@ import { Save, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import { type UseFormRegisterReturn, useForm } from 'react-hook-form'
+import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field } from '../system/shared'
 import { inputClass, textareaClass } from '../system/utils'
 import { type Customer, type DictionarySet, type FieldPermissionMeta } from './CustomerListPage'
@@ -113,10 +114,10 @@ function SelectField({
   return (
     <Field label={label}>
       <select className={inputClass} {...valueProps}>
-        <option value="">Unset</option>
+        <option value="">{zhText('Unset')}</option>
         {renderedOptions.map((option) => (
           <option value={option.value} disabled={option.status === 'disabled'} key={option.value}>
-            {option.label}
+            {zhText(option.label)}
           </option>
         ))}
       </select>
@@ -142,7 +143,7 @@ function SensitiveField({
   return (
     <Field label={label}>
       {children}
-      {!canUpdate(permissions, field) ? <span className="mt-1 block text-xs text-slate-500">No update permission</span> : null}
+      {!canUpdate(permissions, field) ? <span className="mt-1 block text-xs text-slate-500">{zhText('No update permission')}</span> : null}
     </Field>
   )
 }

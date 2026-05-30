@@ -127,7 +127,7 @@ export function SampleReceivePage() {
       actions={
         <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
           <ArrowLeft className="size-4" aria-hidden="true" />
-          返回列表
+          {zhText('Back to list')}
         </Link>
       }
     >
@@ -182,7 +182,7 @@ export function SampleReceivePage() {
                 <span className="text-sm font-medium text-slate-900">#{index + 1}</span>
                 <Button variant="ghost" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))} disabled={rows.length === 1}>
                   <Trash2 className="size-4" aria-hidden="true" />
-                  Remove
+                  {zhText('Remove')}
                 </Button>
               </div>
               <div className="grid gap-3 md:grid-cols-4">
