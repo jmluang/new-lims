@@ -28,6 +28,9 @@ class PermissionCatalogTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.resources.customers.actions', ['read', 'create', 'update', 'delete', 'export'])
             ->assertJsonPath('data.resources.customers.fields.phone', ['read', 'update', 'export'])
+            ->assertJsonPath('data.resources.standards.actions', ['read', 'create', 'update', 'delete', 'export'])
+            ->assertJsonPath('data.resources.standard_catalogs.actions', ['read', 'create', 'update', 'delete'])
+            ->assertJsonPath('data.resources.standard_items.actions', ['read', 'create', 'update', 'delete'])
             ->assertJsonPath('data.resources.equipment.fields.serial_no', ['read', 'update', 'export']);
     }
 
@@ -88,6 +91,19 @@ class PermissionCatalogTest extends TestCase
             'customer_contacts.field.email.read',
             'customer_contacts.field.email.update',
             'customer_contacts.field.email.export',
+            'standards.read',
+            'standards.create',
+            'standards.update',
+            'standards.delete',
+            'standards.export',
+            'standard_catalogs.read',
+            'standard_catalogs.create',
+            'standard_catalogs.update',
+            'standard_catalogs.delete',
+            'standard_items.read',
+            'standard_items.create',
+            'standard_items.update',
+            'standard_items.delete',
             'equipment.read',
             'equipment.create',
             'equipment.update',
