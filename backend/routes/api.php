@@ -18,6 +18,7 @@ use App\Http\Controllers\System\GroupController;
 use App\Http\Controllers\System\PdfServiceHealthController;
 use App\Http\Controllers\System\PermissionCatalogController;
 use App\Http\Controllers\System\UserController;
+use App\Http\Controllers\TestOrderController;
 use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -87,6 +88,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::put('/standards/{standard}/items/{standardItem}', [StandardItemController::class, 'update']);
             Route::delete('/standards/{standard}/items/{standardItem}', [StandardItemController::class, 'destroy']);
         });
+
+        Route::get('/test-orders/export', [TestOrderController::class, 'export']);
+        Route::get('/test-orders/{testOrder}/sample-options', [TestOrderController::class, 'sampleOptions']);
+        Route::apiResource('/test-orders', TestOrderController::class);
 
         Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
