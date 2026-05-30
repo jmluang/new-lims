@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Save, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
+import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field } from '../system/shared'
 import { inputClass } from '../system/utils'
 import { filterForbiddenStandardFields } from './standardPermissions'
@@ -59,7 +60,7 @@ export function StandardForm({
           <select className={inputClass} {...form.register('status')}>
             {['active', 'pending', 'abolished', 'replaced', 'disabled'].map((status) => (
               <option value={status} key={status}>
-                {status}
+                {zhText(status)}
               </option>
             ))}
           </select>

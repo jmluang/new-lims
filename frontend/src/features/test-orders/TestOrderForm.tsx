@@ -6,6 +6,7 @@ import { Button, ErrorNotice, Field, Panel } from '../system/shared'
 import { inputClass, textareaClass } from '../system/utils'
 import type { Customer } from '../customers/CustomerListPage'
 import type { Standard } from '../standards/StandardListPage'
+import { zhText } from '../../lib/zh'
 import { normalizeTestOrderPayload, testOrderSchema, type TestOrderFormValues } from './testOrderSchema'
 import type { TestOrder } from './TestOrderListPage'
 
@@ -89,18 +90,20 @@ export function TestOrderForm({
           </Field>
           <Field label="Urgency">
             <select className={inputClass} {...form.register('urgency')}>
-              <option value="normal">normal</option>
-              <option value="urgent">urgent</option>
-              <option value="critical">critical</option>
+              {['normal', 'urgent', 'critical'].map((value) => (
+                <option value={value} key={value}>
+                  {zhText(value)}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Sample status">
             <select className={inputClass} {...form.register('sample_status')}>
-              <option value="not_received">not_received</option>
-              <option value="partially_received">partially_received</option>
-              <option value="received">received</option>
-              <option value="testing">testing</option>
-              <option value="completed">completed</option>
+              {['not_received', 'partially_received', 'received', 'testing', 'completed'].map((value) => (
+                <option value={value} key={value}>
+                  {zhText(value)}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Delivery method">
@@ -108,9 +111,9 @@ export function TestOrderForm({
           </Field>
           <Field label="Outsourcing option">
             <select className={inputClass} {...form.register('outsourcing_option')}>
-              <option value="">Unset</option>
-              <option value="allowed">allowed</option>
-              <option value="not_allowed">not_allowed</option>
+              <option value="">{zhText('Unset')}</option>
+              <option value="allowed">{zhText('allowed')}</option>
+              <option value="not_allowed">{zhText('not_allowed')}</option>
             </select>
           </Field>
           <Field label="Report forms">
@@ -118,7 +121,7 @@ export function TestOrderForm({
               {['electronic', 'paper'].map((item) => (
                 <label className="flex items-center gap-2" key={item}>
                   <input className="size-4" type="checkbox" value={item} {...form.register('report_forms')} />
-                  {item}
+                  {zhText(item)}
                 </label>
               ))}
             </div>
@@ -137,7 +140,7 @@ export function TestOrderForm({
       <Panel title="Execution standards">
         <div className="space-y-3">
           {standardRows.fields.map((row, index) => (
-            <div className="rounded-md border border-slate-200 p-3" key={row.id}>
+            <div className="rounded-md border border-emerald-900/10 bg-slate-50/60 p-3" key={row.id}>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-slate-900">#{index + 1}</span>
                 <Button variant="ghost" onClick={() => standardRows.remove(index)} disabled={standardRows.fields.length === 1}>
@@ -148,7 +151,7 @@ export function TestOrderForm({
               <div className="grid gap-3 md:grid-cols-4">
                 <Field label="Standard library">
                   <select className={inputClass} value={watchedStandards?.[index]?.standard_id ?? ''} onChange={(event) => applyStandard(index, event.target.value)}>
-                    <option value="">Manual</option>
+                    <option value="">{zhText('Manual')}</option>
                     {standards.map((standard) => (
                       <option value={standard.id} key={standard.id}>
                         {standard.std_no}
@@ -164,7 +167,7 @@ export function TestOrderForm({
                 </Field>
                 <Field label="Report language">
                   <select className={inputClass} {...form.register(`standards.${index}.report_language`)}>
-                    <option value="">Unset</option>
+                    <option value="">{zhText('Unset')}</option>
                     <option value="zh">zh</option>
                     <option value="en">en</option>
                   </select>
@@ -188,7 +191,7 @@ export function TestOrderForm({
       <Panel title="Sample rows">
         <div className="space-y-3">
           {sampleRows.fields.map((row, index) => (
-            <div className="rounded-md border border-slate-200 p-3" key={row.id}>
+            <div className="rounded-md border border-emerald-900/10 bg-slate-50/60 p-3" key={row.id}>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-slate-900">#{index + 1}</span>
                 <Button variant="ghost" onClick={() => sampleRows.remove(index)} disabled={sampleRows.fields.length === 1}>
@@ -211,11 +214,11 @@ export function TestOrderForm({
                 </Field>
                 <Field label="Status">
                   <select className={inputClass} {...form.register(`samples.${index}.status`)}>
-                    <option value="pending">pending</option>
-                    <option value="partially_received">partially_received</option>
-                    <option value="received">received</option>
-                    <option value="rejected">rejected</option>
-                    <option value="cancelled">cancelled</option>
+                    {['pending', 'partially_received', 'received', 'rejected', 'cancelled'].map((value) => (
+                      <option value={value} key={value}>
+                        {zhText(value)}
+                      </option>
+                    ))}
                   </select>
                 </Field>
                 <Field label="Detail content" className="md:col-span-2">
@@ -304,11 +307,11 @@ function PartyFields({
   const selectedCustomerId = useWatch({ control: form.control, name: `${prefix}_customer_id` })
 
   return (
-    <div className="space-y-3 rounded-md border border-slate-200 p-3">
-      <h3 className="text-sm font-medium text-slate-900">{title}</h3>
+    <div className="space-y-3 rounded-md border border-emerald-900/10 bg-slate-50/60 p-3">
+      <h3 className="text-sm font-medium text-slate-900">{zhText(title)}</h3>
       <Field label={`${title} master`}>
         <select className={inputClass} value={selectedCustomerId ?? ''} onChange={(event) => onPick(prefix, event.target.value)}>
-          <option value="">Manual</option>
+          <option value="">{zhText('Manual')}</option>
           {customers.map((customer) => (
             <option value={customer.id} key={customer.id}>
               {customer.name}

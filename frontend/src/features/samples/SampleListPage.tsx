@@ -84,7 +84,7 @@ export function SampleListPage() {
           </Field>
           <Field label="Status">
             <select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
-              <option value="">All</option>
+              <option value="">{zhText('All')}</option>
               {['pending', 'testing', 'completed', 'retained', 'returned', 'scrapped', 'outsourced', 'outsource_returned', 'abnormal'].map((status) => (
                 <option value={status} key={status}>
                   {zhText(status)}

@@ -158,7 +158,7 @@ export function TestOrderListPage() {
           </Field>
           <Field label="Sample status">
             <select className={inputClass} value={filters.sample_status} onChange={(event) => setFilters({ ...filters, sample_status: event.target.value })}>
-              <option value="">All</option>
+              <option value="">{zhText('All')}</option>
               {['not_received', 'partially_received', 'received', 'testing', 'completed'].map((status) => (
                 <option value={status} key={status}>
                   {zhText(status)}

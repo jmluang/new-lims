@@ -133,10 +133,10 @@ export function StandardListPage() {
           </Field>
           <Field label="Status">
             <select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
-              <option value="">All</option>
+              <option value="">{zhText('All')}</option>
               {['active', 'pending', 'abolished', 'replaced', 'disabled'].map((status) => (
                 <option value={status} key={status}>
-                  {status}
+                  {zhText(status)}
                 </option>
               ))}
             </select>

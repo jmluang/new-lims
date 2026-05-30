@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { type ApiCollection, inputClass, textareaClass } from '../system/utils'
 import type { TestOrder } from '../test-orders/TestOrderListPage'
@@ -140,7 +141,7 @@ export function SampleReceivePage() {
         <div className="grid gap-3 md:grid-cols-5">
           <Field label="Test order">
             <select className={inputClass} value={testOrderId || ''} onChange={(event) => selectOrder(event.target.value)}>
-              <option value="">Select order</option>
+              <option value="">{zhText('Select order')}</option>
               {(ordersQuery.data ?? []).map((order) => (
                 <option value={order.id} key={order.id}>
                   {order.order_no} - {order.client_company}
@@ -173,10 +174,10 @@ export function SampleReceivePage() {
         ) : null}
       </Panel>
 
-      <Panel title="Received rows" description={`Accepted rows: ${acceptedCount}. Rejected rows are audited and do not consume sample numbers.`}>
+      <Panel title="Received rows" description={`本次接收 ${acceptedCount} 个样品；填写拒收原因的行只进入审计，不占用样品编号。`}>
         <div className="space-y-3">
           {rows.map((row, index) => (
-            <div className="rounded-md border border-slate-200 p-3" key={index}>
+            <div className="rounded-md border border-emerald-900/10 bg-slate-50/60 p-3" key={index}>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-slate-900">#{index + 1}</span>
                 <Button variant="ghost" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))} disabled={rows.length === 1}>
@@ -199,7 +200,7 @@ export function SampleReceivePage() {
                       })
                     }}
                   >
-                    <option value="">Manual</option>
+                    <option value="">{zhText('Manual')}</option>
                     {(optionsQuery.data?.samples ?? []).map((sample) => (
                       <option value={sample.id} key={sample.id}>
                         {sample.sample_name}

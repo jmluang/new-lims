@@ -16,13 +16,13 @@ export function PageShell({
   children: ReactNode
 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-normal text-slate-950">{zhText(title)}</h1>
-          <p className="mt-1 text-sm text-slate-500">{zhText(description)}</p>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 border-b border-emerald-900/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-3xl">
+          <h1 className="text-2xl font-semibold tracking-normal text-slate-950">{zhText(title)}</h1>
+          <p className="mt-1.5 text-sm leading-6 text-slate-600">{zhText(description)}</p>
         </div>
-        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
       </div>
       {children}
     </div>
@@ -31,10 +31,10 @@ export function PageShell({
 
 export function Panel({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-900">{zhText(title)}</h2>
-        {description ? <p className="mt-1 text-xs text-slate-500">{zhText(description)}</p> : null}
+    <section className="rounded-lg border border-emerald-900/10 bg-white shadow-[0_1px_2px_rgb(15_23_42/0.05)]">
+      <div className="border-b border-emerald-900/10 px-4 py-3">
+        <h2 className="text-sm font-semibold text-slate-950">{zhText(title)}</h2>
+        {description ? <p className="mt-1 text-xs leading-5 text-slate-500">{zhText(description)}</p> : null}
       </div>
       <div className="p-4">{children}</div>
     </section>
@@ -84,7 +84,7 @@ export function Modal({
 export function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
   return (
     <label className={cn('block min-w-0', className)}>
-      <span className="text-xs font-medium uppercase tracking-normal text-slate-500">{zhText(label)}</span>
+      <span className="text-xs font-medium tracking-normal text-slate-600">{zhText(label)}</span>
       <div className="mt-1">{children}</div>
     </label>
   )
@@ -103,11 +103,11 @@ export function Button({
     <button
       type={type}
       className={cn(
-        'inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60',
-        variant === 'primary' && 'bg-emerald-600 text-white hover:bg-emerald-700',
-        variant === 'secondary' && 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
+        'inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+        variant === 'primary' && 'bg-emerald-700 text-white shadow-sm hover:bg-emerald-800',
+        variant === 'secondary' && 'border border-emerald-900/15 bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-800',
         variant === 'danger' && 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100',
-        variant === 'ghost' && 'text-slate-600 hover:bg-slate-100',
+        variant === 'ghost' && 'text-slate-600 hover:bg-emerald-50 hover:text-emerald-800',
         className,
       )}
       {...props}
@@ -124,10 +124,12 @@ export function StatusBadge({ status }: { status?: string | null }) {
     <span
       className={cn(
         'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
-        ['active', 'success', 'completed'].includes(normalized) && 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        ['active', 'success', 'completed', 'received'].includes(normalized) && 'border-emerald-200 bg-emerald-50 text-emerald-700',
         ['locked', 'failed', 'error'].includes(normalized) && 'border-red-200 bg-red-50 text-red-700',
-        ['disabled', 'pending', 'running'].includes(normalized) && 'border-amber-200 bg-amber-50 text-amber-700',
-        !['active', 'success', 'completed', 'locked', 'failed', 'error', 'disabled', 'pending', 'running'].includes(
+        ['disabled', 'pending', 'running', 'not_received', 'partially_received'].includes(normalized) && 'border-amber-200 bg-amber-50 text-amber-700',
+        ['testing', 'outsourced', 'outsource_returned'].includes(normalized) && 'border-sky-200 bg-sky-50 text-sky-700',
+        ['returned', 'retained', 'scrapped', 'rejected', 'cancelled', 'abnormal'].includes(normalized) && 'border-slate-200 bg-slate-100 text-slate-700',
+        !['active', 'success', 'completed', 'received', 'locked', 'failed', 'error', 'disabled', 'pending', 'running', 'not_received', 'partially_received', 'testing', 'outsourced', 'outsource_returned', 'returned', 'retained', 'scrapped', 'rejected', 'cancelled', 'abnormal'].includes(
           normalized,
         ) && 'border-slate-200 bg-slate-50 text-slate-600',
       )}
@@ -181,7 +183,7 @@ export function ErrorNotice({ error, fallback }: { error: unknown; fallback?: st
 
 export function DataTable({ children }: { children: ReactNode }) {
   return (
-    <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm md:block">
+    <div className="hidden overflow-x-auto rounded-lg border border-emerald-900/10 bg-white shadow-[0_1px_2px_rgb(15_23_42/0.05)] md:block">
       <table className="min-w-full divide-y divide-slate-200 text-sm">{children}</table>
     </div>
   )

@@ -9,25 +9,25 @@ export function AppLayout({ children }: PropsWithChildren) {
   const logout = useLogout()
 
   return (
-    <div className="min-h-svh bg-slate-50 text-slate-950">
+    <div className="min-h-svh text-slate-950">
       <Sidebar />
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+        <header className="sticky top-0 z-10 border-b border-emerald-900/10 bg-white/95 backdrop-blur">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6">
             <div className="flex items-center gap-3">
               <MobileNav />
               <div>
-                <div className="text-base font-semibold">New LIMS 管理后台</div>
+                <div className="text-base font-semibold tracking-normal">New LIMS 管理后台</div>
                 <div className="text-xs text-slate-500">实验室信息管理系统</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="hidden rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-600 sm:block">
+              <div className="hidden rounded-md border border-emerald-900/10 bg-emerald-50/60 px-3 py-1.5 text-sm text-emerald-900 sm:block">
                 {currentUser.data?.name ?? '未登录'}
               </div>
               <button
-                className="inline-flex size-9 items-center justify-center rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100"
+                className="inline-flex size-9 items-center justify-center rounded-md border border-emerald-900/10 bg-white text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
                 type="button"
                 aria-label="退出登录"
                 onClick={() => logout.mutate()}

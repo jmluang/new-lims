@@ -4,6 +4,7 @@ import { ArrowLeft, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import { Button, DataTable, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, type ApiResource, inputClass, textareaClass } from '../system/utils'
 import { sampleFlowSchema, type SampleFlowValues } from './sampleSchema'
@@ -122,7 +123,7 @@ export function SampleDetailPage() {
                   <select className={inputClass} value={flowForm.action_type} onChange={(event) => setFlowForm({ ...flowForm, action_type: event.target.value as SampleFlowValues['action_type'] })}>
                     {['lend', 'transfer', 'return_room', 'send_out', 'receive_back', 'return_client', 'scrap', 'position_change'].map((action) => (
                       <option value={action} key={action}>
-                        {action}
+                        {zhText(action)}
                       </option>
                     ))}
                   </select>
