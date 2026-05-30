@@ -7,7 +7,14 @@ import { inputClass, textareaClass } from '../system/utils'
 import type { Customer } from '../customers/CustomerListPage'
 import type { Standard } from '../standards/StandardListPage'
 import { zhText } from '../../lib/zh'
-import { normalizeTestOrderPayload, testOrderSchema, type TestOrderFormValues } from './testOrderSchema'
+import {
+  normalizeTestOrderPayload,
+  outsourcingOptions,
+  reportFormOptions,
+  reportSubmissionOptions,
+  testOrderSchema,
+  type TestOrderFormValues,
+} from './testOrderSchema'
 import type { TestOrder } from './TestOrderListPage'
 
 export function TestOrderForm({
@@ -105,26 +112,6 @@ export function TestOrderForm({
                 </option>
               ))}
             </select>
-          </Field>
-          <Field label="Delivery method">
-            <input className={inputClass} {...form.register('delivery_method')} />
-          </Field>
-          <Field label="Outsourcing option">
-            <select className={inputClass} {...form.register('outsourcing_option')}>
-              <option value="">{zhText('Unset')}</option>
-              <option value="allowed">{zhText('allowed')}</option>
-              <option value="not_allowed">{zhText('not_allowed')}</option>
-            </select>
-          </Field>
-          <Field label="Report forms">
-            <div className="flex h-9 items-center gap-3 rounded-md border border-slate-300 px-3 text-sm">
-              {['electronic', 'paper'].map((item) => (
-                <label className="flex items-center gap-2" key={item}>
-                  <input className="size-4" type="checkbox" value={item} {...form.register('report_forms')} />
-                  {zhText(item)}
-                </label>
-              ))}
-            </div>
           </Field>
         </div>
       </Panel>
@@ -237,6 +224,44 @@ export function TestOrderForm({
         </div>
       </Panel>
 
+      <Panel title="Report requirements">
+        <div className="grid gap-3 md:grid-cols-4">
+          <Field label="Report forms" className="md:col-span-2">
+            <div className="grid min-h-20 gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm sm:grid-cols-2">
+              {reportFormOptions.map((item) => (
+                <label className="flex items-center gap-2" key={item}>
+                  <input className="size-4" type="checkbox" value={item} {...form.register('report_forms')} />
+                  {zhText(item)}
+                </label>
+              ))}
+            </div>
+          </Field>
+          <Field label="Report submission">
+            <select className={inputClass} {...form.register('delivery_method')}>
+              <option value="">{zhText('Unset')}</option>
+              {reportSubmissionOptions.map((item) => (
+                <option value={item} key={item}>
+                  {zhText(item)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Outsourcing option">
+            <select className={inputClass} {...form.register('outsourcing_option')}>
+              <option value="">{zhText('Unset')}</option>
+              {outsourcingOptions.map((item) => (
+                <option value={item} key={item}>
+                  {zhText(item)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Remark" className="md:col-span-4">
+            <textarea className={textareaClass} {...form.register('remark')} />
+          </Field>
+        </div>
+      </Panel>
+
       <Panel title="Delivery address and confirmations">
         <div className="grid gap-3 md:grid-cols-4">
           <Field label="Lab name">
@@ -268,9 +293,6 @@ export function TestOrderForm({
           </Field>
           <Field label="Lab confirm date">
             <input className={inputClass} type="date" {...form.register('lab_confirm_date')} />
-          </Field>
-          <Field label="Remark" className="md:col-span-2">
-            <textarea className={textareaClass} {...form.register('remark')} />
           </Field>
         </div>
       </Panel>
@@ -357,8 +379,8 @@ function defaultValues(order?: TestOrder | null): TestOrderFormValues {
     maker_address: order?.maker_address ?? '',
     maker_contact: order?.maker_contact ?? '',
     maker_phone: order?.maker_phone ?? '',
-    report_forms: order?.report_forms ?? ['electronic'],
-    delivery_method: order?.delivery_method ?? '',
+    report_forms: order?.report_forms ?? ['formal_report', 'electronic_report'],
+    delivery_method: order?.delivery_method ?? 'self_pick',
     outsourcing_option: order?.outsourcing_option ?? 'allowed',
     remark: order?.remark ?? '',
     sample_status: order?.sample_status ?? 'not_received',

@@ -1,5 +1,9 @@
 import { z } from 'zod'
 
+export const reportFormOptions = ['formal_report', 'simple_report', 'electronic_report', 'english_report'] as const
+export const reportSubmissionOptions = ['self_pick', 'mail'] as const
+export const outsourcingOptions = ['allowed', 'not_allowed'] as const
+
 export const testOrderStandardSchema = z.object({
   id: z.number().optional(),
   standard_id: z.number().nullable().optional(),

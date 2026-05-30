@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeTestOrderPayload, testOrderSchema, type TestOrderFormValues } from '../testOrderSchema'
+import {
+  normalizeTestOrderPayload,
+  reportFormOptions,
+  reportSubmissionOptions,
+  testOrderSchema,
+  type TestOrderFormValues,
+} from '../testOrderSchema'
 
 describe('test order form', () => {
   it('requires the order date, client company, standards and samples', () => {
@@ -69,6 +75,24 @@ describe('test order form', () => {
       { sample_name: '电源', quantity: 2, sort_order: 1 },
     ])
   })
+
+  it('aligns report requirement defaults and options with the commission form', () => {
+    expect(reportFormOptions).toEqual(['formal_report', 'simple_report', 'electronic_report', 'english_report'])
+    expect(reportSubmissionOptions).toEqual(['self_pick', 'mail'])
+
+    const payload = normalizeTestOrderPayload({
+      ...baseValues(),
+      report_forms: ['formal_report', 'electronic_report'],
+      delivery_method: 'self_pick',
+      outsourcing_option: 'allowed',
+    })
+
+    expect(payload).toMatchObject({
+      report_forms: ['formal_report', 'electronic_report'],
+      delivery_method: 'self_pick',
+      outsourcing_option: 'allowed',
+    })
+  })
 })
 
 function baseValues(): TestOrderFormValues {
@@ -92,8 +116,8 @@ function baseValues(): TestOrderFormValues {
     maker_address: '',
     maker_contact: '',
     maker_phone: '',
-    report_forms: ['electronic'],
-    delivery_method: '',
+    report_forms: ['formal_report', 'electronic_report'],
+    delivery_method: 'self_pick',
     outsourcing_option: 'allowed',
     remark: '',
     sample_status: 'not_received',

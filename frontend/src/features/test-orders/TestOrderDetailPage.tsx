@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import { DataTable, ErrorNotice, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import type { ApiResource } from '../system/utils'
 import type { TestOrder } from './TestOrderListPage'
@@ -41,17 +42,24 @@ export function TestOrderDetailPage() {
               <Detail label="Order date" value={order.order_date} />
               <Detail label="Planned end date" value={order.planned_end_date} />
               <Detail label="Client company" value={order.client_company} />
-              <Detail label="Urgency" value={order.urgency} />
+              <Detail label="Urgency" value={zhText(order.urgency)} />
               <div>
-                <div className="text-xs font-medium uppercase text-slate-500">Sample status</div>
+                <div className="text-xs font-medium uppercase text-slate-500">{zhText('Sample status')}</div>
                 <div className="mt-1">
                   <StatusBadge status={order.sample_status} />
                 </div>
               </div>
-              <Detail label="Outsourcing option" value={order.outsourcing_option} />
               <Detail label="Manufacturer" value={order.manufacturer_company} />
               <Detail label="Maker" value={order.maker_company} />
               <Detail label="Delivery address" value={order.address_detail} />
+            </div>
+          </Panel>
+
+          <Panel title="Report requirements">
+            <div className="grid gap-3 text-sm md:grid-cols-4">
+              <Detail label="Report forms" value={order.report_forms?.map((item) => zhText(item)).join('、')} />
+              <Detail label="Report submission" value={zhText(order.delivery_method)} />
+              <Detail label="Outsourcing option" value={zhText(order.outsourcing_option)} />
               <Detail label="Remark" value={order.remark} />
             </div>
           </Panel>
@@ -118,7 +126,7 @@ export function TestOrderDetailPage() {
 function Detail({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div>
-      <div className="text-xs font-medium uppercase text-slate-500">{label}</div>
+      <div className="text-xs font-medium uppercase text-slate-500">{zhText(label)}</div>
       <div className="mt-1 text-slate-900">{value || '-'}</div>
     </div>
   )
