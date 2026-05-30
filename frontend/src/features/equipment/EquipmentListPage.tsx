@@ -132,7 +132,7 @@ export function EquipmentListPage() {
           <PermissionGate resource="equipment_labels" action="print">
             <Button variant="secondary" disabled={selectedIds.length === 0} onClick={openLabels}>
               <Printer className="size-4" aria-hidden="true" />
-              Labels ({selectedIds.length})
+              {zhText('Labels')} ({selectedIds.length})
             </Button>
           </PermissionGate>
           <PermissionGate resource="equipment" action="create">
@@ -159,16 +159,17 @@ export function EquipmentListPage() {
           </Field>
           <Field label="Status">
             <select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
-              <option value="">All</option>
-              <option value="active">active</option>
-              <option value="maintenance">maintenance</option>
-              <option value="retired">retired</option>
-              <option value="disabled">disabled</option>
+              <option value="">{zhText('All')}</option>
+              {['active', 'maintenance', 'retired', 'disabled'].map((status) => (
+                <option value={status} key={status}>
+                  {zhText(status)}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Location">
             <select className={inputClass} value={filters.location_id} onChange={(event) => setFilters({ ...filters, location_id: event.target.value })}>
-              <option value="">All</option>
+              <option value="">{zhText('All')}</option>
               {flatLocations.map((location) => (
                 <option value={location.id} key={location.id}>
                   {'-'.repeat(location.depth)} {location.name}

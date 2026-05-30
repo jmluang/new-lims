@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
 import { AlertCircle, Loader2, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { zhText } from '../../lib/zh'
@@ -166,7 +166,7 @@ function translateChildren(children: ReactNode): ReactNode {
   }
 
   if (Array.isArray(children)) {
-    return children.map((child) => translateChildren(child))
+    return Children.map(children, (child) => translateChildren(child))
   }
 
   return children
@@ -184,7 +184,32 @@ export function ErrorNotice({ error, fallback }: { error: unknown; fallback?: st
 export function DataTable({ children }: { children: ReactNode }) {
   return (
     <div className="hidden overflow-x-auto rounded-lg border border-emerald-900/10 bg-white shadow-[0_1px_2px_rgb(15_23_42/0.05)] md:block">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">{children}</table>
+      <table className="min-w-full divide-y divide-slate-200 text-sm">{translateTableHead(children)}</table>
     </div>
   )
+}
+
+function translateTableHead(children: ReactNode, insideHead = false): ReactNode {
+  if (typeof children === 'string') {
+    return insideHead ? (zhText(children.trim()) ?? children) : children
+  }
+
+  if (Array.isArray(children)) {
+    return Children.map(children, (child) => translateTableHead(child, insideHead))
+  }
+
+  if (!isValidElement(children)) {
+    return children
+  }
+
+  const element = children as ReactElement<{ children?: ReactNode }>
+  const nextInsideHead = insideHead || element.type === 'thead'
+
+  if (!element.props.children) {
+    return element
+  }
+
+  return cloneElement(element, {
+    children: translateTableHead(element.props.children, nextInsideHead),
+  })
 }

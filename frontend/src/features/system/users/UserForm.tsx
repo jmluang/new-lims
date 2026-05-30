@@ -35,8 +35,8 @@ export type SystemUser = {
 }
 
 const baseSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.email('Valid email is required'),
+  name: z.string().min(1, '请填写名称'),
+  email: z.email('请输入有效邮箱'),
   phone: z.string().optional(),
   department_id: z.string().optional(),
   status: z.enum(['active', 'disabled', 'locked']),
@@ -74,7 +74,7 @@ export function UserForm({
           context.addIssue({
             code: 'custom',
             path: ['password'],
-            message: 'Password must be at least 8 characters',
+            message: '密码至少 8 位',
           })
         }
       }),

@@ -3,8 +3,8 @@ import { z } from 'zod'
 export const testOrderStandardSchema = z.object({
   id: z.number().optional(),
   standard_id: z.number().nullable().optional(),
-  standard_code: z.string().min(1, 'Standard code is required'),
-  standard_name: z.string().min(1, 'Standard name is required'),
+  standard_code: z.string().min(1, '请填写标准编号'),
+  standard_name: z.string().min(1, '请填写标准名称'),
   report_language: z.string().optional(),
   qualifications_text: z.string().optional(),
   requirement: z.string().optional(),
@@ -12,22 +12,22 @@ export const testOrderStandardSchema = z.object({
 
 export const testOrderSampleSchema = z.object({
   id: z.number().optional(),
-  sample_name: z.string().min(1, 'Sample name is required'),
+  sample_name: z.string().min(1, '请填写样品名称'),
   specification: z.string().optional(),
   model: z.string().optional(),
   status: z.enum(['pending', 'partially_received', 'received', 'rejected', 'cancelled']),
-  quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+  quantity: z.number().int().min(1, '数量至少为 1'),
   detail_content: z.string().optional(),
   remark: z.string().optional(),
 })
 
 export const testOrderSchema = z.object({
   contract_no: z.string().optional(),
-  order_date: z.string().min(1, 'Order date is required'),
+  order_date: z.string().min(1, '请选择委托日期'),
   planned_end_date: z.string().optional(),
   urgency: z.enum(['normal', 'urgent', 'critical']),
   client_customer_id: z.number().nullable().optional(),
-  client_company: z.string().min(1, 'Client company is required'),
+  client_company: z.string().min(1, '请填写委托单位'),
   client_address: z.string().optional(),
   client_contact: z.string().optional(),
   client_phone: z.string().optional(),
@@ -56,8 +56,8 @@ export const testOrderSchema = z.object({
   dept_confirm_date: z.string().optional(),
   lab_confirm: z.string().optional(),
   lab_confirm_date: z.string().optional(),
-  standards: z.array(testOrderStandardSchema).min(1, 'At least one standard is required'),
-  samples: z.array(testOrderSampleSchema).min(1, 'At least one sample is required'),
+  standards: z.array(testOrderStandardSchema).min(1, '至少需要一条执行标准'),
+  samples: z.array(testOrderSampleSchema).min(1, '至少需要一条样品信息'),
 })
 
 export type TestOrderFormValues = z.infer<typeof testOrderSchema>

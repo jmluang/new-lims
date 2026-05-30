@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 export const standardSchema = z.object({
-  std_no: z.string().min(1, 'Standard number is required'),
-  chinese_name: z.string().min(1, 'Chinese name is required'),
+  std_no: z.string().min(1, '请填写标准编号'),
+  chinese_name: z.string().min(1, '请填写中文名称'),
   publish_date: z.string().optional(),
   implement_date: z.string().optional(),
   status: z.enum(['active', 'pending', 'abolished', 'replaced', 'disabled']),
@@ -17,8 +17,8 @@ export type StandardFormValues = z.infer<typeof standardSchema>
 
 export const standardCatalogSchema = z.object({
   parent_id: z.number().nullable().optional(),
-  code: z.string().min(1, 'Catalog code is required'),
-  name: z.string().min(1, 'Catalog name is required'),
+  code: z.string().min(1, '请填写目录编码'),
+  name: z.string().min(1, '请填写目录名称'),
   content: z.string().optional(),
   sort_order: z.coerce.number().int().min(0).optional(),
 })
@@ -26,8 +26,8 @@ export const standardCatalogSchema = z.object({
 export type StandardCatalogFormValues = z.infer<typeof standardCatalogSchema>
 
 export const standardItemSchema = z.object({
-  item_no: z.string().min(1, 'Item number is required'),
-  item_name: z.string().min(1, 'Item name is required'),
+  item_no: z.string().min(1, '请填写项目编号'),
+  item_name: z.string().min(1, '请填写项目名称'),
   requirement: z.string().optional(),
   unit: z.string().optional(),
   method: z.string().optional(),

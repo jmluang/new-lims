@@ -114,16 +114,16 @@ export function UserListPage() {
             {users.map((user) => (
               <tr className="align-top" key={user.id}>
                 <td className="px-3 py-3">
-                  <div className="font-medium text-slate-900">{user.name}</div>
+                  <div className="font-medium text-slate-900">{zhText(user.name)}</div>
                   <div className="text-xs text-slate-500">{user.email}</div>
-                  <div className="text-xs text-slate-500">{user.phone ?? 'phone hidden'}</div>
+                  <div className="text-xs text-slate-500">{user.phone ?? zhText('phone hidden')}</div>
                 </td>
                 <td className="px-3 py-3 text-slate-700">{user.department?.name ?? '-'}</td>
                 <td className="px-3 py-3">
                   <div className="flex flex-wrap gap-1">
                     {user.groups.map((group) => (
                       <span className="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600" key={group.id}>
-                        {group.name}
+                        {zhText(group.name)}
                       </span>
                     ))}
                   </div>
@@ -131,7 +131,7 @@ export function UserListPage() {
                 <td className="px-3 py-3">
                   <StatusBadge status={user.status} />
                   <div className="mt-1 text-xs text-slate-500">
-                    {user.must_change_password ? 'first login password change' : 'password ready'}
+                    {zhText(user.must_change_password ? 'first login password change' : 'password ready')}
                   </div>
                   <div className="text-xs text-slate-500">{formatDateTime(user.locked_at)}</div>
                 </td>
@@ -154,25 +154,25 @@ export function UserListPage() {
             <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" key={user.id}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold text-slate-950">{user.name}</h2>
+                  <h2 className="truncate text-sm font-semibold text-slate-950">{zhText(user.name)}</h2>
                   <p className="truncate text-xs text-slate-500">{user.email}</p>
                 </div>
                 <StatusBadge status={user.status} />
               </div>
               <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <dt className="text-slate-500">Department</dt>
+                  <dt className="text-slate-500">{zhText('Department')}</dt>
                   <dd className="font-medium text-slate-800">{user.department?.name ?? '-'}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Phone</dt>
-                  <dd className="font-medium text-slate-800">{user.phone ?? 'hidden'}</dd>
+                  <dt className="text-slate-500">{zhText('Phone')}</dt>
+                  <dd className="font-medium text-slate-800">{user.phone ?? zhText('hidden')}</dd>
                 </div>
               </dl>
               <div className="mt-3 flex flex-wrap gap-1">
                 {user.groups.map((group) => (
                   <span className="rounded border border-slate-200 px-2 py-0.5 text-xs text-slate-600" key={group.id}>
-                    {group.name}
+                    {zhText(group.name)}
                   </span>
                 ))}
               </div>
@@ -220,10 +220,12 @@ export function UserListPage() {
           </Field>
           <Field label="Status">
             <select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
-              <option value="">All</option>
-              <option value="active">active</option>
-              <option value="disabled">disabled</option>
-              <option value="locked">locked</option>
+              <option value="">{zhText('All')}</option>
+              {['active', 'disabled', 'locked'].map((status) => (
+                <option value={status} key={status}>
+                  {zhText(status)}
+                </option>
+              ))}
             </select>
           </Field>
           <Field label="Department">
@@ -232,7 +234,7 @@ export function UserListPage() {
               value={filters.department_id}
               onChange={(event) => setFilters({ ...filters, department_id: event.target.value })}
             >
-              <option value="">All</option>
+              <option value="">{zhText('All')}</option>
               {departmentsQuery.data?.map((department) => (
                 <option value={department.id} key={department.id}>
                   {department.name}
@@ -242,10 +244,10 @@ export function UserListPage() {
           </Field>
           <Field label="Group">
             <select className={inputClass} value={filters.group_id} onChange={(event) => setFilters({ ...filters, group_id: event.target.value })}>
-              <option value="">All</option>
+              <option value="">{zhText('All')}</option>
               {groupsQuery.data?.map((group) => (
                 <option value={group.id} key={group.id}>
-                  {group.name}
+                  {zhText(group.name)}
                 </option>
               ))}
             </select>
