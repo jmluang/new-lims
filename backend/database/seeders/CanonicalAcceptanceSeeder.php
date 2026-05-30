@@ -18,6 +18,7 @@ class CanonicalAcceptanceSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         $this->seedPermissions();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $catalogPermissions = app(PermissionCatalog::class)->permissionNames();
         $superAdmin = $this->group(
@@ -85,6 +86,31 @@ class CanonicalAcceptanceSeeder extends Seeder
             'equipment_labels.read',
             'equipment_labels.print',
         ]);
+        $testOrderManager = $this->group('test_order_manager', [
+            'standards.read',
+            'test_orders.read',
+            'test_orders.create',
+            'test_orders.update',
+            'test_orders.delete',
+            'test_orders.export',
+            'test_order_standards.read',
+            'test_order_standards.create',
+            'test_order_standards.update',
+            'test_order_standards.delete',
+            'test_order_samples.read',
+            'test_order_samples.create',
+            'test_order_samples.update',
+            'test_order_samples.delete',
+            'samples.receive',
+        ]);
+        $sampleManager = $this->group('sample_manager', [
+            'samples.read',
+            'samples.receive',
+            'samples.update',
+            'samples.export',
+            'sample_flows.read',
+            'sample_flows.create',
+        ]);
         $auditor = $this->group('auditor', [
             'system.audit_logs.read',
             'system.audit_logs.export',
@@ -95,6 +121,8 @@ class CanonicalAcceptanceSeeder extends Seeder
         $this->user('customer_viewer@example.test', 'Customer Viewer', 'active', $customerViewer);
         $this->user('customer_editor@example.test', 'Customer Editor', 'active', $customerEditor);
         $this->user('equipment_manager@example.test', 'Equipment Manager', 'active', $equipmentManager);
+        $this->user('test_order_manager@example.test', 'Test Order Manager', 'active', $testOrderManager);
+        $this->user('sample_manager@example.test', 'Sample Manager', 'active', $sampleManager);
         $this->user('auditor@example.test', 'Auditor', 'active', $auditor);
         $this->user('locked_user@example.test', 'Locked User', 'locked', $customerViewer, locked: true);
 
