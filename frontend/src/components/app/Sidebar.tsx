@@ -43,7 +43,10 @@ const navGroups: NavGroup[] = [
   },
   {
     label: '业务管理',
-    items: [{ label: '客户管理', to: '/customers', icon: Users }],
+    items: [
+      { label: '客户管理', to: '/customers', icon: Users },
+      { label: '检测标准库', to: '/standards', icon: BookOpen },
+    ],
   },
   {
     label: '设备管理',

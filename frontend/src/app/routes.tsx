@@ -8,6 +8,9 @@ import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
 import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
 import { getAuthToken } from '../lib/api'
 import { LoginPage } from '../features/auth/LoginPage'
+import { StandardDetailPage } from '../features/standards/StandardDetailPage'
+import { StandardFormPage } from '../features/standards/StandardFormPage'
+import { StandardListPage } from '../features/standards/StandardListPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
 import { BackupListPage } from '../features/system/backups/BackupListPage'
 import { DictionaryListPage } from '../features/system/dictionaries/DictionaryListPage'
@@ -86,6 +89,34 @@ const customersRoute = createRoute({
   component: CustomerListPage,
 })
 
+const standardsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/standards',
+  beforeLoad: () => requireRoutePermission('standards'),
+  component: StandardListPage,
+})
+
+const standardCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/standards/new',
+  beforeLoad: () => requireRoutePermission('standards', 'create'),
+  component: StandardFormPage,
+})
+
+const standardEditRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/standards/$standardId/edit',
+  beforeLoad: () => requireRoutePermission('standards', 'update'),
+  component: StandardFormPage,
+})
+
+const standardDetailRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/standards/$standardId',
+  beforeLoad: () => requireRoutePermission('standards'),
+  component: StandardDetailPage,
+})
+
 const customerCreateRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/customers/new',
@@ -159,6 +190,10 @@ export const routeTree = rootRoute.addChildren([
     systemGroupsRoute,
     systemDictionariesRoute,
     customersRoute,
+    standardsRoute,
+    standardCreateRoute,
+    standardEditRoute,
+    standardDetailRoute,
     customerCreateRoute,
     customerEditRoute,
     equipmentRoute,
