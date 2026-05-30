@@ -7,6 +7,11 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EquipmentController;
 use App\Http\Controllers\EquipmentLabelController;
 use App\Http\Controllers\EquipmentLocationController;
+use App\Http\Controllers\SampleController;
+use App\Http\Controllers\SampleFlowController;
+use App\Http\Controllers\StandardCatalogController;
+use App\Http\Controllers\StandardController;
+use App\Http\Controllers\StandardItemController;
 use App\Http\Controllers\System\BackupController;
 use App\Http\Controllers\System\DepartmentController;
 use App\Http\Controllers\System\DictionaryController;
@@ -15,6 +20,7 @@ use App\Http\Controllers\System\GroupController;
 use App\Http\Controllers\System\PdfServiceHealthController;
 use App\Http\Controllers\System\PermissionCatalogController;
 use App\Http\Controllers\System\UserController;
+use App\Http\Controllers\TestOrderController;
 use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -71,6 +77,29 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/customers/{customer}/contacts', [CustomerContactController::class, 'store']);
         Route::put('/customers/{customer}/contacts/{customerContact}', [CustomerContactController::class, 'update']);
         Route::delete('/customers/{customer}/contacts/{customerContact}', [CustomerContactController::class, 'destroy']);
+
+        Route::get('/standards/export', [StandardController::class, 'export']);
+        Route::apiResource('/standards', StandardController::class);
+        Route::scopeBindings()->group(function (): void {
+            Route::get('/standards/{standard}/catalogs', [StandardCatalogController::class, 'index']);
+            Route::post('/standards/{standard}/catalogs', [StandardCatalogController::class, 'store']);
+            Route::put('/standards/{standard}/catalogs/{standardCatalog}', [StandardCatalogController::class, 'update']);
+            Route::delete('/standards/{standard}/catalogs/{standardCatalog}', [StandardCatalogController::class, 'destroy']);
+            Route::get('/standards/{standard}/items', [StandardItemController::class, 'index']);
+            Route::post('/standards/{standard}/items', [StandardItemController::class, 'store']);
+            Route::put('/standards/{standard}/items/{standardItem}', [StandardItemController::class, 'update']);
+            Route::delete('/standards/{standard}/items/{standardItem}', [StandardItemController::class, 'destroy']);
+        });
+
+        Route::get('/test-orders/export', [TestOrderController::class, 'export']);
+        Route::get('/test-orders/{testOrder}/sample-options', [TestOrderController::class, 'sampleOptions']);
+        Route::apiResource('/test-orders', TestOrderController::class);
+
+        Route::get('/samples', [SampleController::class, 'index']);
+        Route::post('/samples/receive', [SampleController::class, 'receive']);
+        Route::get('/samples/{sample}', [SampleController::class, 'show']);
+        Route::get('/samples/{sample}/flows', [SampleFlowController::class, 'index']);
+        Route::post('/samples/{sample}/flows', [SampleFlowController::class, 'store']);
 
         Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);

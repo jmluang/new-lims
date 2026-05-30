@@ -7,6 +7,7 @@ import {
   FlaskConical,
   LayoutDashboard,
   MapPinned,
+  PackageCheck,
   Printer,
   ScrollText,
   Settings,
@@ -43,7 +44,12 @@ const navGroups: NavGroup[] = [
   },
   {
     label: '业务管理',
-    items: [{ label: '客户管理', to: '/customers', icon: Users }],
+    items: [
+      { label: '客户管理', to: '/customers', icon: Users },
+      { label: '检测标准库', to: '/standards', icon: BookOpen },
+      { label: '委托试验单', to: '/test-orders', icon: ClipboardList },
+      { label: '样品信息', to: '/samples', icon: PackageCheck },
+    ],
   },
   {
     label: '设备管理',
@@ -75,13 +81,13 @@ export function Sidebar() {
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>(() => defaultClosedGroups)
 
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-slate-200 bg-white lg:block">
-      <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
-        <div className="flex size-9 items-center justify-center rounded-md bg-emerald-600 text-white">
+    <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-emerald-900/10 bg-white/95 lg:block">
+      <div className="flex h-16 items-center gap-3 border-b border-emerald-900/10 px-5">
+        <div className="flex size-9 items-center justify-center rounded-md bg-emerald-700 text-white shadow-sm">
           <FlaskConical size={20} aria-hidden="true" />
         </div>
         <div>
-          <div className="text-sm font-semibold">New LIMS</div>
+          <div className="text-sm font-semibold text-slate-950">New LIMS</div>
           <div className="text-xs text-slate-500">管理后台</div>
         </div>
       </div>
@@ -95,7 +101,7 @@ export function Sidebar() {
               <button
                 className={cn(
                   'flex h-9 w-full items-center justify-between rounded-md px-3 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-700',
-                  hasActiveItem && 'text-emerald-700',
+                  hasActiveItem && 'text-emerald-800',
                 )}
                 type="button"
                 onClick={() =>
@@ -122,7 +128,7 @@ export function Sidebar() {
                       <Link
                         className={cn(
                           'flex h-10 items-center gap-3 rounded-md px-3 text-sm text-slate-700 hover:bg-slate-100',
-                          active && 'bg-emerald-50 font-medium text-emerald-700',
+                          active && 'bg-emerald-50 font-medium text-emerald-800 ring-1 ring-emerald-900/5',
                         )}
                         to={item.to}
                         key={item.to}

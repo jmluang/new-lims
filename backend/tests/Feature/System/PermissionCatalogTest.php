@@ -28,6 +28,11 @@ class PermissionCatalogTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.resources.customers.actions', ['read', 'create', 'update', 'delete', 'export'])
             ->assertJsonPath('data.resources.customers.fields.phone', ['read', 'update', 'export'])
+            ->assertJsonPath('data.resources.standards.actions', ['read', 'create', 'update', 'delete', 'export'])
+            ->assertJsonPath('data.resources.standard_catalogs.actions', ['read', 'create', 'update', 'delete'])
+            ->assertJsonPath('data.resources.standard_items.actions', ['read', 'create', 'update', 'delete'])
+            ->assertJsonPath('data.resources.test_orders.actions', ['read', 'create', 'update', 'delete', 'export'])
+            ->assertJsonPath('data.resources.samples.actions', ['read', 'receive', 'update', 'export'])
             ->assertJsonPath('data.resources.equipment.fields.serial_no', ['read', 'update', 'export']);
     }
 
@@ -88,6 +93,38 @@ class PermissionCatalogTest extends TestCase
             'customer_contacts.field.email.read',
             'customer_contacts.field.email.update',
             'customer_contacts.field.email.export',
+            'standards.read',
+            'standards.create',
+            'standards.update',
+            'standards.delete',
+            'standards.export',
+            'standard_catalogs.read',
+            'standard_catalogs.create',
+            'standard_catalogs.update',
+            'standard_catalogs.delete',
+            'standard_items.read',
+            'standard_items.create',
+            'standard_items.update',
+            'standard_items.delete',
+            'test_orders.read',
+            'test_orders.create',
+            'test_orders.update',
+            'test_orders.delete',
+            'test_orders.export',
+            'test_order_standards.read',
+            'test_order_standards.create',
+            'test_order_standards.update',
+            'test_order_standards.delete',
+            'test_order_samples.read',
+            'test_order_samples.create',
+            'test_order_samples.update',
+            'test_order_samples.delete',
+            'samples.read',
+            'samples.receive',
+            'samples.update',
+            'samples.export',
+            'sample_flows.read',
+            'sample_flows.create',
             'equipment.read',
             'equipment.create',
             'equipment.update',

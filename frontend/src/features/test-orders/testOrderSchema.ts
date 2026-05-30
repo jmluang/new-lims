@@ -1,0 +1,130 @@
+import { z } from 'zod'
+
+export const testOrderStandardSchema = z.object({
+  id: z.number().optional(),
+  standard_id: z.number().nullable().optional(),
+  standard_code: z.string().min(1, 'Standard code is required'),
+  standard_name: z.string().min(1, 'Standard name is required'),
+  report_language: z.string().optional(),
+  qualifications_text: z.string().optional(),
+  requirement: z.string().optional(),
+})
+
+export const testOrderSampleSchema = z.object({
+  id: z.number().optional(),
+  sample_name: z.string().min(1, 'Sample name is required'),
+  specification: z.string().optional(),
+  model: z.string().optional(),
+  status: z.enum(['pending', 'partially_received', 'received', 'rejected', 'cancelled']),
+  quantity: z.number().int().min(1, 'Quantity must be at least 1'),
+  detail_content: z.string().optional(),
+  remark: z.string().optional(),
+})
+
+export const testOrderSchema = z.object({
+  contract_no: z.string().optional(),
+  order_date: z.string().min(1, 'Order date is required'),
+  planned_end_date: z.string().optional(),
+  urgency: z.enum(['normal', 'urgent', 'critical']),
+  client_customer_id: z.number().nullable().optional(),
+  client_company: z.string().min(1, 'Client company is required'),
+  client_address: z.string().optional(),
+  client_contact: z.string().optional(),
+  client_phone: z.string().optional(),
+  manufacturer_customer_id: z.number().nullable().optional(),
+  manufacturer_company: z.string().optional(),
+  manufacturer_address: z.string().optional(),
+  manufacturer_contact: z.string().optional(),
+  manufacturer_phone: z.string().optional(),
+  maker_customer_id: z.number().nullable().optional(),
+  maker_company: z.string().optional(),
+  maker_address: z.string().optional(),
+  maker_contact: z.string().optional(),
+  maker_phone: z.string().optional(),
+  report_forms: z.array(z.string()).optional(),
+  delivery_method: z.string().optional(),
+  outsourcing_option: z.string().optional(),
+  remark: z.string().optional(),
+  sample_status: z.enum(['not_received', 'partially_received', 'received', 'testing', 'completed']),
+  address_lab_name: z.string().optional(),
+  address_contact: z.string().optional(),
+  address_detail: z.string().optional(),
+  address_phone: z.string().optional(),
+  client_signature: z.string().optional(),
+  client_sign_date: z.string().optional(),
+  dept_confirm: z.string().optional(),
+  dept_confirm_date: z.string().optional(),
+  lab_confirm: z.string().optional(),
+  lab_confirm_date: z.string().optional(),
+  standards: z.array(testOrderStandardSchema).min(1, 'At least one standard is required'),
+  samples: z.array(testOrderSampleSchema).min(1, 'At least one sample is required'),
+})
+
+export type TestOrderFormValues = z.infer<typeof testOrderSchema>
+
+type ApiPayload = Record<string, unknown>
+
+export function normalizeTestOrderPayload(values: TestOrderFormValues): ApiPayload {
+  return cleanEmptyValues({
+    ...values,
+    client_customer_id: numericId(values.client_customer_id),
+    manufacturer_customer_id: numericId(values.manufacturer_customer_id),
+    maker_customer_id: numericId(values.maker_customer_id),
+    standards: values.standards
+      .filter((row) => row.standard_code.trim() !== '' || row.standard_name.trim() !== '' || row.id !== undefined)
+      .map((row, index) =>
+        cleanEmptyValues({
+          id: row.id,
+          standard_id: numericId(row.standard_id),
+          standard_code: row.standard_code,
+          standard_name: row.standard_name,
+          report_language: row.report_language,
+          qualifications: splitCsv(row.qualifications_text),
+          requirement: row.requirement,
+          sort_order: index,
+        }),
+      ),
+    samples: values.samples
+      .filter((row) => row.sample_name.trim() !== '' || row.id !== undefined)
+      .map((row, index) =>
+        cleanEmptyValues({
+          id: row.id,
+          sample_name: row.sample_name,
+          specification: row.specification,
+          model: row.model,
+          status: row.status,
+          quantity: Number(row.quantity),
+          detail_content: row.detail_content,
+          remark: row.remark,
+          sort_order: index,
+        }),
+      ),
+  })
+}
+
+function numericId(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value) || value === 0) {
+    return null
+  }
+
+  return value
+}
+
+function splitCsv(value?: string) {
+  return (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function cleanEmptyValues<T extends ApiPayload>(payload: T): T {
+  return Object.fromEntries(
+    Object.entries(payload).map(([key, value]) => {
+      if (value === '') {
+        return [key, null]
+      }
+
+      return [key, value]
+    }),
+  ) as T
+}

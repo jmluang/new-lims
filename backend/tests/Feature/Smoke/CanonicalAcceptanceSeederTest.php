@@ -23,6 +23,8 @@ class CanonicalAcceptanceSeederTest extends TestCase
             'customer_viewer@example.test',
             'customer_editor@example.test',
             'equipment_manager@example.test',
+            'test_order_manager@example.test',
+            'sample_manager@example.test',
             'auditor@example.test',
             'locked_user@example.test',
         ] as $email) {
@@ -40,5 +42,17 @@ class CanonicalAcceptanceSeederTest extends TestCase
             $this->assertTrue($equipmentManager->hasPermissionTo("equipment.field.{$field}.update"));
             $this->assertFalse(Permission::query()->where('name', "equipment.field.{$field}.export")->exists());
         }
+
+        $testOrderManager = Role::query()->where('name', 'test_order_manager')->firstOrFail();
+        $this->assertTrue($testOrderManager->hasPermissionTo('test_orders.create'));
+        $this->assertTrue($testOrderManager->hasPermissionTo('test_order_standards.create'));
+        $this->assertTrue($testOrderManager->hasPermissionTo('test_order_samples.create'));
+        $this->assertTrue($testOrderManager->hasPermissionTo('samples.receive'));
+        $this->assertFalse($testOrderManager->hasPermissionTo('sample_flows.create'));
+
+        $sampleManager = Role::query()->where('name', 'sample_manager')->firstOrFail();
+        $this->assertTrue($sampleManager->hasPermissionTo('samples.receive'));
+        $this->assertTrue($sampleManager->hasPermissionTo('sample_flows.create'));
+        $this->assertFalse($sampleManager->hasPermissionTo('test_orders.create'));
     }
 }

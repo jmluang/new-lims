@@ -6,8 +6,17 @@ import { EquipmentLabelPrintPage } from '../features/equipment/EquipmentLabelPri
 import { EquipmentFormPage } from '../features/equipment/EquipmentFormPage'
 import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
 import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
+import { SampleDetailPage } from '../features/samples/SampleDetailPage'
+import { SampleListPage } from '../features/samples/SampleListPage'
+import { SampleReceivePage } from '../features/samples/SampleReceivePage'
 import { getAuthToken } from '../lib/api'
 import { LoginPage } from '../features/auth/LoginPage'
+import { StandardDetailPage } from '../features/standards/StandardDetailPage'
+import { StandardFormPage } from '../features/standards/StandardFormPage'
+import { StandardListPage } from '../features/standards/StandardListPage'
+import { TestOrderDetailPage } from '../features/test-orders/TestOrderDetailPage'
+import { TestOrderFormPage } from '../features/test-orders/TestOrderFormPage'
+import { TestOrderListPage } from '../features/test-orders/TestOrderListPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
 import { BackupListPage } from '../features/system/backups/BackupListPage'
 import { DictionaryListPage } from '../features/system/dictionaries/DictionaryListPage'
@@ -86,6 +95,34 @@ const customersRoute = createRoute({
   component: CustomerListPage,
 })
 
+const standardsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/standards',
+  beforeLoad: () => requireRoutePermission('standards'),
+  component: StandardListPage,
+})
+
+const standardCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/standards/new',
+  beforeLoad: () => requireRoutePermission('standards', 'create'),
+  component: StandardFormPage,
+})
+
+const standardEditRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/standards/$standardId/edit',
+  beforeLoad: () => requireRoutePermission('standards', 'update'),
+  component: StandardFormPage,
+})
+
+const standardDetailRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/standards/$standardId',
+  beforeLoad: () => requireRoutePermission('standards'),
+  component: StandardDetailPage,
+})
+
 const customerCreateRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/customers/new',
@@ -98,6 +135,55 @@ const customerEditRoute = createRoute({
   path: '/customers/$customerId/edit',
   beforeLoad: () => requireRoutePermission('customers', 'update'),
   component: CustomerFormPage,
+})
+
+const testOrdersRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/test-orders',
+  beforeLoad: () => requireRoutePermission('test_orders'),
+  component: TestOrderListPage,
+})
+
+const testOrderCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/test-orders/new',
+  beforeLoad: () => requireRoutePermission('test_orders', 'create'),
+  component: TestOrderFormPage,
+})
+
+const testOrderEditRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/test-orders/$testOrderId/edit',
+  beforeLoad: () => requireRoutePermission('test_orders', 'update'),
+  component: TestOrderFormPage,
+})
+
+const testOrderDetailRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/test-orders/$testOrderId',
+  beforeLoad: () => requireRoutePermission('test_orders'),
+  component: TestOrderDetailPage,
+})
+
+const samplesRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/samples',
+  beforeLoad: () => requireRoutePermission('samples'),
+  component: SampleListPage,
+})
+
+const sampleReceiveRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/samples/receive',
+  beforeLoad: () => requireRoutePermission('samples', 'receive'),
+  component: SampleReceivePage,
+})
+
+const sampleDetailRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/samples/$sampleId',
+  beforeLoad: () => requireRoutePermission('samples'),
+  component: SampleDetailPage,
 })
 
 const equipmentRoute = createRoute({
@@ -159,8 +245,19 @@ export const routeTree = rootRoute.addChildren([
     systemGroupsRoute,
     systemDictionariesRoute,
     customersRoute,
+    standardsRoute,
+    standardCreateRoute,
+    standardEditRoute,
+    standardDetailRoute,
     customerCreateRoute,
     customerEditRoute,
+    testOrdersRoute,
+    testOrderCreateRoute,
+    testOrderEditRoute,
+    testOrderDetailRoute,
+    samplesRoute,
+    sampleReceiveRoute,
+    sampleDetailRoute,
     equipmentRoute,
     equipmentCreateRoute,
     equipmentEditRoute,
