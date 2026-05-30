@@ -9,6 +9,7 @@
 /frontend/dist/
 /frontend/.env
 /frontend/.env.local
+/backend/public/app/
 
 /services/pdf-renderer-java/target/
 /services/pdf-renderer-java/keys/
