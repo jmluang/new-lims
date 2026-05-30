@@ -11,6 +11,9 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { StandardDetailPage } from '../features/standards/StandardDetailPage'
 import { StandardFormPage } from '../features/standards/StandardFormPage'
 import { StandardListPage } from '../features/standards/StandardListPage'
+import { TestOrderDetailPage } from '../features/test-orders/TestOrderDetailPage'
+import { TestOrderFormPage } from '../features/test-orders/TestOrderFormPage'
+import { TestOrderListPage } from '../features/test-orders/TestOrderListPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
 import { BackupListPage } from '../features/system/backups/BackupListPage'
 import { DictionaryListPage } from '../features/system/dictionaries/DictionaryListPage'
@@ -131,6 +134,34 @@ const customerEditRoute = createRoute({
   component: CustomerFormPage,
 })
 
+const testOrdersRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/test-orders',
+  beforeLoad: () => requireRoutePermission('test_orders'),
+  component: TestOrderListPage,
+})
+
+const testOrderCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/test-orders/new',
+  beforeLoad: () => requireRoutePermission('test_orders', 'create'),
+  component: TestOrderFormPage,
+})
+
+const testOrderEditRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/test-orders/$testOrderId/edit',
+  beforeLoad: () => requireRoutePermission('test_orders', 'update'),
+  component: TestOrderFormPage,
+})
+
+const testOrderDetailRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/test-orders/$testOrderId',
+  beforeLoad: () => requireRoutePermission('test_orders'),
+  component: TestOrderDetailPage,
+})
+
 const equipmentRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment',
@@ -196,6 +227,10 @@ export const routeTree = rootRoute.addChildren([
     standardDetailRoute,
     customerCreateRoute,
     customerEditRoute,
+    testOrdersRoute,
+    testOrderCreateRoute,
+    testOrderEditRoute,
+    testOrderDetailRoute,
     equipmentRoute,
     equipmentCreateRoute,
     equipmentEditRoute,
