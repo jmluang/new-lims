@@ -6,6 +6,9 @@ import { EquipmentLabelPrintPage } from '../features/equipment/EquipmentLabelPri
 import { EquipmentFormPage } from '../features/equipment/EquipmentFormPage'
 import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
 import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
+import { SampleDetailPage } from '../features/samples/SampleDetailPage'
+import { SampleListPage } from '../features/samples/SampleListPage'
+import { SampleReceivePage } from '../features/samples/SampleReceivePage'
 import { getAuthToken } from '../lib/api'
 import { LoginPage } from '../features/auth/LoginPage'
 import { StandardDetailPage } from '../features/standards/StandardDetailPage'
@@ -162,6 +165,27 @@ const testOrderDetailRoute = createRoute({
   component: TestOrderDetailPage,
 })
 
+const samplesRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/samples',
+  beforeLoad: () => requireRoutePermission('samples'),
+  component: SampleListPage,
+})
+
+const sampleReceiveRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/samples/receive',
+  beforeLoad: () => requireRoutePermission('samples', 'receive'),
+  component: SampleReceivePage,
+})
+
+const sampleDetailRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/samples/$sampleId',
+  beforeLoad: () => requireRoutePermission('samples'),
+  component: SampleDetailPage,
+})
+
 const equipmentRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment',
@@ -231,6 +255,9 @@ export const routeTree = rootRoute.addChildren([
     testOrderCreateRoute,
     testOrderEditRoute,
     testOrderDetailRoute,
+    samplesRoute,
+    sampleReceiveRoute,
+    sampleDetailRoute,
     equipmentRoute,
     equipmentCreateRoute,
     equipmentEditRoute,

@@ -1,0 +1,243 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { api } from '../../lib/api'
+import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
+import { type ApiCollection, inputClass, textareaClass } from '../system/utils'
+import type { TestOrder } from '../test-orders/TestOrderListPage'
+import { acceptedReceiveRowCount, normalizeReceivePayload, receiveSamplesSchema, type ReceiveSampleRowValues } from './sampleSchema'
+
+type SampleOption = {
+  id: number
+  sample_name: string
+  specification?: string | null
+  model?: string | null
+  quantity: number
+}
+
+type SampleOptionsResponse = {
+  data: {
+    order: {
+      id: number
+      order_no: string
+      client_company: string
+    }
+    samples: SampleOption[]
+  }
+}
+
+const emptyRow: ReceiveSampleRowValues = {
+  test_order_sample_id: null,
+  sample_name: '',
+  specification: '',
+  model: '',
+  appearance_check: '',
+  reject_reason: '',
+}
+
+export function SampleReceivePage() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [testOrderId, setTestOrderId] = useState(0)
+  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10))
+  const [storageCondition, setStorageCondition] = useState('常温')
+  const [currentLocation, setCurrentLocation] = useState('样品室')
+  const [batchNo, setBatchNo] = useState('')
+  const [rows, setRows] = useState<ReceiveSampleRowValues[]>([{ ...emptyRow }])
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const ordersQuery = useQuery({
+    queryKey: ['receive-test-orders'],
+    queryFn: async () => {
+      const response = await api.get<ApiCollection<TestOrder>>('/api/test-orders', { params: { per_page: 100 } })
+
+      return response.data.data
+    },
+  })
+  const optionsQuery = useQuery({
+    queryKey: ['receive-sample-options', testOrderId],
+    enabled: testOrderId > 0,
+    queryFn: async () => {
+      const response = await api.get<SampleOptionsResponse>(`/api/test-orders/${testOrderId}/sample-options`)
+
+      return response.data.data
+    },
+  })
+  const receiveSamples = useMutation({
+    mutationFn: async () => {
+      const parsed = receiveSamplesSchema.safeParse({
+        test_order_id: testOrderId,
+        received_date: receivedDate,
+        storage_condition: storageCondition,
+        current_location: currentLocation,
+        batch_no: batchNo,
+        samples: rows,
+      })
+
+      if (!parsed.success) {
+        setValidationError(parsed.error.issues[0]?.message ?? 'Invalid receive payload')
+        return
+      }
+
+      setValidationError(null)
+      await api.post('/api/samples/receive', normalizeReceivePayload(parsed.data))
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['samples'] })
+      await queryClient.invalidateQueries({ queryKey: ['test-orders'] })
+      await navigate({ to: '/samples' })
+    },
+  })
+
+  function selectOrder(value: string) {
+    const id = Number(value)
+
+    setTestOrderId(Number.isFinite(id) ? id : 0)
+    setRows([{ ...emptyRow }])
+  }
+
+  function loadExpectedRows() {
+    const optionRows = optionsQuery.data?.samples ?? []
+
+    setRows(
+      optionRows.length > 0
+        ? optionRows.map((row) => ({
+            test_order_sample_id: row.id,
+            sample_name: row.sample_name,
+            specification: row.specification ?? '',
+            model: row.model ?? '',
+            appearance_check: '外观完整',
+            reject_reason: '',
+          }))
+        : [{ ...emptyRow }],
+    )
+  }
+
+  function updateRow(index: number, patch: Partial<ReceiveSampleRowValues>) {
+    setRows((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)))
+  }
+
+  const acceptedCount = acceptedReceiveRowCount(rows)
+
+  return (
+    <PageShell
+      title="Receive samples"
+      description="Create physical sample records from one test order delivery."
+      actions={
+        <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          返回列表
+        </Link>
+      }
+    >
+      {ordersQuery.isError ? <ErrorNotice error={ordersQuery.error} fallback="Unable to load test orders" /> : null}
+      {optionsQuery.isError ? <ErrorNotice error={optionsQuery.error} fallback="Unable to load sample options" /> : null}
+      {receiveSamples.error ? <ErrorNotice error={receiveSamples.error} fallback="Unable to receive samples" /> : null}
+      {validationError ? <ErrorNotice error={validationError} fallback={validationError} /> : null}
+      {ordersQuery.isPending ? <LoadingState label="Loading test orders" /> : null}
+
+      <Panel title="Delivery">
+        <div className="grid gap-3 md:grid-cols-5">
+          <Field label="Test order">
+            <select className={inputClass} value={testOrderId || ''} onChange={(event) => selectOrder(event.target.value)}>
+              <option value="">Select order</option>
+              {(ordersQuery.data ?? []).map((order) => (
+                <option value={order.id} key={order.id}>
+                  {order.order_no} - {order.client_company}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Received date">
+            <input className={inputClass} type="date" value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} />
+          </Field>
+          <Field label="Current location">
+            <input className={inputClass} value={currentLocation} onChange={(event) => setCurrentLocation(event.target.value)} />
+          </Field>
+          <Field label="Storage condition">
+            <input className={inputClass} value={storageCondition} onChange={(event) => setStorageCondition(event.target.value)} />
+          </Field>
+          <Field label="Batch no">
+            <input className={inputClass} value={batchNo} onChange={(event) => setBatchNo(event.target.value)} />
+          </Field>
+        </div>
+        {optionsQuery.data ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <span>
+              {optionsQuery.data.order.order_no} / {optionsQuery.data.order.client_company}
+            </span>
+            <Button variant="secondary" onClick={loadExpectedRows}>
+              Load expected rows
+            </Button>
+          </div>
+        ) : null}
+      </Panel>
+
+      <Panel title="Received rows" description={`Accepted rows: ${acceptedCount}. Rejected rows are audited and do not consume sample numbers.`}>
+        <div className="space-y-3">
+          {rows.map((row, index) => (
+            <div className="rounded-md border border-slate-200 p-3" key={index}>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="text-sm font-medium text-slate-900">#{index + 1}</span>
+                <Button variant="ghost" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))} disabled={rows.length === 1}>
+                  <Trash2 className="size-4" aria-hidden="true" />
+                  Remove
+                </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-4">
+                <Field label="Expected sample">
+                  <select
+                    className={inputClass}
+                    value={row.test_order_sample_id ?? ''}
+                    onChange={(event) => {
+                      const option = optionsQuery.data?.samples.find((item) => String(item.id) === event.target.value)
+                      updateRow(index, {
+                        test_order_sample_id: option?.id ?? null,
+                        sample_name: option?.sample_name ?? row.sample_name,
+                        specification: option?.specification ?? row.specification,
+                        model: option?.model ?? row.model,
+                      })
+                    }}
+                  >
+                    <option value="">Manual</option>
+                    {(optionsQuery.data?.samples ?? []).map((sample) => (
+                      <option value={sample.id} key={sample.id}>
+                        {sample.sample_name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Sample name">
+                  <input className={inputClass} value={row.sample_name} onChange={(event) => updateRow(index, { sample_name: event.target.value })} />
+                </Field>
+                <Field label="Specification">
+                  <input className={inputClass} value={row.specification ?? ''} onChange={(event) => updateRow(index, { specification: event.target.value })} />
+                </Field>
+                <Field label="Model">
+                  <input className={inputClass} value={row.model ?? ''} onChange={(event) => updateRow(index, { model: event.target.value })} />
+                </Field>
+                <Field label="Appearance check" className="md:col-span-2">
+                  <textarea className={textareaClass} value={row.appearance_check ?? ''} onChange={(event) => updateRow(index, { appearance_check: event.target.value })} />
+                </Field>
+                <Field label="Reject reason" className="md:col-span-2">
+                  <textarea className={textareaClass} value={row.reject_reason ?? ''} onChange={(event) => updateRow(index, { reject_reason: event.target.value })} />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <Button variant="secondary" onClick={() => setRows((current) => [...current, { ...emptyRow }])}>
+            <Plus className="size-4" aria-hidden="true" />
+            Add row
+          </Button>
+        </div>
+      </Panel>
+
+      <div className="flex justify-end border-t border-slate-200 pt-4">
+        <Button variant="primary" onClick={() => receiveSamples.mutate()} disabled={receiveSamples.isPending}>
+          <Save className="size-4" aria-hidden="true" />
+          Receive
+        </Button>
+      </div>
+    </PageShell>
+  )
+}
