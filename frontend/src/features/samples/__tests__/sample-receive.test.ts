@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acceptedReceiveRowCount, normalizeReceivePayload, receiveSamplesSchema } from '../sampleSchema'
+import { buildReceiveSamplesPayload, acceptedReceiveRowCount, normalizeReceivePayload, receiveSamplesSchema } from '../sampleSchema'
 
 describe('sample receive form', () => {
   it('requires a test order, current location and at least one row', () => {
@@ -41,5 +41,23 @@ describe('sample receive form', () => {
 
     expect(acceptedReceiveRowCount(payload.samples)).toBe(1)
     expect(payload.samples).toMatchObject([{ reject_reason: null }, { reject_reason: '外观破损' }])
+  })
+
+  it('throws validation errors instead of returning a successful empty submit result', () => {
+    expect(() =>
+      buildReceiveSamplesPayload({
+        test_order_id: 0,
+        received_date: '2026-05-29',
+        current_location: '样品室 A1',
+        storage_condition: '',
+        batch_no: '',
+        samples: [
+          {
+            test_order_sample_id: null,
+            sample_name: '控制器',
+          },
+        ],
+      }),
+    ).toThrow('请选择委托单')
   })
 })

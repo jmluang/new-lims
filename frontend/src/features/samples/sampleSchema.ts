@@ -29,6 +29,23 @@ export type ReceiveSamplesValues = z.infer<typeof receiveSamplesSchema>
 export type ReceiveSampleRowValues = z.infer<typeof receiveSampleRowSchema>
 export type SampleFlowValues = z.infer<typeof sampleFlowSchema>
 
+export class ReceiveSamplesValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ReceiveSamplesValidationError'
+  }
+}
+
+export function buildReceiveSamplesPayload(values: unknown) {
+  const parsed = receiveSamplesSchema.safeParse(values)
+
+  if (!parsed.success) {
+    throw new ReceiveSamplesValidationError(parsed.error.issues[0]?.message ?? 'Invalid receive payload')
+  }
+
+  return normalizeReceivePayload(parsed.data)
+}
+
 export function normalizeReceivePayload(values: ReceiveSamplesValues) {
   return cleanEmptyValues({
     ...values,

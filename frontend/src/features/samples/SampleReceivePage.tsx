@@ -7,7 +7,7 @@ import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { type ApiCollection, inputClass, textareaClass } from '../system/utils'
 import type { TestOrder } from '../test-orders/TestOrderListPage'
-import { acceptedReceiveRowCount, normalizeReceivePayload, receiveSamplesSchema, type ReceiveSampleRowValues } from './sampleSchema'
+import { acceptedReceiveRowCount, buildReceiveSamplesPayload, type ReceiveSampleRowValues } from './sampleSchema'
 
 type SampleOption = {
   id: number
@@ -46,7 +46,6 @@ export function SampleReceivePage() {
   const [currentLocation, setCurrentLocation] = useState('样品室')
   const [batchNo, setBatchNo] = useState('')
   const [rows, setRows] = useState<ReceiveSampleRowValues[]>([{ ...emptyRow }])
-  const [validationError, setValidationError] = useState<string | null>(null)
   const ordersQuery = useQuery({
     queryKey: ['receive-test-orders'],
     queryFn: async () => {
@@ -66,7 +65,7 @@ export function SampleReceivePage() {
   })
   const receiveSamples = useMutation({
     mutationFn: async () => {
-      const parsed = receiveSamplesSchema.safeParse({
+      const payload = buildReceiveSamplesPayload({
         test_order_id: testOrderId,
         received_date: receivedDate,
         storage_condition: storageCondition,
@@ -75,13 +74,7 @@ export function SampleReceivePage() {
         samples: rows,
       })
 
-      if (!parsed.success) {
-        setValidationError(parsed.error.issues[0]?.message ?? 'Invalid receive payload')
-        return
-      }
-
-      setValidationError(null)
-      await api.post('/api/samples/receive', normalizeReceivePayload(parsed.data))
+      await api.post('/api/samples/receive', payload)
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['samples'] })
@@ -134,7 +127,6 @@ export function SampleReceivePage() {
       {ordersQuery.isError ? <ErrorNotice error={ordersQuery.error} fallback="Unable to load test orders" /> : null}
       {optionsQuery.isError ? <ErrorNotice error={optionsQuery.error} fallback="Unable to load sample options" /> : null}
       {receiveSamples.error ? <ErrorNotice error={receiveSamples.error} fallback="Unable to receive samples" /> : null}
-      {validationError ? <ErrorNotice error={validationError} fallback={validationError} /> : null}
       {ordersQuery.isPending ? <LoadingState label="Loading test orders" /> : null}
 
       <Panel title="Delivery">

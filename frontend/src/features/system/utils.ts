@@ -19,6 +19,10 @@ export type ApiError = {
 }
 
 export function errorMessage(error: unknown, fallback = 'Request failed') {
+  if (error instanceof Error) {
+    return zhErrorText(error.message) ?? error.message
+  }
+
   const apiError = error as ApiError
   const validationErrors = apiError.response?.data?.errors
   const firstValidationError = validationErrors ? Object.values(validationErrors).flat()[0] : undefined
