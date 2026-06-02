@@ -12,6 +12,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  Thermometer,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -57,6 +58,7 @@ const navGroups: NavGroup[] = [
       { label: '设备台账', to: '/equipment', icon: ClipboardList },
       { label: '设备位置', to: '/equipment/locations', icon: MapPinned },
       { label: '设备标签', to: '/equipment/labels', icon: Printer },
+      { label: '温湿度记录', to: '/equipment/temp-humidity', icon: Thermometer },
     ],
   },
   {

@@ -20,12 +20,17 @@ use App\Http\Controllers\System\GroupController;
 use App\Http\Controllers\System\PdfServiceHealthController;
 use App\Http\Controllers\System\PermissionCatalogController;
 use App\Http\Controllers\System\UserController;
+use App\Http\Controllers\TempHumidityRecordController;
 use App\Http\Controllers\TestOrderController;
 use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [LoginController::class, 'login']);
+
+// Public device ingest: temperature/humidity sensors push readings here
+// (ported from the legacy example/post.php). Accepts GET or POST.
+Route::match(['get', 'post'], '/device/temp-humidity', [TempHumidityRecordController::class, 'ingest']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', function (Request $request) {
@@ -105,6 +110,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
         Route::apiResource('/equipment', EquipmentController::class);
         Route::post('/equipment-labels/preview', [EquipmentLabelController::class, 'preview']);
+
+        Route::get('/temp-humidity-records', [TempHumidityRecordController::class, 'index']);
+        Route::post('/temp-humidity-records', [TempHumidityRecordController::class, 'store']);
+        Route::put('/temp-humidity-records/{tempHumidityRecord}', [TempHumidityRecordController::class, 'update']);
+        Route::delete('/temp-humidity-records/{tempHumidityRecord}', [TempHumidityRecordController::class, 'destroy']);
     });
 });
 

@@ -29,6 +29,7 @@ class PermissionCatalog
             'equipment' => ['read', 'create', 'update', 'delete', 'export'],
             'equipment_locations' => ['read', 'create', 'update', 'delete'],
             'equipment_labels' => ['read', 'print'],
+            'temp_humidity_records' => ['read', 'create', 'update', 'delete'],
         ];
     }
 

@@ -152,6 +152,10 @@ class PermissionCatalogTest extends TestCase
             'equipment_locations.delete',
             'equipment_labels.read',
             'equipment_labels.print',
+            'temp_humidity_records.read',
+            'temp_humidity_records.create',
+            'temp_humidity_records.update',
+            'temp_humidity_records.delete',
         ];
     }
 }

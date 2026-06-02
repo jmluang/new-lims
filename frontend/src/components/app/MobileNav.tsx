@@ -26,6 +26,7 @@ const navGroups = [
       { label: '设备台账', to: '/equipment' },
       { label: '设备位置', to: '/equipment/locations' },
       { label: '设备标签', to: '/equipment/labels' },
+      { label: '温湿度记录', to: '/equipment/temp-humidity' },
     ],
   },
   {
