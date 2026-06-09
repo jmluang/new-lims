@@ -1,18 +1,11 @@
 import { useMutation } from '@tanstack/react-query'
 import { Printer } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { QRCodeSVG } from 'qrcode.react'
 import { api } from '../../lib/api'
 import { Button, EmptyState, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { inputClass } from '../system/utils'
+import { EquipmentLabelPrintArea, EquipmentLabelPrintStyles, type LabelPreview } from './EquipmentLabelPrintArea'
 import { equipmentLabelSpec } from './equipmentLabelSpec'
-
-type LabelPreview = {
-  equipment_no: string
-  name: string
-  qr_text: string
-  footer: 'XPD_LIMS'
-}
 
 export function EquipmentLabelPrintPage() {
   const [ids, setIds] = useState(() => storedLabelIds().join(','))
@@ -62,42 +55,7 @@ export function EquipmentLabelPrintPage() {
         </Button>
       }
     >
-      <style>{`
-        @page {
-          size: ${equipmentLabelSpec.widthMm}mm ${equipmentLabelSpec.heightMm}mm;
-          margin: 0;
-        }
-
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-
-          .label-print-area,
-          .label-print-area * {
-            visibility: visible;
-          }
-
-          .label-print-area {
-            position: absolute;
-            inset: 0 auto auto 0;
-          }
-
-          .equipment-label {
-            box-shadow: none !important;
-          }
-        }
-
-        .equipment-label {
-          width: ${equipmentLabelSpec.widthMm}mm;
-          height: ${equipmentLabelSpec.heightMm}mm;
-          page-break-after: always;
-        }
-
-        .equipment-label:last-child {
-          page-break-after: avoid;
-        }
-      `}</style>
+      <EquipmentLabelPrintStyles />
 
       <Panel title="Preview source">
         <div className="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -118,20 +76,7 @@ export function EquipmentLabelPrintPage() {
         <EmptyState title="No labels" description="Select equipment in the ledger or enter IDs to render labels." />
       ) : null}
 
-      {preview.data?.data.length ? (
-        <div className="label-print-area flex flex-wrap gap-4">
-          {preview.data.data.map((label) => (
-            <article className="equipment-label flex flex-col items-center justify-between border border-slate-300 bg-white p-3 text-center shadow-sm" key={label.equipment_no}>
-              <div>
-                <div className="text-[10px] font-semibold text-slate-500">{label.equipment_no}</div>
-                <div className="mt-1 max-h-10 overflow-hidden text-sm font-semibold leading-tight text-slate-950">{label.name}</div>
-              </div>
-              <QRCodeSVG value={label.qr_text} size={96} />
-              <div className="text-[10px] font-semibold text-slate-600">{label.footer}</div>
-            </article>
-          ))}
-        </div>
-      ) : null}
+      <EquipmentLabelPrintArea labels={preview.data?.data ?? []} />
     </PageShell>
   )
 }

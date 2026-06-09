@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Edit3, Plus, Printer, Search, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
@@ -17,7 +17,10 @@ import {
   StatusBadge,
 } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
+import { EquipmentLabelPrintArea, EquipmentLabelPrintStyles, type LabelPreview } from './EquipmentLabelPrintArea'
 import { visibleEquipmentColumns } from './equipmentColumns'
+import { activeLocationOptions } from './equipmentLocationOptions'
+import { equipmentLabelSpec } from './equipmentLabelSpec'
 
 export type FieldPermissionMeta = Record<string, { read?: boolean; update?: boolean; export?: boolean; hidden?: boolean }>
 
@@ -40,7 +43,6 @@ export type Equipment = {
   serial_no?: string | null
   location_id?: number | null
   location?: EquipmentLocation | null
-  legacy_placement?: string | null
   purchase_date?: string | null
   enable_date?: string | null
   calibration_date?: string | null
@@ -79,6 +81,9 @@ export function EquipmentListPage() {
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<EquipmentFilters>(emptyFilters)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [printLabels, setPrintLabels] = useState<LabelPreview[]>([])
+  const [shouldPrint, setShouldPrint] = useState(false)
+  const [printingId, setPrintingId] = useState<number | null>(null)
   const equipmentQuery = useQuery({
     queryKey: ['equipment', filters],
     queryFn: async () => {
@@ -101,10 +106,40 @@ export function EquipmentListPage() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['equipment'] }),
   })
+  const printEquipment = useMutation({
+    mutationFn: async (equipmentId: number) => {
+      const response = await api.post<{ data: LabelPreview[] }>('/api/equipment-labels/preview', {
+        equipment_ids: [equipmentId],
+        label_width_mm: equipmentLabelSpec.widthMm,
+        label_height_mm: equipmentLabelSpec.heightMm,
+      })
+
+      return response.data.data
+    },
+    onSuccess: (labels) => {
+      setPrintLabels(labels)
+      setShouldPrint(true)
+    },
+    onSettled: () => setPrintingId(null),
+  })
   const equipment = equipmentQuery.data?.data ?? []
   const fieldPermissions = equipmentQuery.data?.meta?.fields as FieldPermissionMeta | undefined
   const columns = visibleEquipmentColumns(fieldPermissions)
-  const flatLocations = flattenLocations(locationsQuery.data ?? [])
+  const locationOptions = activeLocationOptions(locationsQuery.data ?? [])
+  const locationLabels = new Map(locationOptions.map((location) => [location.id, location.label]))
+
+  useEffect(() => {
+    if (!shouldPrint || printLabels.length === 0) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      window.print()
+      setShouldPrint(false)
+    })
+
+    return () => window.clearTimeout(timeout)
+  }, [printLabels, shouldPrint])
 
   function startCreate() {
     void navigate({ to: '/equipment/new' })
@@ -121,6 +156,15 @@ export function EquipmentListPage() {
   function openLabels() {
     localStorage.setItem('new_lims_label_equipment_ids', JSON.stringify(selectedIds))
     window.location.assign('/equipment/labels')
+  }
+
+  function printSingle(target: Equipment) {
+    setPrintingId(target.id)
+    printEquipment.mutate(target.id)
+  }
+
+  function locationLabel(item: Equipment) {
+    return (item.location_id ? locationLabels.get(item.location_id) : null) ?? item.location?.name ?? '-'
   }
 
   return (
@@ -144,6 +188,7 @@ export function EquipmentListPage() {
         </>
       }
     >
+      <EquipmentLabelPrintStyles />
       <Panel title="Filters">
         <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           <Field label="Search">
@@ -170,9 +215,9 @@ export function EquipmentListPage() {
           <Field label="Location">
             <select className={inputClass} value={filters.location_id} onChange={(event) => setFilters({ ...filters, location_id: event.target.value })}>
               <option value="">{zhText('All')}</option>
-              {flatLocations.map((location) => (
+              {locationOptions.map((location) => (
                 <option value={location.id} key={location.id}>
-                  {'-'.repeat(location.depth)} {location.name}
+                  {location.label}
                 </option>
               ))}
             </select>
@@ -201,6 +246,7 @@ export function EquipmentListPage() {
 
       {equipmentQuery.isError ? <ErrorNotice error={equipmentQuery.error} fallback="Unable to load equipment" /> : null}
       {deleteEquipment.error ? <ErrorNotice error={deleteEquipment.error} fallback="Unable to disable equipment" /> : null}
+      {printEquipment.error ? <ErrorNotice error={printEquipment.error} fallback="Unable to create label preview" /> : null}
 
       {equipmentQuery.isPending ? <LoadingState label="Loading equipment" /> : null}
       {!equipmentQuery.isPending && equipment.length === 0 ? (
@@ -211,7 +257,7 @@ export function EquipmentListPage() {
           <DataTable>
                 <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 font-medium">Print</th>
+                    <th className="px-3 py-2 font-medium">选择</th>
                     {columns.map((column) => (
                       <th className="px-3 py-2 font-medium" key={column.key}>
                         {column.label}
@@ -237,9 +283,15 @@ export function EquipmentListPage() {
                           {column.key === 'status' ? <StatusBadge status={item.status} /> : String(item[column.key] ?? '-')}
                         </td>
                       ))}
-                      <td className="px-3 py-3 text-sm text-slate-700">{item.location?.name ?? '-'}</td>
+                      <td className="px-3 py-3 text-sm text-slate-700">{locationLabel(item)}</td>
                       <td className="px-3 py-3">
-                        <EquipmentActions equipment={item} onEdit={startEdit} onDelete={(target) => deleteEquipment.mutate(target)} />
+                        <EquipmentActions
+                          equipment={item}
+                          printing={printingId === item.id}
+                          onPrint={printSingle}
+                          onEdit={startEdit}
+                          onDelete={(target) => deleteEquipment.mutate(target)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -269,7 +321,7 @@ export function EquipmentListPage() {
                     <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                       <div>
                         <dt className="text-slate-500">Location</dt>
-                        <dd className="font-medium text-slate-800">{item.location?.name ?? '-'}</dd>
+                        <dd className="font-medium text-slate-800">{locationLabel(item)}</dd>
                       </div>
                       <div>
                         <dt className="text-slate-500">Next calibration</dt>
@@ -277,28 +329,45 @@ export function EquipmentListPage() {
                       </div>
                     </dl>
                     <div className="mt-3">
-                      <EquipmentActions equipment={item} onEdit={startEdit} onDelete={(target) => deleteEquipment.mutate(target)} />
+                      <EquipmentActions
+                        equipment={item}
+                        printing={printingId === item.id}
+                        onPrint={printSingle}
+                        onEdit={startEdit}
+                        onDelete={(target) => deleteEquipment.mutate(target)}
+                      />
                     </div>
                   </article>
                 ))}
           </div>
         </>
       ) : null}
+      <EquipmentLabelPrintArea labels={printLabels} screenHidden />
     </PageShell>
   )
 }
 
 function EquipmentActions({
   equipment,
+  printing,
+  onPrint,
   onEdit,
   onDelete,
 }: {
   equipment: Equipment
+  printing: boolean
+  onPrint: (equipment: Equipment) => void
   onEdit: (equipment: Equipment) => void
   onDelete: (equipment: Equipment) => void
 }) {
   return (
     <div className="flex flex-wrap gap-2">
+      <PermissionGate resource="equipment_labels" action="print">
+        <Button variant="secondary" disabled={printing} onClick={() => onPrint(equipment)}>
+          <Printer className="size-4" aria-hidden="true" />
+          Print
+        </Button>
+      </PermissionGate>
       <PermissionGate resource="equipment" action="update">
         <Button variant="secondary" onClick={() => onEdit(equipment)}>
           <Edit3 className="size-4" aria-hidden="true" />
@@ -317,9 +386,4 @@ function EquipmentActions({
 
 function cleanParams(filters: EquipmentFilters) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
-}
-
-
-function flattenLocations(locations: EquipmentLocation[], depth = 0): Array<EquipmentLocation & { depth: number }> {
-  return locations.flatMap((location) => [{ ...location, depth }, ...flattenLocations(location.children ?? [], depth + 1)])
 }

@@ -68,7 +68,7 @@ class EquipmentApiTest extends TestCase
             ->assertJsonPath('data.0.children.0.id', $childId);
     }
 
-    public function test_admin_can_create_update_and_disable_equipment_with_legacy_fields(): void
+    public function test_admin_can_create_update_and_disable_equipment(): void
     {
         $admin = $this->userWithPermissions([
             'equipment.read',
@@ -77,8 +77,6 @@ class EquipmentApiTest extends TestCase
             'equipment.delete',
             'equipment.field.serial_no.read',
             'equipment.field.serial_no.update',
-            'equipment.field.legacy_placement.read',
-            'equipment.field.legacy_placement.update',
         ]);
         $location = EquipmentLocation::query()->create(['name' => 'Main Lab', 'code' => 'MAIN', 'status' => 'active']);
 
@@ -89,7 +87,6 @@ class EquipmentApiTest extends TestCase
             'model' => 'B100',
             'serial_no' => 'SER-100',
             'location_id' => $location->id,
-            'legacy_placement' => 'Old Room',
             'purchase_date' => '2026-01-01',
             'enable_date' => '2026-01-15',
             'calibration_date' => '2026-02-01',

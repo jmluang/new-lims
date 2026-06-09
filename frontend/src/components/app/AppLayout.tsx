@@ -1,3 +1,4 @@
+import { useNavigate } from '@tanstack/react-router'
 import type { PropsWithChildren } from 'react'
 import { LogOut } from 'lucide-react'
 import { MobileNav } from './MobileNav'
@@ -5,8 +6,19 @@ import { Sidebar } from './Sidebar'
 import { useCurrentUser, useLogout } from '../../features/auth/useCurrentUser'
 
 export function AppLayout({ children }: PropsWithChildren) {
+  const navigate = useNavigate()
   const currentUser = useCurrentUser()
   const logout = useLogout()
+
+  async function handleLogout() {
+    try {
+      await logout.mutateAsync()
+    } catch {
+      // The local session is cleared in useLogout.onSettled; keep logout navigation deterministic.
+    }
+
+    await navigate({ to: '/login', replace: true })
+  }
 
   return (
     <div className="min-h-svh text-slate-950">
@@ -30,7 +42,8 @@ export function AppLayout({ children }: PropsWithChildren) {
                 className="inline-flex size-9 items-center justify-center rounded-md border border-emerald-900/10 bg-white text-slate-700 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
                 type="button"
                 aria-label="退出登录"
-                onClick={() => logout.mutate()}
+                disabled={logout.isPending}
+                onClick={() => void handleLogout()}
               >
                 <LogOut className="size-4" aria-hidden="true" />
               </button>

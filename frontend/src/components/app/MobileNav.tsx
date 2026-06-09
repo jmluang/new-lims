@@ -1,44 +1,11 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouterState } from '@tanstack/react-router'
 import { ChevronDown, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '../../lib/utils'
-
-const navGroups = [
-  {
-    label: '工作台',
-    items: [{ label: '仪表盘', to: '/' }],
-  },
-  {
-    label: '系统管理',
-    items: [
-      { label: '用户管理', to: '/system' },
-      { label: '角色组', to: '/system/groups' },
-      { label: '数据字典', to: '/system/dictionaries' },
-    ],
-  },
-  {
-    label: '业务管理',
-    items: [{ label: '客户管理', to: '/customers' }],
-  },
-  {
-    label: '设备管理',
-    items: [
-      { label: '设备台账', to: '/equipment' },
-      { label: '设备位置', to: '/equipment/locations' },
-      { label: '设备标签', to: '/equipment/labels' },
-      { label: '温湿度记录', to: '/equipment/temp-humidity' },
-    ],
-  },
-  {
-    label: '运维审计',
-    items: [
-      { label: '审计日志', to: '/audit-logs' },
-      { label: '备份管理', to: '/backups' },
-    ],
-  },
-]
+import { isActivePath, navGroups } from './navigation'
 
 export function MobileNav() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
   const [open, setOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navGroups.map((group) => [group.label, true])),
@@ -94,16 +61,23 @@ export function MobileNav() {
                     </button>
                     {expanded ? (
                       <div className="mt-1 space-y-1">
-                        {group.items.map((item) => (
-                          <Link
-                            className="block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                            to={item.to}
-                            key={item.to}
-                            onClick={() => setOpen(false)}
-                          >
-                            {item.label}
-                          </Link>
-                        ))}
+                        {group.items.map((item) => {
+                          const active = isActivePath(pathname, item.to)
+
+                          return (
+                            <Link
+                              className={cn(
+                                'block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-100',
+                                active && 'bg-emerald-50 font-medium text-emerald-800 ring-1 ring-emerald-900/5',
+                              )}
+                              to={item.to}
+                              key={item.to}
+                              onClick={() => setOpen(false)}
+                            >
+                              {item.label}
+                            </Link>
+                          )
+                        })}
                       </div>
                     ) : null}
                   </div>

@@ -3,6 +3,7 @@ import { Edit3, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../../components/app/PermissionGate'
 import { api } from '../../../lib/api'
+import { zhText } from '../../../lib/zh'
 import {
   Button,
   DataTable,
@@ -83,6 +84,7 @@ export function GroupListPage() {
   })
   const groups = groupsQuery.data ?? []
   const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? groups[0]
+  const selectedGroupName = selectedGroup ? (zhText(selectedGroup.name) ?? selectedGroup.name) : ''
 
   function editGroup(group: Group) {
     setEditingGroup(group)
@@ -134,17 +136,17 @@ export function GroupListPage() {
                   key={group.id}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-900">{group.name}</span>
+                    <span className="text-sm font-medium text-slate-900">{zhText(group.name)}</span>
                     <StatusBadge status={group.status} />
                   </div>
-                  <div className="mt-1 text-xs text-slate-500">{group.permissions.length} permissions</div>
+                  <div className="mt-1 text-xs text-slate-500">{group.permissions.length} 项权限</div>
                 </button>
               ))}
             </div>
           </Panel>
         </div>
 
-        <Panel title="Permission matrix" description={selectedGroup ? `Editing ${selectedGroup.name}` : 'Select a group'}>
+        <Panel title="Permission matrix" description={selectedGroup ? `正在编辑 ${selectedGroupName}` : 'Select a group'}>
           {catalogQuery.isPending ? <LoadingState label="Loading permissions" /> : null}
           {catalogQuery.isError ? <ErrorNotice error={catalogQuery.error} fallback="Unable to load permission catalog" /> : null}
           {savePermissions.error ? <ErrorNotice error={savePermissions.error} fallback="Unable to save permissions" /> : null}
@@ -195,8 +197,8 @@ export function GroupListPage() {
                 value={form.status}
                 onChange={(event) => setForm({ ...form, status: event.target.value as GroupForm['status'] })}
               >
-                <option value="active">active</option>
-                <option value="disabled">disabled</option>
+                <option value="active">{zhText('active')}</option>
+                <option value="disabled">{zhText('disabled')}</option>
               </select>
             </Field>
             <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">
@@ -206,7 +208,7 @@ export function GroupListPage() {
                 checked={form.is_system}
                 onChange={(event) => setForm({ ...form, is_system: event.target.checked })}
               />
-              System group
+              系统角色组
             </label>
           </div>
           <PermissionGate resource="system.groups" action={editingGroup ? 'update' : 'create'}>
@@ -229,7 +231,7 @@ export function GroupListPage() {
         <tbody className="divide-y divide-slate-200">
           {groups.map((group) => (
             <tr key={group.id}>
-              <td className="px-3 py-2 font-medium text-slate-900">{group.name}</td>
+              <td className="px-3 py-2 font-medium text-slate-900">{zhText(group.name)}</td>
               <td className="px-3 py-2 text-slate-600">{group.description ?? '-'}</td>
               <td className="px-3 py-2">
                 <StatusBadge status={group.status} />

@@ -54,7 +54,6 @@ class PermissionCatalog
             ],
             'equipment' => [
                 'serial_no' => ['read', 'update', 'export'],
-                'legacy_placement' => ['read', 'update', 'export'],
                 'device_image' => ['read', 'update'],
                 'manual_files' => ['read', 'update'],
                 'instruction_files' => ['read', 'update'],

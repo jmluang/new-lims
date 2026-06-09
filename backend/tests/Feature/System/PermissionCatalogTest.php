@@ -33,7 +33,8 @@ class PermissionCatalogTest extends TestCase
             ->assertJsonPath('data.resources.standard_items.actions', ['read', 'create', 'update', 'delete'])
             ->assertJsonPath('data.resources.test_orders.actions', ['read', 'create', 'update', 'delete', 'export'])
             ->assertJsonPath('data.resources.samples.actions', ['read', 'receive', 'update', 'export'])
-            ->assertJsonPath('data.resources.equipment.fields.serial_no', ['read', 'update', 'export']);
+            ->assertJsonPath('data.resources.equipment.fields.serial_no', ['read', 'update', 'export'])
+            ->assertJsonMissingPath('data.resources.equipment.fields.legacy_placement');
     }
 
     /**
@@ -133,9 +134,6 @@ class PermissionCatalogTest extends TestCase
             'equipment.field.serial_no.read',
             'equipment.field.serial_no.update',
             'equipment.field.serial_no.export',
-            'equipment.field.legacy_placement.read',
-            'equipment.field.legacy_placement.update',
-            'equipment.field.legacy_placement.export',
             'equipment.field.device_image.read',
             'equipment.field.device_image.update',
             'equipment.field.manual_files.read',

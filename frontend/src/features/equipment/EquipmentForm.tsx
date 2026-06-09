@@ -7,6 +7,7 @@ import { Button, ErrorNotice, Field } from '../system/shared'
 import { inputClass, textareaClass } from '../system/utils'
 import { zhText } from '../../lib/zh'
 import { type Equipment, type EquipmentLocation, type FieldPermissionMeta } from './EquipmentListPage'
+import { activeLocationOptions } from './equipmentLocationOptions'
 import { equipmentSchema, type EquipmentFormValues } from './equipmentSchema'
 
 export function EquipmentForm({
@@ -30,7 +31,7 @@ export function EquipmentForm({
     resolver: zodResolver(equipmentSchema),
     defaultValues: defaultValues(equipment),
   })
-  const flatLocations = flattenLocations(locations).filter((location) => location.status !== 'disabled')
+  const locationOptions = activeLocationOptions(locations)
 
   useEffect(() => {
     form.reset(defaultValues(equipment))
@@ -60,15 +61,12 @@ export function EquipmentForm({
         <SensitiveField label="Serial no" field="serial_no" permissions={fieldPermissions}>
           <input className={inputClass} disabled={!canUpdate(fieldPermissions, 'serial_no')} {...form.register('serial_no')} />
         </SensitiveField>
-        <SensitiveField label="Legacy placement" field="legacy_placement" permissions={fieldPermissions}>
-          <input className={inputClass} disabled={!canUpdate(fieldPermissions, 'legacy_placement')} {...form.register('legacy_placement')} />
-        </SensitiveField>
         <Field label="Location">
           <select className={inputClass} {...form.register('location_id')}>
             <option value="">{zhText('No location')}</option>
-            {flatLocations.map((location) => (
+            {locationOptions.map((location) => (
               <option value={location.id} key={location.id}>
-                {'-'.repeat(location.depth)} {location.name}
+                {location.label}
               </option>
             ))}
           </select>
@@ -145,7 +143,6 @@ function defaultValues(equipment?: Equipment | null): EquipmentFormValues {
     model: equipment?.model ?? '',
     serial_no: equipment?.serial_no ?? '',
     location_id: equipment?.location_id ? String(equipment.location_id) : '',
-    legacy_placement: equipment?.legacy_placement ?? '',
     purchase_date: equipment?.purchase_date ?? '',
     enable_date: equipment?.enable_date ?? '',
     calibration_date: equipment?.calibration_date ?? '',
@@ -164,7 +161,7 @@ function defaultValues(equipment?: Equipment | null): EquipmentFormValues {
 function filterForbidden(values: EquipmentFormValues, permissions?: FieldPermissionMeta): EquipmentFormValues {
   const next: Partial<EquipmentFormValues> = { ...values }
 
-  for (const field of ['serial_no', 'legacy_placement', 'device_image', 'manual_files', 'instruction_files', 'calibration_files', 'other_files']) {
+  for (const field of ['serial_no', 'device_image', 'manual_files', 'instruction_files', 'calibration_files', 'other_files']) {
     if (!canUpdate(permissions, field)) {
       delete next[field as keyof EquipmentFormValues]
     }
@@ -200,8 +197,4 @@ function SensitiveField({
       {!canUpdate(permissions, field) ? <span className="mt-1 block text-xs text-slate-500">{zhText('No update permission')}</span> : null}
     </Field>
   )
-}
-
-function flattenLocations(locations: EquipmentLocation[], depth = 0): Array<EquipmentLocation & { depth: number }> {
-  return locations.flatMap((location) => [{ ...location, depth }, ...flattenLocations(location.children ?? [], depth + 1)])
 }

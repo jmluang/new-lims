@@ -67,8 +67,6 @@ class CanonicalAcceptanceSeeder extends Seeder
             'equipment.export',
             'equipment.field.serial_no.read',
             'equipment.field.serial_no.update',
-            'equipment.field.legacy_placement.read',
-            'equipment.field.legacy_placement.update',
             'equipment.field.device_image.read',
             'equipment.field.device_image.update',
             'equipment.field.manual_files.read',

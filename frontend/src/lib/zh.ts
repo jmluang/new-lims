@@ -222,7 +222,6 @@ export const textMap: Record<string, string> = {
   Manufacturer: '制造商',
   Model: '型号',
   'Serial no': '序列号',
-  'Legacy placement': '原放置位置',
   Location: '位置',
   'No location': '无位置',
   'Purchase date': '购买日期',
