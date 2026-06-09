@@ -7,6 +7,7 @@ export const equipmentSchema = z.object({
   model: z.string().optional(),
   serial_no: z.string().optional(),
   location_id: z.string().optional(),
+  system_id: z.string().optional(),
   purchase_date: z.string().optional(),
   enable_date: z.string().optional(),
   calibration_date: z.string().optional(),

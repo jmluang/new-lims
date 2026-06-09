@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Equipment;
 use App\Models\EquipmentLocation;
+use App\Models\EquipmentSystem;
 use App\Services\Audit\AuditLogger;
 use App\Services\Authorization\FieldPermissionFilter;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,7 +29,7 @@ class EquipmentController extends Controller
     {
         $this->authorizePermission($request, 'equipment.read', self::RESOURCE);
 
-        $query = $this->filteredQuery($request)->with('location')->orderBy('id');
+        $query = $this->filteredQuery($request)->with(['location', 'system'])->orderBy('id');
 
         $equipment = $query->paginate((int) $request->integer('per_page', 15));
 
@@ -60,6 +61,7 @@ class EquipmentController extends Controller
         $this->authorizePermission($request, 'equipment.create', self::RESOURCE);
         $this->rejectForbiddenSensitiveFields($request, $fieldPermissionFilter);
         $this->rejectDisabledLocation($request);
+        $this->rejectDisabledSystem($request);
 
         $equipment = Equipment::query()->create($request->validate($this->rules()));
 
@@ -79,6 +81,7 @@ class EquipmentController extends Controller
         $this->authorizePermission($request, 'equipment.update', self::RESOURCE, $equipment);
         $this->rejectForbiddenSensitiveFields($request, $fieldPermissionFilter, $equipment);
         $this->rejectDisabledLocation($request);
+        $this->rejectDisabledSystem($request);
 
         $before = $this->auditValues($equipment);
         $equipment->update($request->validate($this->rules($equipment->id, requireEquipmentNo: false)));
@@ -152,6 +155,7 @@ class EquipmentController extends Controller
             })
             ->when($request->filled('status'), fn (Builder $query): Builder => $query->where('status', $request->string('status')->toString()))
             ->when($request->filled('location_id'), fn (Builder $query): Builder => $query->where('location_id', $request->integer('location_id')))
+            ->when($request->filled('system_id'), fn (Builder $query): Builder => $query->where('system_id', $request->integer('system_id')))
             ->when($request->filled('manufacturer'), fn (Builder $query): Builder => $query->where('manufacturer', 'like', '%'.$request->string('manufacturer')->toString().'%'))
             ->when($request->filled('calibration_due_from'), fn (Builder $query): Builder => $query->whereDate('next_calibration_date', '>=', $request->date('calibration_due_from')))
             ->when($request->filled('calibration_due_to'), fn (Builder $query): Builder => $query->whereDate('next_calibration_date', '<=', $request->date('calibration_due_to')));
@@ -193,6 +197,21 @@ class EquipmentController extends Controller
         }
     }
 
+    private function rejectDisabledSystem(Request $request): void
+    {
+        if (! $request->filled('system_id')) {
+            return;
+        }
+
+        $system = EquipmentSystem::query()->find($request->integer('system_id'));
+
+        if ($system?->status === 'disabled') {
+            throw ValidationException::withMessages([
+                'system_id' => ['disabled_system_forbidden'],
+            ]);
+        }
+    }
+
     private function rules(?int $equipmentId = null, bool $requireEquipmentNo = true): array
     {
         return [
@@ -202,6 +221,7 @@ class EquipmentController extends Controller
             'model' => ['nullable', 'string', 'max:255'],
             'serial_no' => ['nullable', 'string', 'max:255'],
             'location_id' => ['nullable', 'integer', 'exists:equipment_locations,id'],
+            'system_id' => ['nullable', 'integer', 'exists:equipment_systems,id'],
             'purchase_date' => ['nullable', 'date'],
             'enable_date' => ['nullable', 'date'],
             'calibration_date' => ['nullable', 'date'],
@@ -221,6 +241,7 @@ class EquipmentController extends Controller
     {
         $record = $this->auditValues($equipment);
         $record['location'] = $equipment->location;
+        $record['system'] = $equipment->system;
 
         return $fieldPermissionFilter->filterRecord($request->user(), self::RESOURCE, $record);
     }
@@ -235,6 +256,7 @@ class EquipmentController extends Controller
             'model' => $equipment->model,
             'serial_no' => $equipment->serial_no,
             'location_id' => $equipment->location_id,
+            'system_id' => $equipment->system_id,
             'purchase_date' => $equipment->purchase_date?->toDateString(),
             'enable_date' => $equipment->enable_date?->toDateString(),
             'calibration_date' => $equipment->calibration_date?->toDateString(),

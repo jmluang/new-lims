@@ -34,6 +34,7 @@ class PermissionCatalogTest extends TestCase
             ->assertJsonPath('data.resources.test_orders.actions', ['read', 'create', 'update', 'delete', 'export'])
             ->assertJsonPath('data.resources.samples.actions', ['read', 'receive', 'update', 'export'])
             ->assertJsonPath('data.resources.equipment.fields.serial_no', ['read', 'update', 'export'])
+            ->assertJsonPath('data.resources.equipment_systems.actions', ['read', 'create', 'update', 'delete'])
             ->assertJsonMissingPath('data.resources.equipment.fields.legacy_placement');
     }
 
@@ -148,6 +149,10 @@ class PermissionCatalogTest extends TestCase
             'equipment_locations.create',
             'equipment_locations.update',
             'equipment_locations.delete',
+            'equipment_systems.read',
+            'equipment_systems.create',
+            'equipment_systems.update',
+            'equipment_systems.delete',
             'equipment_labels.read',
             'equipment_labels.print',
             'temp_humidity_records.read',

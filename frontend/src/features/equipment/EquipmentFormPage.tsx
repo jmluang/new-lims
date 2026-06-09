@@ -7,6 +7,7 @@ import { ErrorNotice, LoadingState, PageShell, Panel } from '../system/shared'
 import type { ApiCollection, ApiResource } from '../system/utils'
 import { EquipmentForm } from './EquipmentForm'
 import type { Equipment, EquipmentLocation, FieldPermissionMeta } from './EquipmentListPage'
+import type { EquipmentSystem } from './EquipmentSystemPage'
 import type { EquipmentFormValues } from './equipmentSchema'
 
 export function EquipmentFormPage() {
@@ -19,6 +20,14 @@ export function EquipmentFormPage() {
     queryKey: ['equipment-locations'],
     queryFn: async () => {
       const response = await api.get<ApiCollection<EquipmentLocation>>('/api/equipment-locations')
+
+      return response.data.data
+    },
+  })
+  const systemsQuery = useQuery({
+    queryKey: ['equipment-systems'],
+    queryFn: async () => {
+      const response = await api.get<ApiCollection<EquipmentSystem>>('/api/equipment-systems')
 
       return response.data.data
     },
@@ -60,6 +69,7 @@ export function EquipmentFormPage() {
   const fieldPermissions = equipmentQuery.data?.meta?.fields ?? createMetaQuery.data
   const loading =
     locationsQuery.isPending ||
+    systemsQuery.isPending ||
     (isEditing && equipmentQuery.isPending) ||
     (!isEditing && createMetaQuery.isPending)
 
@@ -76,13 +86,15 @@ export function EquipmentFormPage() {
     >
       <Panel title={isEditing ? 'Edit equipment' : 'Create equipment'}>
         {locationsQuery.isError ? <ErrorNotice error={locationsQuery.error} fallback="Unable to load locations" /> : null}
+        {systemsQuery.isError ? <ErrorNotice error={systemsQuery.error} fallback="Unable to load systems" /> : null}
         {equipmentQuery.isError ? <ErrorNotice error={equipmentQuery.error} fallback="Unable to load equipment" /> : null}
         {createMetaQuery.isError ? <ErrorNotice error={createMetaQuery.error} fallback="Unable to load equipment" /> : null}
         {loading ? <LoadingState label="Loading data" /> : null}
-        {!loading && !locationsQuery.isError && !equipmentQuery.isError && !createMetaQuery.isError ? (
+        {!loading && !locationsQuery.isError && !systemsQuery.isError && !equipmentQuery.isError && !createMetaQuery.isError ? (
           <EquipmentForm
             equipment={equipmentQuery.data?.data ?? null}
             locations={locationsQuery.data ?? []}
+            systems={systemsQuery.data ?? []}
             fieldPermissions={fieldPermissions}
             submitting={saveEquipment.isPending}
             error={saveEquipment.error}
@@ -109,6 +121,7 @@ function normalizeEquipmentPayload(values: EquipmentFormValues) {
   ) as Record<string, unknown>
 
   payload.location_id = values.location_id ? Number(values.location_id) : null
+  payload.system_id = values.system_id ? Number(values.system_id) : null
 
   for (const field of ['manual_files', 'instruction_files', 'calibration_files', 'other_files'] as const) {
     if (values[field] !== undefined) {

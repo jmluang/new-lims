@@ -16,6 +16,7 @@ describe('permission matrix', () => {
   it('shows catalog resource, action, and field labels in Chinese', () => {
     expect(permissionResourceLabel('system.groups')).toBe('角色组')
     expect(permissionResourceLabel('equipment_locations')).toBe('设备位置')
+    expect(permissionResourceLabel('equipment_systems')).toBe('设备系统')
     expect(permissionActionLabel('read')).toBe('查看')
     expect(permissionActionLabel('restore')).toBe('恢复')
     expect(permissionFieldLabel('manual_files')).toBe('说明书文件')

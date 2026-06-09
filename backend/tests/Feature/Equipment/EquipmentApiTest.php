@@ -109,6 +109,47 @@ class EquipmentApiTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'equipment.delete', 'subject_id' => (string) $equipmentId]);
     }
 
+    public function test_admin_can_manage_equipment_systems_and_cannot_delete_system_with_equipment(): void
+    {
+        $admin = $this->userWithPermissions([
+            'equipment_systems.read',
+            'equipment_systems.create',
+            'equipment_systems.update',
+            'equipment_systems.delete',
+            'equipment.create',
+        ]);
+
+        $systemId = $this->postJsonAs($admin, '/api/equipment-systems', [
+            'name' => 'Calibration System',
+            'code' => 'CAL',
+            'status' => 'active',
+        ])->assertCreated()
+            ->assertJsonPath('data.name', 'Calibration System')
+            ->json('data.id');
+
+        $this->putJsonAs($admin, "/api/equipment-systems/{$systemId}", [
+            'name' => 'Calibration System A',
+            'code' => 'CAL-A',
+            'status' => 'active',
+        ])->assertOk()->assertJsonPath('data.code', 'CAL-A');
+
+        Equipment::query()->create([
+            'equipment_no' => 'EQ-SYS-001',
+            'name' => 'System Balance',
+            'system_id' => $systemId,
+            'status' => 'active',
+        ]);
+
+        $this->deleteJsonAs($admin, "/api/equipment-systems/{$systemId}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['system']);
+
+        $this->getJsonAs($admin, '/api/equipment-systems')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $systemId)
+            ->assertJsonPath('data.0.equipment_count', 1);
+    }
+
     public function test_equipment_list_filters_by_status_location_manufacturer_and_calibration_due_date(): void
     {
         $admin = $this->userWithPermissions(['equipment.read']);
@@ -136,6 +177,42 @@ class EquipmentApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $target->id)
             ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_equipment_can_be_assigned_to_system_and_filtered_by_system(): void
+    {
+        $admin = $this->userWithPermissions([
+            'equipment.read',
+            'equipment.create',
+            'equipment_systems.create',
+        ]);
+
+        $systemId = $this->postJsonAs($admin, '/api/equipment-systems', [
+            'name' => 'Chromatography System',
+            'code' => 'CHROM',
+            'status' => 'active',
+        ])->assertCreated()->json('data.id');
+
+        $equipmentId = $this->postJsonAs($admin, '/api/equipment', [
+            'equipment_no' => 'EQ-SYS-100',
+            'name' => 'Chromatograph',
+            'system_id' => $systemId,
+            'status' => 'active',
+        ])->assertCreated()
+            ->assertJsonPath('data.system.id', $systemId)
+            ->json('data.id');
+
+        Equipment::query()->create([
+            'equipment_no' => 'EQ-SYS-OTHER',
+            'name' => 'Other Device',
+            'status' => 'active',
+        ]);
+
+        $this->getJsonAs($admin, "/api/equipment?system_id={$systemId}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $equipmentId)
+            ->assertJsonPath('data.0.system.name', 'Chromatography System');
     }
 
     private function userWithPermissions(array $permissions): User

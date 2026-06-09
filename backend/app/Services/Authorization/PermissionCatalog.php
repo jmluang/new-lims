@@ -28,6 +28,7 @@ class PermissionCatalog
             'sample_flows' => ['read', 'create'],
             'equipment' => ['read', 'create', 'update', 'delete', 'export'],
             'equipment_locations' => ['read', 'create', 'update', 'delete'],
+            'equipment_systems' => ['read', 'create', 'update', 'delete'],
             'equipment_labels' => ['read', 'print'],
             'temp_humidity_records' => ['read', 'create', 'update', 'delete'],
         ];

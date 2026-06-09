@@ -81,6 +81,10 @@ class CanonicalAcceptanceSeeder extends Seeder
             'equipment_locations.create',
             'equipment_locations.update',
             'equipment_locations.delete',
+            'equipment_systems.read',
+            'equipment_systems.create',
+            'equipment_systems.update',
+            'equipment_systems.delete',
             'equipment_labels.read',
             'equipment_labels.print',
         ]);

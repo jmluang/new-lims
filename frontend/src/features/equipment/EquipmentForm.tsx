@@ -9,10 +9,12 @@ import { zhText } from '../../lib/zh'
 import { type Equipment, type EquipmentLocation, type FieldPermissionMeta } from './EquipmentListPage'
 import { activeLocationOptions } from './equipmentLocationOptions'
 import { equipmentSchema, type EquipmentFormValues } from './equipmentSchema'
+import type { EquipmentSystem } from './EquipmentSystemPage'
 
 export function EquipmentForm({
   equipment,
   locations,
+  systems,
   fieldPermissions,
   submitting,
   error,
@@ -21,6 +23,7 @@ export function EquipmentForm({
 }: {
   equipment?: Equipment | null
   locations: EquipmentLocation[]
+  systems: EquipmentSystem[]
   fieldPermissions?: FieldPermissionMeta
   submitting: boolean
   error: unknown
@@ -32,6 +35,7 @@ export function EquipmentForm({
     defaultValues: defaultValues(equipment),
   })
   const locationOptions = activeLocationOptions(locations)
+  const systemOptions = systems.filter((system) => system.status === 'active' || system.id === equipment?.system_id)
 
   useEffect(() => {
     form.reset(defaultValues(equipment))
@@ -67,6 +71,16 @@ export function EquipmentForm({
             {locationOptions.map((location) => (
               <option value={location.id} key={location.id}>
                 {location.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="System">
+          <select className={inputClass} {...form.register('system_id')}>
+            <option value="">No system</option>
+            {systemOptions.map((system) => (
+              <option value={system.id} key={system.id}>
+                {system.name}
               </option>
             ))}
           </select>
@@ -143,6 +157,7 @@ function defaultValues(equipment?: Equipment | null): EquipmentFormValues {
     model: equipment?.model ?? '',
     serial_no: equipment?.serial_no ?? '',
     location_id: equipment?.location_id ? String(equipment.location_id) : '',
+    system_id: equipment?.system_id ? String(equipment.system_id) : '',
     purchase_date: equipment?.purchase_date ?? '',
     enable_date: equipment?.enable_date ?? '',
     calibration_date: equipment?.calibration_date ?? '',

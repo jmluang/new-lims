@@ -8,6 +8,7 @@ describe('route permissions', () => {
         customers: { actions: { read: true } },
         'system.backups': { actions: { read: false } },
         equipment_labels: { actions: { print: true } },
+        equipment_systems: { actions: { read: true, create: false } },
       },
     }
 
@@ -15,5 +16,7 @@ describe('route permissions', () => {
     expect(allowsRoute(permissions, 'system.backups', 'read')).toBe(false)
     expect(allowsRoute(permissions, 'equipment_labels', 'print')).toBe(true)
     expect(allowsRoute(permissions, 'equipment_labels', 'read')).toBe(false)
+    expect(allowsRoute(permissions, 'equipment_systems', 'read')).toBe(true)
+    expect(allowsRoute(permissions, 'equipment_systems', 'create')).toBe(false)
   })
 })

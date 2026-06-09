@@ -21,6 +21,7 @@ import { EquipmentLabelPrintArea, EquipmentLabelPrintStyles, type LabelPreview }
 import { visibleEquipmentColumns } from './equipmentColumns'
 import { activeLocationOptions } from './equipmentLocationOptions'
 import { equipmentLabelSpec } from './equipmentLabelSpec'
+import type { EquipmentSystem } from './EquipmentSystemPage'
 
 export type FieldPermissionMeta = Record<string, { read?: boolean; update?: boolean; export?: boolean; hidden?: boolean }>
 
@@ -43,6 +44,8 @@ export type Equipment = {
   serial_no?: string | null
   location_id?: number | null
   location?: EquipmentLocation | null
+  system_id?: number | null
+  system?: EquipmentSystem | null
   purchase_date?: string | null
   enable_date?: string | null
   calibration_date?: string | null
@@ -62,6 +65,7 @@ type EquipmentFilters = {
   search: string
   status: string
   location_id: string
+  system_id: string
   manufacturer: string
   calibration_due_from: string
   calibration_due_to: string
@@ -71,6 +75,7 @@ const emptyFilters: EquipmentFilters = {
   search: '',
   status: '',
   location_id: '',
+  system_id: '',
   manufacturer: '',
   calibration_due_from: '',
   calibration_due_to: '',
@@ -96,6 +101,14 @@ export function EquipmentListPage() {
     queryKey: ['equipment-locations'],
     queryFn: async () => {
       const response = await api.get<ApiCollection<EquipmentLocation>>('/api/equipment-locations')
+
+      return response.data.data
+    },
+  })
+  const systemsQuery = useQuery({
+    queryKey: ['equipment-systems'],
+    queryFn: async () => {
+      const response = await api.get<ApiCollection<EquipmentSystem>>('/api/equipment-systems')
 
       return response.data.data
     },
@@ -127,6 +140,7 @@ export function EquipmentListPage() {
   const columns = visibleEquipmentColumns(fieldPermissions)
   const locationOptions = activeLocationOptions(locationsQuery.data ?? [])
   const locationLabels = new Map(locationOptions.map((location) => [location.id, location.label]))
+  const systemOptions = (systemsQuery.data ?? []).filter((system) => system.status === 'active')
 
   useEffect(() => {
     if (!shouldPrint || printLabels.length === 0) {
@@ -167,6 +181,10 @@ export function EquipmentListPage() {
     return (item.location_id ? locationLabels.get(item.location_id) : null) ?? item.location?.name ?? '-'
   }
 
+  function systemLabel(item: Equipment) {
+    return item.system?.name ?? systemOptions.find((system) => system.id === item.system_id)?.name ?? '-'
+  }
+
   return (
     <PageShell
       title="Equipment Ledger"
@@ -190,7 +208,7 @@ export function EquipmentListPage() {
     >
       <EquipmentLabelPrintStyles />
       <Panel title="Filters">
-        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
           <Field label="Search">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden="true" />
@@ -218,6 +236,16 @@ export function EquipmentListPage() {
               {locationOptions.map((location) => (
                 <option value={location.id} key={location.id}>
                   {location.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="System">
+            <select className={inputClass} value={filters.system_id} onChange={(event) => setFilters({ ...filters, system_id: event.target.value })}>
+              <option value="">{zhText('All')}</option>
+              {systemOptions.map((system) => (
+                <option value={system.id} key={system.id}>
+                  {system.name}
                 </option>
               ))}
             </select>
@@ -264,6 +292,7 @@ export function EquipmentListPage() {
                       </th>
                     ))}
                     <th className="px-3 py-2 font-medium">Location</th>
+                    <th className="px-3 py-2 font-medium">System</th>
                     <th className="px-3 py-2 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -284,6 +313,7 @@ export function EquipmentListPage() {
                         </td>
                       ))}
                       <td className="px-3 py-3 text-sm text-slate-700">{locationLabel(item)}</td>
+                      <td className="px-3 py-3 text-sm text-slate-700">{systemLabel(item)}</td>
                       <td className="px-3 py-3">
                         <EquipmentActions
                           equipment={item}
@@ -322,6 +352,10 @@ export function EquipmentListPage() {
                       <div>
                         <dt className="text-slate-500">Location</dt>
                         <dd className="font-medium text-slate-800">{locationLabel(item)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-slate-500">System</dt>
+                        <dd className="font-medium text-slate-800">{systemLabel(item)}</dd>
                       </div>
                       <div>
                         <dt className="text-slate-500">Next calibration</dt>

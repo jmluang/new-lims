@@ -9,6 +9,7 @@ import {
   ScrollText,
   Settings,
   ShieldCheck,
+  Workflow,
   Thermometer,
   Users,
   type LucideIcon,
@@ -52,6 +53,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: '设备台账', to: '/equipment', icon: ClipboardList },
       { label: '设备位置', to: '/equipment/locations', icon: MapPinned },
+      { label: '设备系统', to: '/equipment/systems', icon: Workflow },
       { label: '设备标签', to: '/equipment/labels', icon: Printer },
       { label: '温湿度记录', to: '/equipment/temp-humidity', icon: Thermometer },
     ],

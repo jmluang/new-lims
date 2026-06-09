@@ -6,6 +6,7 @@ import { EquipmentLabelPrintPage } from '../features/equipment/EquipmentLabelPri
 import { EquipmentFormPage } from '../features/equipment/EquipmentFormPage'
 import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
 import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
+import { EquipmentSystemPage } from '../features/equipment/EquipmentSystemPage'
 import { TempHumidityListPage } from '../features/equipment/TempHumidityListPage'
 import { SampleDetailPage } from '../features/samples/SampleDetailPage'
 import { SampleListPage } from '../features/samples/SampleListPage'
@@ -215,6 +216,13 @@ const equipmentLocationsRoute = createRoute({
   component: EquipmentLocationTreePage,
 })
 
+const equipmentSystemsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/systems',
+  beforeLoad: () => requireRoutePermission('equipment_systems'),
+  component: EquipmentSystemPage,
+})
+
 const equipmentLabelsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment/labels',
@@ -270,6 +278,7 @@ export const routeTree = rootRoute.addChildren([
     equipmentCreateRoute,
     equipmentEditRoute,
     equipmentLocationsRoute,
+    equipmentSystemsRoute,
     equipmentLabelsRoute,
     tempHumidityRoute,
     auditLogsRoute,

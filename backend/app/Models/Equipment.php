@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'model',
     'serial_no',
     'location_id',
+    'system_id',
     'purchase_date',
     'enable_date',
     'calibration_date',
@@ -47,5 +48,10 @@ class Equipment extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(EquipmentLocation::class, 'location_id');
+    }
+
+    public function system(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentSystem::class, 'system_id');
     }
 }

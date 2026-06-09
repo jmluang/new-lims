@@ -7,6 +7,7 @@ use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EquipmentController;
 use App\Http\Controllers\EquipmentLabelController;
 use App\Http\Controllers\EquipmentLocationController;
+use App\Http\Controllers\EquipmentSystemController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SampleFlowController;
 use App\Http\Controllers\StandardCatalogController;
@@ -107,6 +108,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/samples/{sample}/flows', [SampleFlowController::class, 'store']);
 
         Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
+        Route::apiResource('/equipment-systems', EquipmentSystemController::class)->parameters(['equipment-systems' => 'equipmentSystem'])->only(['index', 'store', 'update', 'destroy']);
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
         Route::apiResource('/equipment', EquipmentController::class);
         Route::post('/equipment-labels/preview', [EquipmentLabelController::class, 'preview']);
