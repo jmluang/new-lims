@@ -129,8 +129,9 @@ export function EquipmentSystemPage() {
     setFormOpen(true)
   }
 
-  function openManageEquipment(system: EquipmentSystem) {
+  async function openManageEquipment(system: EquipmentSystem) {
     setManagingSystemId(system.id)
+    await new Promise((r) => setTimeout(r, 0))
     setManageEquipmentSystem(system)
     const equipmentData = equipmentQuery.data ?? []
     const systemEquipmentIds = equipmentData
@@ -141,13 +142,14 @@ export function EquipmentSystemPage() {
     setManageEquipmentOpen(true)
   }
 
-  function printSystemLabels(system: EquipmentSystem) {
+  async function printSystemLabels(system: EquipmentSystem) {
     const equipmentData = equipmentQuery.data ?? []
     const systemEquipmentIds = equipmentData
       .filter((eq) => eq.system_id === system.id)
       .map((eq) => eq.id)
     if (systemEquipmentIds.length === 0) return
     setManagingSystemId(system.id)
+    await new Promise((r) => setTimeout(r, 0))
     localStorage.setItem('new_lims_label_equipment_ids', JSON.stringify(systemEquipmentIds))
     window.location.assign('/equipment/labels')
   }
