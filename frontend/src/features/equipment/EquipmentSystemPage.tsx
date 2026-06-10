@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Edit3, Plus, Save, Search, Trash2, Users } from 'lucide-react'
+import { Edit3, Plus, Printer, Save, Search, Trash2, Users } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
@@ -141,6 +141,16 @@ export function EquipmentSystemPage() {
     setManageEquipmentOpen(true)
   }
 
+  function printSystemLabels(system: EquipmentSystem) {
+    const equipmentData = equipmentQuery.data ?? []
+    const systemEquipmentIds = equipmentData
+      .filter((eq) => eq.system_id === system.id)
+      .map((eq) => eq.id)
+    if (systemEquipmentIds.length === 0) return
+    localStorage.setItem('new_lims_label_equipment_ids', JSON.stringify(systemEquipmentIds))
+    window.location.assign('/equipment/labels')
+  }
+
   const saveEquipmentAssignment = useMutation({
     mutationFn: async () => {
       if (!manageEquipmentSystem) return
@@ -246,6 +256,12 @@ export function EquipmentSystemPage() {
                           {managingSystemId === system.id ? '加载中...' : '管理设备'}
                         </Button>
                       </PermissionGate>
+                      <PermissionGate resource="equipment_labels" action="print">
+                        <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={!equipmentQuery.data || (equipmentQuery.data ?? []).filter((eq) => eq.system_id === system.id).length === 0}>
+                          <Printer className="size-4" aria-hidden="true" />
+                          打印标签
+                        </Button>
+                      </PermissionGate>
                       <PermissionGate resource="equipment_systems" action="delete">
                         <Button variant="danger" onClick={() => disableSystem.mutate(system)}>
                           <Trash2 className="size-4" aria-hidden="true" />
@@ -291,6 +307,12 @@ export function EquipmentSystemPage() {
                     <Button variant="secondary" onClick={() => openManageEquipment(system)} disabled={managingSystemId === system.id}>
                       <Users className="size-4" aria-hidden="true" />
                       {managingSystemId === system.id ? '加载中...' : '管理设备'}
+                    </Button>
+                  </PermissionGate>
+                  <PermissionGate resource="equipment_labels" action="print">
+                    <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={!equipmentQuery.data || (equipmentQuery.data ?? []).filter((eq) => eq.system_id === system.id).length === 0}>
+                      <Printer className="size-4" aria-hidden="true" />
+                      打印标签
                     </Button>
                   </PermissionGate>
                   <PermissionGate resource="equipment_systems" action="delete">
