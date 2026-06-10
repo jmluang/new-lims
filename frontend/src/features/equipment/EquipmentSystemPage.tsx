@@ -18,6 +18,9 @@ type Equipment = {
   id: number
   equipment_no: string
   name: string
+  model?: string | null
+  location_id?: number | null
+  location?: { name: string } | null
   system_id?: number | null
 }
 
@@ -346,7 +349,11 @@ export function EquipmentSystemPage() {
                       }}
                       className="rounded border-slate-300"
                     />
-                    <span className="text-sm">{equipment.equipment_no} - {equipment.name}</span>
+                    <span className="text-sm">
+                      {equipment.equipment_no} - {equipment.name}
+                      {equipment.model ? ` (${equipment.model})` : ''}
+                      {equipment.location?.name ? ` - ${equipment.location.name}` : ''}
+                    </span>
                   </label>
                 ))
               )}
@@ -392,7 +399,11 @@ export function EquipmentSystemPage() {
                     }}
                     className="rounded border-slate-300"
                   />
-                  <span className="text-sm">{equipment.equipment_no} - {equipment.name}</span>
+                  <span className="text-sm">
+                    {equipment.equipment_no} - {equipment.name}
+                    {equipment.model ? ` (${equipment.model})` : ''}
+                    {equipment.location?.name ? ` - ${equipment.location.name}` : ''}
+                  </span>
                 </label>
               ))
             )}
