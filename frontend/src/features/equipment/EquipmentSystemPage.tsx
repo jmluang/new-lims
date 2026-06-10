@@ -5,6 +5,7 @@ import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
+import { getSystemEquipmentActionState } from './equipmentSystemActions'
 
 export type EquipmentSystem = {
   id: number
@@ -47,7 +48,7 @@ export function EquipmentSystemPage() {
   const [manageEquipmentSystem, setManageEquipmentSystem] = useState<EquipmentSystem | null>(null)
   const [manageEquipmentOpen, setManageEquipmentOpen] = useState(false)
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<number[]>([])
-  const [managingSystemId, setManagingSystemId] = useState<number | null>(null)
+  const [printingSystemId, setPrintingSystemId] = useState<number | null>(null)
   const [filters, setFilters] = useState<SystemFilters>(emptyFilters)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
 
@@ -116,10 +117,12 @@ export function EquipmentSystemPage() {
   }
 
   function openEdit(system: EquipmentSystem) {
+    if (!equipmentQuery.isSuccess) {
+      return
+    }
+
     setEditing(system)
-    const systemEquipmentIds = (equipmentQuery.data ?? [])
-      .filter((eq) => eq.system_id === system.id)
-      .map((eq) => eq.id)
+    const systemEquipmentIds = equipmentIdsForSystem(equipmentQuery.data, system.id)
     setForm({
       name: system.name,
       code: system.code,
@@ -129,27 +132,25 @@ export function EquipmentSystemPage() {
     setFormOpen(true)
   }
 
-  async function openManageEquipment(system: EquipmentSystem) {
-    setManagingSystemId(system.id)
-    await new Promise((r) => setTimeout(r, 0))
+  function openManageEquipment(system: EquipmentSystem) {
+    if (!equipmentQuery.isSuccess) {
+      return
+    }
+
     setManageEquipmentSystem(system)
-    const equipmentData = equipmentQuery.data ?? []
-    const systemEquipmentIds = equipmentData
-      .filter((eq) => eq.system_id === system.id)
-      .map((eq) => eq.id)
+    const systemEquipmentIds = equipmentIdsForSystem(equipmentQuery.data, system.id)
     setSelectedEquipmentIds(systemEquipmentIds)
-    setManagingSystemId(null)
     setManageEquipmentOpen(true)
   }
 
-  async function printSystemLabels(system: EquipmentSystem) {
-    const equipmentData = equipmentQuery.data ?? []
-    const systemEquipmentIds = equipmentData
-      .filter((eq) => eq.system_id === system.id)
-      .map((eq) => eq.id)
+  function printSystemLabels(system: EquipmentSystem) {
+    if (!equipmentQuery.isSuccess) {
+      return
+    }
+
+    const systemEquipmentIds = equipmentIdsForSystem(equipmentQuery.data, system.id)
     if (systemEquipmentIds.length === 0) return
-    setManagingSystemId(system.id)
-    await new Promise((r) => setTimeout(r, 0))
+    setPrintingSystemId(system.id)
     localStorage.setItem('new_lims_label_equipment_ids', JSON.stringify(systemEquipmentIds))
     window.location.assign('/equipment/labels')
   }
@@ -172,6 +173,55 @@ export function EquipmentSystemPage() {
 
   function toggleSelected(id: number) {
     setSelectedIds((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]))
+  }
+
+  function actionStatesFor(system: EquipmentSystem) {
+    const equipmentIds = equipmentQuery.isSuccess ? equipmentIdsForSystem(equipmentQuery.data, system.id) : []
+    const manageState = getSystemEquipmentActionState({
+      equipmentLoaded: equipmentQuery.isSuccess,
+      equipmentIds,
+      busy: equipmentQuery.isFetching,
+    })
+    const printState = getSystemEquipmentActionState({
+      equipmentLoaded: equipmentQuery.isSuccess,
+      equipmentIds,
+      busy: equipmentQuery.isFetching || printingSystemId === system.id,
+    })
+
+    return { manageState, printState }
+  }
+
+  function renderSystemActions(system: EquipmentSystem) {
+    const { manageState, printState } = actionStatesFor(system)
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        <PermissionGate resource="equipment_systems" action="update">
+          <Button variant="secondary" onClick={() => openEdit(system)}>
+            <Edit3 className="size-4" aria-hidden="true" />
+            编辑
+          </Button>
+        </PermissionGate>
+        <PermissionGate resource="equipment_systems" action="update">
+          <Button variant="secondary" onClick={() => openManageEquipment(system)} disabled={!manageState.canManageEquipment}>
+            <Users className="size-4" aria-hidden="true" />
+            {manageState.manageLabel}
+          </Button>
+        </PermissionGate>
+        <PermissionGate resource="equipment_labels" action="print">
+          <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={!printState.canPrintLabels}>
+            <Printer className="size-4" aria-hidden="true" />
+            {printState.printLabel}
+          </Button>
+        </PermissionGate>
+        <PermissionGate resource="equipment_systems" action="delete">
+          <Button variant="danger" onClick={() => disableSystem.mutate(system)}>
+            <Trash2 className="size-4" aria-hidden="true" />
+            禁用
+          </Button>
+        </PermissionGate>
+      </div>
+    )
   }
 
   return (
@@ -246,32 +296,7 @@ export function EquipmentSystemPage() {
                     <StatusBadge status={system.status} />
                   </td>
                   <td className="px-3 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <PermissionGate resource="equipment_systems" action="update">
-                        <Button variant="secondary" onClick={() => openEdit(system)}>
-                          <Edit3 className="size-4" aria-hidden="true" />
-                          编辑
-                        </Button>
-                      </PermissionGate>
-                      <PermissionGate resource="equipment_systems" action="update">
-                        <Button variant="secondary" onClick={() => openManageEquipment(system)} disabled={managingSystemId === system.id}>
-                          <Users className="size-4" aria-hidden="true" />
-                          {managingSystemId === system.id ? '加载中...' : '管理设备'}
-                        </Button>
-                      </PermissionGate>
-                      <PermissionGate resource="equipment_labels" action="print">
-                        <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={managingSystemId === system.id || !equipmentQuery.data || (equipmentQuery.data ?? []).filter((eq) => eq.system_id === system.id).length === 0}>
-                          <Printer className="size-4" aria-hidden="true" />
-                          {managingSystemId === system.id ? '加载中...' : '打印标签'}
-                        </Button>
-                      </PermissionGate>
-                      <PermissionGate resource="equipment_systems" action="delete">
-                        <Button variant="danger" onClick={() => disableSystem.mutate(system)}>
-                          <Trash2 className="size-4" aria-hidden="true" />
-                          禁用
-                        </Button>
-                      </PermissionGate>
-                    </div>
+                    {renderSystemActions(system)}
                   </td>
                 </tr>
               ))}
@@ -299,32 +324,7 @@ export function EquipmentSystemPage() {
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
                   <span>设备: {system.equipment_count ?? 0}</span>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <PermissionGate resource="equipment_systems" action="update">
-                    <Button variant="secondary" onClick={() => openEdit(system)}>
-                      <Edit3 className="size-4" aria-hidden="true" />
-                      编辑
-                    </Button>
-                  </PermissionGate>
-                  <PermissionGate resource="equipment_systems" action="update">
-                    <Button variant="secondary" onClick={() => openManageEquipment(system)} disabled={managingSystemId === system.id}>
-                      <Users className="size-4" aria-hidden="true" />
-                      {managingSystemId === system.id ? '加载中...' : '管理设备'}
-                    </Button>
-                  </PermissionGate>
-                  <PermissionGate resource="equipment_labels" action="print">
-                    <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={managingSystemId === system.id || !equipmentQuery.data || (equipmentQuery.data ?? []).filter((eq) => eq.system_id === system.id).length === 0}>
-                      <Printer className="size-4" aria-hidden="true" />
-                      {managingSystemId === system.id ? '加载中...' : '打印标签'}
-                    </Button>
-                  </PermissionGate>
-                  <PermissionGate resource="equipment_systems" action="delete">
-                    <Button variant="danger" onClick={() => disableSystem.mutate(system)}>
-                      <Trash2 className="size-4" aria-hidden="true" />
-                      禁用
-                    </Button>
-                  </PermissionGate>
-                </div>
+                <div className="mt-3">{renderSystemActions(system)}</div>
               </article>
             ))}
           </div>
@@ -443,4 +443,8 @@ export function EquipmentSystemPage() {
       </Modal>
     </PageShell>
   )
+}
+
+function equipmentIdsForSystem(equipment: Equipment[], systemId: number) {
+  return equipment.filter((eq) => eq.system_id === systemId).map((eq) => eq.id)
 }

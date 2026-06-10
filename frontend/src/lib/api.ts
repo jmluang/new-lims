@@ -33,3 +33,7 @@ export function setAuthToken(token: string) {
 export function clearAuthToken() {
   localStorage.removeItem(authTokenKey)
 }
+
+export function isUnauthorizedError(error: unknown) {
+  return typeof error === 'object' && error !== null && 'response' in error && (error as { response?: { status?: number } }).response?.status === 401
+}

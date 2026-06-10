@@ -13,7 +13,7 @@ type LoginPayload = {
   password: string
 }
 
-type EffectivePermissions = {
+export type EffectivePermissions = {
   resources: Record<
     string,
     {
@@ -23,14 +23,25 @@ type EffectivePermissions = {
   >
 }
 
+export const currentUserQueryKey = ['current-user'] as const
+export const effectivePermissionsQueryKey = ['effective-permissions'] as const
+
+export async function fetchCurrentUser() {
+  const response = await api.get<{ data: CurrentUser }>('/api/me')
+
+  return response.data.data
+}
+
+export async function fetchEffectivePermissions() {
+  const response = await api.get<{ data: EffectivePermissions }>('/api/permissions/effective')
+
+  return response.data.data
+}
+
 export function useCurrentUser() {
   return useQuery({
-    queryKey: ['current-user'],
-    queryFn: async () => {
-      const response = await api.get<{ data: CurrentUser }>('/api/me')
-
-      return response.data.data
-    },
+    queryKey: currentUserQueryKey,
+    queryFn: fetchCurrentUser,
     enabled: Boolean(getAuthToken()),
     retry: false,
   })
@@ -38,12 +49,8 @@ export function useCurrentUser() {
 
 export function useEffectivePermissions() {
   return useQuery({
-    queryKey: ['effective-permissions'],
-    queryFn: async () => {
-      const response = await api.get<{ data: EffectivePermissions }>('/api/permissions/effective')
-
-      return response.data.data
-    },
+    queryKey: effectivePermissionsQueryKey,
+    queryFn: fetchEffectivePermissions,
     enabled: Boolean(getAuthToken()),
     retry: false,
   })
@@ -61,8 +68,8 @@ export function useLogin() {
     },
     onSuccess: ({ token, user }) => {
       setAuthToken(token)
-      queryClient.setQueryData(['current-user'], user)
-      void queryClient.invalidateQueries({ queryKey: ['effective-permissions'] })
+      queryClient.setQueryData(currentUserQueryKey, user)
+      void queryClient.invalidateQueries({ queryKey: effectivePermissionsQueryKey })
     },
   })
 }

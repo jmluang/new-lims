@@ -1,5 +1,7 @@
 import { redirect } from '@tanstack/react-router'
-import { api } from '../lib/api'
+import { clearAuthToken, isUnauthorizedError } from '../lib/api'
+import { queryClient } from '../lib/query-client'
+import { effectivePermissionsQueryKey, fetchEffectivePermissions } from '../features/auth/useCurrentUser'
 
 type EffectivePermissions = {
   resources: Record<string, { actions: Record<string, boolean> }>
@@ -10,9 +12,24 @@ export function allowsRoute(permissions: EffectivePermissions, resource: string,
 }
 
 export async function requireRoutePermission(resource: string, action = 'read') {
-  const response = await api.get<{ data: EffectivePermissions }>('/api/permissions/effective')
+  let permissions: EffectivePermissions
 
-  if (!allowsRoute(response.data.data, resource, action)) {
+  try {
+    permissions = await queryClient.fetchQuery({
+      queryKey: effectivePermissionsQueryKey,
+      queryFn: fetchEffectivePermissions,
+      retry: false,
+    })
+  } catch (error) {
+    if (isUnauthorizedError(error)) {
+      clearAuthToken()
+      throw redirect({ to: '/login' })
+    }
+
+    throw error
+  }
+
+  if (!allowsRoute(permissions, resource, action)) {
     throw redirect({ to: '/' })
   }
 }
