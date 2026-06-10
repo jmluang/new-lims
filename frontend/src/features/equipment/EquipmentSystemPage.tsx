@@ -147,6 +147,7 @@ export function EquipmentSystemPage() {
       .filter((eq) => eq.system_id === system.id)
       .map((eq) => eq.id)
     if (systemEquipmentIds.length === 0) return
+    setManagingSystemId(system.id)
     localStorage.setItem('new_lims_label_equipment_ids', JSON.stringify(systemEquipmentIds))
     window.location.assign('/equipment/labels')
   }
@@ -257,9 +258,9 @@ export function EquipmentSystemPage() {
                         </Button>
                       </PermissionGate>
                       <PermissionGate resource="equipment_labels" action="print">
-                        <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={!equipmentQuery.data || (equipmentQuery.data ?? []).filter((eq) => eq.system_id === system.id).length === 0}>
+                        <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={managingSystemId === system.id || !equipmentQuery.data || (equipmentQuery.data ?? []).filter((eq) => eq.system_id === system.id).length === 0}>
                           <Printer className="size-4" aria-hidden="true" />
-                          打印标签
+                          {managingSystemId === system.id ? '加载中...' : '打印标签'}
                         </Button>
                       </PermissionGate>
                       <PermissionGate resource="equipment_systems" action="delete">
@@ -310,9 +311,9 @@ export function EquipmentSystemPage() {
                     </Button>
                   </PermissionGate>
                   <PermissionGate resource="equipment_labels" action="print">
-                    <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={!equipmentQuery.data || (equipmentQuery.data ?? []).filter((eq) => eq.system_id === system.id).length === 0}>
+                    <Button variant="secondary" onClick={() => printSystemLabels(system)} disabled={managingSystemId === system.id || !equipmentQuery.data || (equipmentQuery.data ?? []).filter((eq) => eq.system_id === system.id).length === 0}>
                       <Printer className="size-4" aria-hidden="true" />
-                      打印标签
+                      {managingSystemId === system.id ? '加载中...' : '打印标签'}
                     </Button>
                   </PermissionGate>
                   <PermissionGate resource="equipment_systems" action="delete">
