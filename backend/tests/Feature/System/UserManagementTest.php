@@ -81,7 +81,8 @@ class UserManagementTest extends TestCase
         $this->postJsonAs($admin, "/api/system/users/{$userId}/reset-password", [
             'password' => 'NewPassword123!',
             'must_change_password' => true,
-        ])->assertOk();
+        ])->assertOk()
+            ->assertJsonPath('meta.temporary_password', 'NewPassword123!');
         $this->assertTrue($createdUser->fresh()->must_change_password);
         $this->assertSame(0, $createdUser->tokens()->count());
 
@@ -106,6 +107,37 @@ class UserManagementTest extends TestCase
             ->assertJsonPath('meta.fields.phone.read', false);
 
         $this->assertStringNotContainsString('13811112222', $response->getContent());
+    }
+
+    public function test_reset_password_unlocks_user_so_temporary_password_can_login(): void
+    {
+        $admin = $this->userWithPermissions(['system.users.update']);
+        $user = User::factory()->create([
+            'name' => 'Locked Operator',
+            'email' => 'locked-reset@example.test',
+            'password' => 'OldPassword123!',
+            'status' => 'locked',
+            'locked_at' => now(),
+            'lock_reason' => 'failed_login_attempts',
+            'failed_login_attempts' => 5,
+        ]);
+
+        $this->postJsonAs($admin, "/api/system/users/{$user->id}/reset-password", [
+            'password' => 'ChangeMe123!',
+            'must_change_password' => true,
+        ])->assertOk()
+            ->assertJsonPath('meta.temporary_password', 'ChangeMe123!');
+
+        $this->postJson('/api/login', [
+            'email' => 'locked-reset@example.test',
+            'password' => 'ChangeMe123!',
+        ])->assertOk()
+            ->assertJsonPath('data.user.must_change_password', true);
+
+        $user = $user->fresh();
+        $this->assertSame('active', $user->status);
+        $this->assertNull($user->locked_at);
+        $this->assertSame(0, $user->failed_login_attempts);
     }
 
     public function test_user_list_can_filter_by_search_status_department_and_group(): void

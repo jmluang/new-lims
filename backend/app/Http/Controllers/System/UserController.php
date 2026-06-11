@@ -185,7 +185,12 @@ class UserController extends Controller
             after: $this->auditValues($user),
         );
 
-        return response()->json(['data' => $this->serializeUser($user->load(['department', 'roles']), true)]);
+        return response()->json([
+            'data' => $this->serializeUser($user->load(['department', 'roles']), true),
+            'meta' => [
+                'temporary_password' => $data['password'],
+            ],
+        ]);
     }
 
     private function authorizePhoneUpdate(Request $request): void

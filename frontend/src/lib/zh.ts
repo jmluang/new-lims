@@ -357,6 +357,7 @@ export const textMap: Record<string, string> = {
   Lock: '锁定',
   Unlock: '解锁',
   Reset: '重置',
+  'Reset password': '重置密码',
   Edit: '编辑',
   View: '查看',
   Save: '保存',

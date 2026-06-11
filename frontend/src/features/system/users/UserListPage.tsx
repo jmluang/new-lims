@@ -19,6 +19,7 @@ import {
 } from '../shared'
 import { type ApiCollection, formatDateTime, inputClass, paginationParams } from '../utils'
 import { type DepartmentOption, type SystemUser, type UserGroupOption } from './UserForm'
+import { resetPasswordSuccessMessage, temporaryResetPassword } from './userPasswordReset'
 
 type UserFilters = {
   search: string
@@ -33,6 +34,7 @@ export function UserListPage() {
   const [filters, setFilters] = useState<UserFilters>({ search: '', status: '', department_id: '', group_id: '' })
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(20)
+  const [resetNotice, setResetNotice] = useState<{ userName: string; password: string } | null>(null)
   const usersQuery = useQuery({
     queryKey: ['system-users', filters, page, perPage],
     queryFn: async () => {
@@ -71,12 +73,20 @@ export function UserListPage() {
   })
   const resetPassword = useMutation({
     mutationFn: async (user: SystemUser) => {
-      await api.post(`/api/system/users/${user.id}/reset-password`, {
-        password: 'ChangeMe123!',
+      const response = await api.post<{ data: SystemUser; meta?: { temporary_password?: string } }>(`/api/system/users/${user.id}/reset-password`, {
+        password: temporaryResetPassword,
         must_change_password: true,
       })
+
+      return {
+        user,
+        temporaryPassword: response.data.meta?.temporary_password ?? temporaryResetPassword,
+      }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['system-users'] }),
+    onSuccess: async ({ user, temporaryPassword }) => {
+      setResetNotice({ userName: user.name, password: temporaryPassword })
+      await queryClient.invalidateQueries({ queryKey: ['system-users'] })
+    },
   })
   const users = usersQuery.data?.data ?? []
 
@@ -259,6 +269,15 @@ export function UserListPage() {
       </Panel>
 
       {renderUsers()}
+      {resetNotice ? (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <div className="font-medium">密码已重置</div>
+          <div className="mt-1">{resetPasswordSuccessMessage(resetNotice.userName, resetNotice.password)}</div>
+          <div className="mt-2 inline-flex rounded-md border border-emerald-200 bg-white px-2 py-1 font-mono text-sm text-emerald-950">
+            {resetNotice.password}
+          </div>
+        </div>
+      ) : null}
       <PaginationControls
         meta={usersQuery.data?.meta}
         page={page}
@@ -309,7 +328,7 @@ function UserActions({
         )}
         <Button variant="ghost" onClick={() => onReset(user)}>
           <RotateCcw className="size-4" aria-hidden="true" />
-          Reset
+          Reset password
         </Button>
       </PermissionGate>
     </div>
