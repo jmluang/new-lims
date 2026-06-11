@@ -2,13 +2,14 @@ import type { EquipmentLocation } from './EquipmentListPage'
 
 export type EquipmentLocationOption = {
   id: number
+  name: string
   label: string
 }
 
 export function activeLocationOptions(locations: EquipmentLocation[]): EquipmentLocationOption[] {
   return flattenLocationOptions(locations)
     .filter((option) => option.status !== 'disabled')
-    .map(({ id, label }) => ({ id, label }))
+    .map(({ id, label, name }) => ({ id, label, name }))
 }
 
 function flattenLocationOptions(
@@ -19,6 +20,7 @@ function flattenLocationOptions(
     const path = [...parents, location.name]
     const option = {
       id: location.id,
+      name: location.name,
       label: path.join(' / '),
       status: location.status,
     }

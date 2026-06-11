@@ -30,6 +30,11 @@ export const sampleFlowSchema = z.object({
 export type ReceiveSamplesValues = z.infer<typeof receiveSamplesSchema>
 export type ReceiveSampleRowValues = z.infer<typeof receiveSampleRowSchema>
 export type SampleFlowValues = z.infer<typeof sampleFlowSchema>
+export type ReceiveLocationOption = {
+  id: number
+  label: string
+  name: string
+}
 
 export class ReceiveSamplesValidationError extends Error {
   constructor(message: string) {
@@ -57,6 +62,10 @@ export function normalizeReceivePayload(values: ReceiveSamplesValues) {
 
 export function acceptedReceiveRowCount(rows: ReceiveSampleRowValues[]) {
   return rows.filter((row) => !row.reject_reason?.trim()).length
+}
+
+export function defaultReceiveLocation(locations: ReceiveLocationOption[]) {
+  return locations.find((location) => location.name === '样品室')?.name ?? '样品室'
 }
 
 function cleanEmptyValues<T extends Record<string, unknown>>(payload: T): T {

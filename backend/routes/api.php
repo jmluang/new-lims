@@ -98,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         });
 
         Route::get('/test-orders/export', [TestOrderController::class, 'export']);
+        Route::get('/test-orders/form-options', [TestOrderController::class, 'formOptions']);
         Route::get('/test-orders/{testOrder}/sample-options', [TestOrderController::class, 'sampleOptions']);
         Route::apiResource('/test-orders', TestOrderController::class);
 

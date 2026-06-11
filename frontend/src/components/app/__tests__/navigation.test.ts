@@ -31,8 +31,20 @@ describe('navigation active path matching', () => {
 
     expect(labels).toContain('设备台账')
     expect(labels).toContain('样品信息')
-    expect(labels).not.toContain('设备位置')
+    expect(labels).not.toContain('位置名称')
     expect(labels).not.toContain('角色组')
     expect(labels).not.toContain('审计日志')
+  })
+
+  it('shows location names inside the system management navigation group', () => {
+    const groups = visibleNavGroups({
+      resources: {
+        equipment_locations: { actions: { read: true } },
+      },
+    })
+
+    const systemGroup = groups.find((group) => group.label === '系统管理')
+
+    expect(systemGroup?.items).toEqual([expect.objectContaining({ label: '位置名称', to: '/equipment/locations' })])
   })
 })

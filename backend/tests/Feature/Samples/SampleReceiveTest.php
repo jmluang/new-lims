@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Samples;
 
+use App\Models\EquipmentLocation;
 use App\Models\TestOrder;
 use App\Models\TestOrderSample;
 use App\Models\User;
@@ -101,12 +102,20 @@ class SampleReceiveTest extends TestCase
     {
         $receiver = $this->userWithPermissions(['samples.receive']);
         [$order] = $this->orderWithSamples('RECV-OPTIONS');
+        EquipmentLocation::query()->create([
+            'name' => '样品室',
+            'code' => 'sample-room',
+            'status' => 'active',
+            'sort_order' => 1,
+        ]);
 
         $this->getJsonAs($receiver, '/api/samples/receive-options')
             ->assertOk()
             ->assertJsonPath('data.0.id', $order->id)
             ->assertJsonPath('data.0.order_no', 'RECV-OPTIONS')
-            ->assertJsonMissingPath('data.0.samples');
+            ->assertJsonMissingPath('data.0.samples')
+            ->assertJsonPath('meta.locations.0.name', '样品室')
+            ->assertJsonPath('meta.locations.0.label', '样品室');
     }
 
     private function orderWithSamples(string $orderNo): array

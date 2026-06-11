@@ -44,6 +44,15 @@ export type Customer = {
     is_default: boolean
     status: 'active' | 'disabled'
   } | null
+  contacts?: Array<{
+    id: number
+    customer_id: number
+    name: string
+    phone?: string | null
+    email?: string | null
+    is_default: boolean
+    status: 'active' | 'disabled'
+  }>
   _field_permissions?: FieldPermissionMeta
 }
 

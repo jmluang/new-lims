@@ -67,6 +67,26 @@ export const testOrderSchema = z.object({
 export type TestOrderFormValues = z.infer<typeof testOrderSchema>
 
 type ApiPayload = Record<string, unknown>
+type PartyPrefix = 'client' | 'manufacturer' | 'maker'
+
+type PartyCustomer = {
+  id: number
+  name: string
+  credit_code?: string | null
+  phone?: string | null
+  address?: string | null
+  status?: 'active' | 'disabled'
+  default_contact?: PartyContact | null
+}
+
+type PartyContact = {
+  id: number
+  name: string
+  customer_id?: number
+  phone?: string | null
+  is_default?: boolean
+  status: 'active' | 'disabled'
+}
 
 export function normalizeTestOrderPayload(values: TestOrderFormValues): ApiPayload {
   return cleanEmptyValues({
@@ -104,6 +124,36 @@ export function normalizeTestOrderPayload(values: TestOrderFormValues): ApiPaylo
         }),
       ),
   })
+}
+
+export function customerSearchValue(customer: PartyCustomer) {
+  return [customer.name, customer.credit_code, customer.phone].filter(Boolean).join(' ')
+}
+
+export function contactOptionsForCustomer(customer?: PartyCustomer | null, contacts?: PartyContact[]) {
+  const activeContacts = (contacts ?? [])
+    .filter((contact) => contact.status === 'active')
+    .map((contact) => ({ id: contact.id, name: contact.name, phone: contact.phone ?? null }))
+
+  if (activeContacts.length > 0) {
+    return activeContacts
+  }
+
+  if (!customer?.default_contact || customer.default_contact.status !== 'active') {
+    return []
+  }
+
+  return [{ id: customer.default_contact.id, name: customer.default_contact.name, phone: customer.default_contact.phone ?? null }]
+}
+
+export function copyClientPartyValues(values: TestOrderFormValues, target: Exclude<PartyPrefix, 'client'>): Partial<TestOrderFormValues> {
+  return {
+    [`${target}_customer_id`]: values.client_customer_id ?? null,
+    [`${target}_company`]: values.client_company,
+    [`${target}_address`]: values.client_address,
+    [`${target}_contact`]: values.client_contact,
+    [`${target}_phone`]: values.client_phone,
+  }
 }
 
 function numericId(value?: number | null) {

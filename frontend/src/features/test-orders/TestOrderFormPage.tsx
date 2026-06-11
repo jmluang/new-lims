@@ -5,9 +5,16 @@ import { api } from '../../lib/api'
 import type { Customer } from '../customers/CustomerListPage'
 import type { Standard } from '../standards/StandardListPage'
 import { ErrorNotice, LoadingState, PageShell } from '../system/shared'
-import type { ApiCollection, ApiResource } from '../system/utils'
+import type { ApiResource } from '../system/utils'
 import { TestOrderForm } from './TestOrderForm'
 import type { TestOrder } from './TestOrderListPage'
+
+type TestOrderFormOptions = {
+  data: {
+    customers: Customer[]
+    standards: Standard[]
+  }
+}
 
 export function TestOrderFormPage() {
   const navigate = useNavigate()
@@ -24,18 +31,10 @@ export function TestOrderFormPage() {
       return response.data
     },
   })
-  const customersQuery = useQuery({
-    queryKey: ['test-order-customers'],
+  const formOptionsQuery = useQuery({
+    queryKey: ['test-order-form-options'],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<Customer>>('/api/customers', { params: { per_page: 100, status: 'active' } })
-
-      return response.data.data
-    },
-  })
-  const standardsQuery = useQuery({
-    queryKey: ['test-order-standards'],
-    queryFn: async () => {
-      const response = await api.get<ApiCollection<Standard>>('/api/standards', { params: { per_page: 100, status: 'active' } })
+      const response = await api.get<TestOrderFormOptions>('/api/test-orders/form-options', { params: { limit: 100 } })
 
       return response.data.data
     },
@@ -67,14 +66,13 @@ export function TestOrderFormPage() {
       }
     >
       {orderQuery.isError ? <ErrorNotice error={orderQuery.error} fallback="Unable to load test order" /> : null}
-      {customersQuery.isError ? <ErrorNotice error={customersQuery.error} fallback="Unable to load customers" /> : null}
-      {standardsQuery.isError ? <ErrorNotice error={standardsQuery.error} fallback="Unable to load standards" /> : null}
-      {(isEditing && orderQuery.isPending) || customersQuery.isPending || standardsQuery.isPending ? <LoadingState label="Loading test order form" /> : null}
-      {(!isEditing || orderQuery.data) && customersQuery.data && standardsQuery.data ? (
+      {formOptionsQuery.isError ? <ErrorNotice error={formOptionsQuery.error} fallback="Unable to load test order form" /> : null}
+      {(isEditing && orderQuery.isPending) || formOptionsQuery.isPending ? <LoadingState label="Loading test order form" /> : null}
+      {(!isEditing || orderQuery.data) && formOptionsQuery.data ? (
         <TestOrderForm
           order={orderQuery.data?.data ?? null}
-          customers={customersQuery.data}
-          standards={standardsQuery.data}
+          customers={formOptionsQuery.data.customers}
+          standards={formOptionsQuery.data.standards}
           submitting={saveOrder.isPending}
           error={saveOrder.error}
           onSubmit={(payload) => saveOrder.mutateAsync(payload)}

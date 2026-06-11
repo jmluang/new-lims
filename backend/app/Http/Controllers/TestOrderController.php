@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\Standard;
 use App\Models\TestOrder;
 use App\Services\Audit\AuditLogger;
+use App\Services\Authorization\PermissionAccess;
 use App\Services\TestOrders\OrderNumberService;
 use App\Services\TestOrders\SyncTestOrderChildren;
 use App\Services\TestOrders\TestOrderPayloadNormalizer;
@@ -207,6 +209,36 @@ class TestOrderController extends Controller
         ]);
     }
 
+    public function formOptions(Request $request): JsonResponse
+    {
+        $this->authorizeFormOptions($request);
+
+        return response()->json([
+            'data' => [
+                'customers' => Customer::query()
+                    ->with('contacts')
+                    ->where('status', 'active')
+                    ->orderBy('id')
+                    ->limit((int) $request->integer('limit', 100))
+                    ->get()
+                    ->map(fn (Customer $customer): array => $this->serializeFormCustomer($customer))
+                    ->values(),
+                'standards' => Standard::query()
+                    ->where('status', 'active')
+                    ->orderBy('id')
+                    ->limit((int) $request->integer('limit', 100))
+                    ->get()
+                    ->map(fn (Standard $standard): array => [
+                        'id' => $standard->id,
+                        'std_no' => $standard->std_no,
+                        'chinese_name' => $standard->chinese_name,
+                        'status' => $standard->status,
+                    ])
+                    ->values(),
+            ],
+        ]);
+    }
+
     private function filteredQuery(Request $request): Builder
     {
         return TestOrder::query()
@@ -223,6 +255,19 @@ class TestOrderController extends Controller
             ->when($request->filled('client_company'), fn (Builder $query): Builder => $query->where('client_company', 'like', '%'.$request->string('client_company')->toString().'%'))
             ->when($request->filled('order_date_from'), fn (Builder $query): Builder => $query->whereDate('order_date', '>=', $request->date('order_date_from')))
             ->when($request->filled('order_date_to'), fn (Builder $query): Builder => $query->whereDate('order_date', '<=', $request->date('order_date_to')));
+    }
+
+    private function authorizeFormOptions(Request $request): void
+    {
+        $access = app(PermissionAccess::class);
+
+        foreach (['test_orders.create', 'test_orders.update'] as $permission) {
+            if ($access->userCan($request->user(), $permission)) {
+                return;
+            }
+        }
+
+        $this->authorizePermission($request, 'test_orders.create', self::RESOURCE);
     }
 
     private function authorizeChildPayload(Request $request, array $payload, bool $creating): void
@@ -259,6 +304,35 @@ class TestOrderController extends Controller
         }
 
         return $payload;
+    }
+
+    private function serializeFormCustomer(Customer $customer): array
+    {
+        $contacts = $customer->contacts
+            ->filter(fn ($contact): bool => $contact->status === 'active')
+            ->map(fn ($contact): array => [
+                'id' => $contact->id,
+                'customer_id' => $contact->customer_id,
+                'name' => $contact->name,
+                'phone' => $contact->phone,
+                'email' => $contact->email,
+                'is_default' => $contact->is_default,
+                'status' => $contact->status,
+            ])
+            ->values();
+        $defaultContact = $contacts->firstWhere('is_default', true);
+
+        return [
+            'id' => $customer->id,
+            'name' => $customer->name,
+            'credit_code' => $customer->credit_code,
+            'phone' => $customer->phone,
+            'email' => $customer->email,
+            'address' => $customer->address,
+            'status' => $customer->status,
+            'default_contact' => $defaultContact,
+            'contacts' => $contacts,
+        ];
     }
 
     private function rules(bool $updating = false): array

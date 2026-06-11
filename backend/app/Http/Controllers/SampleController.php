@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EquipmentLocation;
 use App\Models\Sample;
 use App\Models\TestOrder;
 use App\Services\Samples\ReceiveSamples;
@@ -55,6 +56,9 @@ class SampleController extends Controller
                 'order_no' => $order->order_no,
                 'client_company' => $order->client_company,
             ])->values(),
+            'meta' => [
+                'locations' => $this->receiveLocationOptions(),
+            ],
         ]);
     }
 
@@ -128,6 +132,43 @@ class SampleController extends Controller
             'batch_no' => $sample->batch_no,
             'sort_order' => $sample->sort_order,
             'delivery_received_count' => $sample->delivery_received_count,
+        ];
+    }
+
+    private function receiveLocationOptions(): array
+    {
+        return EquipmentLocation::query()
+            ->whereNull('parent_id')
+            ->with('children')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->flatMap(fn (EquipmentLocation $location): array => $this->flattenLocationOptions($location))
+            ->filter(fn (array $location): bool => $location['status'] === 'active')
+            ->map(fn (array $location): array => [
+                'id' => $location['id'],
+                'name' => $location['name'],
+                'label' => $location['label'],
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function flattenLocationOptions(EquipmentLocation $location, array $parents = []): array
+    {
+        $path = [...$parents, $location->name];
+        $current = [[
+            'id' => $location->id,
+            'name' => $location->name,
+            'label' => implode(' / ', $path),
+            'status' => $location->status,
+        ]];
+
+        return [
+            ...$current,
+            ...$location->children
+                ->flatMap(fn (EquipmentLocation $child): array => $this->flattenLocationOptions($child, $path))
+                ->all(),
         ];
     }
 }

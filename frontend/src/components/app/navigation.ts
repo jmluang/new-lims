@@ -39,6 +39,7 @@ export const navGroups: NavGroup[] = [
       { label: '用户管理', to: '/system', icon: Settings, resource: 'system.users', action: 'read' },
       { label: '角色组', to: '/system/groups', icon: ShieldCheck, resource: 'system.groups', action: 'read' },
       { label: '数据字典', to: '/system/dictionaries', icon: BookOpen, resource: 'system.dictionaries', action: 'read' },
+      { label: '位置名称', to: '/equipment/locations', icon: MapPinned, resource: 'equipment_locations', action: 'read' },
     ],
   },
   {
@@ -54,7 +55,6 @@ export const navGroups: NavGroup[] = [
     label: '设备管理',
     items: [
       { label: '设备台账', to: '/equipment', icon: ClipboardList, resource: 'equipment', action: 'read' },
-      { label: '设备位置', to: '/equipment/locations', icon: MapPinned, resource: 'equipment_locations', action: 'read' },
       { label: '设备系统', to: '/equipment/systems', icon: Workflow, resource: 'equipment_systems', action: 'read' },
       { label: '设备标签', to: '/equipment/labels', icon: Printer, resource: 'equipment_labels', action: 'print' },
       { label: '温湿度记录', to: '/equipment/temp-humidity', icon: Thermometer, resource: 'temp_humidity_records', action: 'read' },

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  contactOptionsForCustomer,
+  copyClientPartyValues,
+  customerSearchValue,
   normalizeTestOrderPayload,
   reportFormOptions,
   reportSubmissionOptions,
@@ -91,6 +94,68 @@ describe('test order form', () => {
       report_forms: ['formal_report', 'electronic_report'],
       delivery_method: 'self_pick',
       outsourcing_option: 'allowed',
+    })
+  })
+
+  it('builds searchable company labels from customer registry records', () => {
+    expect(
+      customerSearchValue({
+        id: 7,
+        name: '中山市星河检测客户',
+        credit_code: '91442000MA7TEST',
+        phone: '0760-88886666',
+        status: 'active',
+      }),
+    ).toBe('中山市星河检测客户 91442000MA7TEST 0760-88886666')
+  })
+
+  it('uses customer contacts as selectable party contacts with default fallback', () => {
+    expect(
+      contactOptionsForCustomer(
+        {
+          id: 7,
+          name: '中山市星河检测客户',
+          status: 'active',
+          default_contact: {
+            id: 11,
+            name: '默认联系人',
+            phone: '13800000000',
+            is_default: true,
+            status: 'active',
+          },
+        },
+        [
+          { id: 12, customer_id: 7, name: '客户管理人A', phone: '13900000000', is_default: false, status: 'active' },
+          { id: 13, customer_id: 7, name: '停用联系人', phone: '13700000000', is_default: false, status: 'disabled' },
+        ],
+      ),
+    ).toEqual([{ id: 12, name: '客户管理人A', phone: '13900000000' }])
+
+    expect(
+      contactOptionsForCustomer({
+        id: 8,
+        name: '无联系人客户',
+        status: 'active',
+        default_contact: {
+          id: 21,
+          name: '默认联系人',
+          phone: '13800000000',
+          is_default: true,
+          status: 'active',
+        },
+      }),
+    ).toEqual([{ id: 21, name: '默认联系人', phone: '13800000000' }])
+  })
+
+  it('copies manufacturer and maker snapshots from the client party when same-as-client is enabled', () => {
+    expect(
+      copyClientPartyValues(baseValues(), 'manufacturer'),
+    ).toMatchObject({
+      manufacturer_customer_id: 1,
+      manufacturer_company: '中山市XXX有限公司',
+      manufacturer_address: '',
+      manufacturer_contact: '',
+      manufacturer_phone: '',
     })
   })
 })

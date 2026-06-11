@@ -7,7 +7,7 @@ import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { type ApiCollection, inputClass, textareaClass } from '../system/utils'
 import type { TestOrder } from '../test-orders/TestOrderListPage'
-import { acceptedReceiveRowCount, buildReceiveSamplesPayload, type ReceiveSampleRowValues } from './sampleSchema'
+import { acceptedReceiveRowCount, buildReceiveSamplesPayload, defaultReceiveLocation, type ReceiveLocationOption, type ReceiveSampleRowValues } from './sampleSchema'
 
 type SampleOption = {
   id: number
@@ -28,6 +28,12 @@ type SampleOptionsResponse = {
   }
 }
 
+type ReceiveOptionsResponse = ApiCollection<TestOrder> & {
+  meta?: ApiCollection<TestOrder>['meta'] & {
+    locations?: ReceiveLocationOption[]
+  }
+}
+
 const emptyRow: ReceiveSampleRowValues = {
   test_order_sample_id: null,
   sample_name: '',
@@ -43,15 +49,15 @@ export function SampleReceivePage() {
   const [testOrderId, setTestOrderId] = useState(0)
   const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10))
   const [storageCondition, setStorageCondition] = useState('常温')
-  const [currentLocation, setCurrentLocation] = useState('样品室')
+  const [currentLocation, setCurrentLocation] = useState(defaultReceiveLocation([]))
   const [batchNo, setBatchNo] = useState('')
   const [rows, setRows] = useState<ReceiveSampleRowValues[]>([{ ...emptyRow }])
   const ordersQuery = useQuery({
     queryKey: ['receive-test-orders'],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<TestOrder>>('/api/samples/receive-options', { params: { limit: 100 } })
+      const response = await api.get<ReceiveOptionsResponse>('/api/samples/receive-options', { params: { limit: 100 } })
 
-      return response.data.data
+      return response.data
     },
   })
   const optionsQuery = useQuery({
@@ -111,6 +117,8 @@ export function SampleReceivePage() {
     setRows((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)))
   }
 
+  const locationOptions = ordersQuery.data?.meta?.locations ?? []
+  const currentLocationExists = locationOptions.some((location) => location.name === currentLocation)
   const acceptedCount = acceptedReceiveRowCount(rows)
 
   return (
@@ -134,7 +142,7 @@ export function SampleReceivePage() {
           <Field label="Test order">
             <select className={inputClass} value={testOrderId || ''} onChange={(event) => selectOrder(event.target.value)}>
               <option value="">{zhText('Select order')}</option>
-              {(ordersQuery.data ?? []).map((order) => (
+              {(ordersQuery.data?.data ?? []).map((order) => (
                 <option value={order.id} key={order.id}>
                   {order.order_no} - {order.client_company}
                 </option>
@@ -145,7 +153,14 @@ export function SampleReceivePage() {
             <input className={inputClass} type="date" value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} />
           </Field>
           <Field label="Current location">
-            <input className={inputClass} value={currentLocation} onChange={(event) => setCurrentLocation(event.target.value)} />
+            <select className={inputClass} value={currentLocation} onChange={(event) => setCurrentLocation(event.target.value)}>
+              {!currentLocationExists ? <option value={currentLocation}>{currentLocation}</option> : null}
+              {locationOptions.map((location) => (
+                <option value={location.name} key={location.id}>
+                  {location.label}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="Storage condition">
             <input className={inputClass} value={storageCondition} onChange={(event) => setStorageCondition(event.target.value)} />

@@ -26,10 +26,10 @@ const locations: EquipmentLocation[] = [
 describe('equipment location options', () => {
   it('formats nested locations as readable full paths', () => {
     expect(activeLocationOptions(locations)).toEqual([
-      { id: 1, label: '总部' },
-      { id: 2, label: '总部 / 安规室' },
-      { id: 3, label: '总部 / 光学' },
-      { id: 4, label: '总部 / 光学 / 暗室' },
+      { id: 1, label: '总部', name: '总部' },
+      { id: 2, label: '总部 / 安规室', name: '安规室' },
+      { id: 3, label: '总部 / 光学', name: '光学' },
+      { id: 4, label: '总部 / 光学 / 暗室', name: '暗室' },
     ])
   })
 })

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Save, Trash2, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { type UseFormReturn, useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorNotice, Field, Panel } from '../system/shared'
 import { inputClass, textareaClass } from '../system/utils'
@@ -8,6 +8,9 @@ import type { Customer } from '../customers/CustomerListPage'
 import type { Standard } from '../standards/StandardListPage'
 import { zhText } from '../../lib/zh'
 import {
+  contactOptionsForCustomer,
+  copyClientPartyValues,
+  customerSearchValue,
   normalizeTestOrderPayload,
   outsourcingOptions,
   reportFormOptions,
@@ -41,10 +44,36 @@ export function TestOrderForm({
   const standardRows = useFieldArray({ control: form.control, name: 'standards' })
   const sampleRows = useFieldArray({ control: form.control, name: 'samples' })
   const watchedStandards = useWatch({ control: form.control, name: 'standards' })
+  const [sameAsClient, setSameAsClient] = useState({ manufacturer: false, maker: false })
+  const clientCustomerId = useWatch({ control: form.control, name: 'client_customer_id' })
+  const clientCompany = useWatch({ control: form.control, name: 'client_company' })
+  const clientAddress = useWatch({ control: form.control, name: 'client_address' })
+  const clientContact = useWatch({ control: form.control, name: 'client_contact' })
+  const clientPhone = useWatch({ control: form.control, name: 'client_phone' })
+  const clientSyncKey = [clientCustomerId ?? '', clientCompany ?? '', clientAddress ?? '', clientContact ?? '', clientPhone ?? ''].join('\u001f')
+  const copyClientToParty = useCallback(
+    (prefix: 'manufacturer' | 'maker') => {
+      const values = copyClientPartyValues(form.getValues(), prefix)
+
+      Object.entries(values).forEach(([field, value]) => {
+        form.setValue(field as keyof TestOrderFormValues, value as never, { shouldDirty: true, shouldValidate: false })
+      })
+    },
+    [form],
+  )
 
   useEffect(() => {
     form.reset(defaultValues(order))
   }, [order, form])
+
+  useEffect(() => {
+    if (sameAsClient.manufacturer) {
+      copyClientToParty('manufacturer')
+    }
+    if (sameAsClient.maker) {
+      copyClientToParty('maker')
+    }
+  }, [clientSyncKey, copyClientToParty, sameAsClient.manufacturer, sameAsClient.maker])
 
   async function submit(values: TestOrderFormValues) {
     await onSubmit(normalizeTestOrderPayload(values))
@@ -63,6 +92,37 @@ export function TestOrderForm({
     form.setValue(`${prefix}_company` as const, customer.name)
     form.setValue(`${prefix}_address` as const, customer.address ?? '')
     form.setValue(`${prefix}_phone` as const, customer.phone ?? '')
+
+    const defaultContact = contactOptionsForCustomer(customer)[0]
+    if (defaultContact) {
+      applyContact(prefix, defaultContact)
+    }
+  }
+
+  function applyCustomerSearch(prefix: 'client' | 'manufacturer' | 'maker', value: string) {
+    form.setValue(`${prefix}_company` as const, value, { shouldDirty: true, shouldValidate: prefix === 'client' })
+
+    const customer = customers.find((item) => item.name === value || customerSearchValue(item) === value)
+    if (!customer) {
+      form.setValue(`${prefix}_customer_id` as const, null)
+      return
+    }
+
+    applyCustomer(prefix, String(customer.id))
+  }
+
+  function applyContact(prefix: 'client' | 'manufacturer' | 'maker', contact: { name: string; phone?: string | null }) {
+    form.setValue(`${prefix}_contact` as const, contact.name, { shouldDirty: true })
+    if (contact.phone) {
+      form.setValue(`${prefix}_phone` as const, contact.phone, { shouldDirty: true })
+    }
+  }
+
+  function setSameAsClientParty(prefix: 'manufacturer' | 'maker', checked: boolean) {
+    setSameAsClient((current) => ({ ...current, [prefix]: checked }))
+    if (checked) {
+      copyClientToParty(prefix)
+    }
   }
 
   function applyStandard(index: number, standardId: string) {
@@ -118,9 +178,38 @@ export function TestOrderForm({
 
       <Panel title="Customer snapshots">
         <div className="grid gap-3 md:grid-cols-3">
-          <PartyFields prefix="client" title="Client" form={form} customers={customers} onPick={applyCustomer} required />
-          <PartyFields prefix="manufacturer" title="Manufacturer" form={form} customers={customers} onPick={applyCustomer} />
-          <PartyFields prefix="maker" title="Maker" form={form} customers={customers} onPick={applyCustomer} />
+          <PartyFields
+            prefix="client"
+            title="Client"
+            form={form}
+            customers={customers}
+            onPick={applyCustomer}
+            onCompanySearch={applyCustomerSearch}
+            onContactPick={applyContact}
+            required
+          />
+          <PartyFields
+            prefix="manufacturer"
+            title="Manufacturer"
+            form={form}
+            customers={customers}
+            onPick={applyCustomer}
+            onCompanySearch={applyCustomerSearch}
+            onContactPick={applyContact}
+            sameAsClient={sameAsClient.manufacturer}
+            onSameAsClientChange={(checked) => setSameAsClientParty('manufacturer', checked)}
+          />
+          <PartyFields
+            prefix="maker"
+            title="Maker"
+            form={form}
+            customers={customers}
+            onPick={applyCustomer}
+            onCompanySearch={applyCustomerSearch}
+            onContactPick={applyContact}
+            sameAsClient={sameAsClient.maker}
+            onSameAsClientChange={(checked) => setSameAsClientParty('maker', checked)}
+          />
         </div>
       </Panel>
 
@@ -317,22 +406,44 @@ function PartyFields({
   form,
   customers,
   onPick,
+  onCompanySearch,
+  onContactPick,
   required = false,
+  sameAsClient = false,
+  onSameAsClientChange,
 }: {
   prefix: 'client' | 'manufacturer' | 'maker'
   title: string
   form: UseFormReturn<TestOrderFormValues>
   customers: Customer[]
   onPick: (prefix: 'client' | 'manufacturer' | 'maker', customerId: string) => void
+  onCompanySearch: (prefix: 'client' | 'manufacturer' | 'maker', value: string) => void
+  onContactPick: (prefix: 'client' | 'manufacturer' | 'maker', contact: { name: string; phone?: string | null }) => void
   required?: boolean
+  sameAsClient?: boolean
+  onSameAsClientChange?: (checked: boolean) => void
 }) {
   const selectedCustomerId = useWatch({ control: form.control, name: `${prefix}_customer_id` })
+  const companyValue = useWatch({ control: form.control, name: `${prefix}_company` })
+  const contactValue = useWatch({ control: form.control, name: `${prefix}_contact` })
+  const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId)
+  const contactOptions = contactOptionsForCustomer(selectedCustomer, selectedCustomer?.contacts)
+  const datalistId = `${prefix}-customer-options`
+  const synced = prefix !== 'client' && sameAsClient
 
   return (
     <div className="space-y-3 rounded-md border border-emerald-900/10 bg-slate-50/60 p-3">
-      <h3 className="text-sm font-medium text-slate-900">{zhText(title)}</h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-medium text-slate-900">{zhText(title)}</h3>
+        {prefix !== 'client' ? (
+          <label className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+            <input className="size-3.5" type="checkbox" checked={sameAsClient} onChange={(event) => onSameAsClientChange?.(event.target.checked)} />
+            同上
+          </label>
+        ) : null}
+      </div>
       <Field label={`${title} master`}>
-        <select className={inputClass} value={selectedCustomerId ?? ''} onChange={(event) => onPick(prefix, event.target.value)}>
+        <select className={inputClass} value={selectedCustomerId ?? ''} onChange={(event) => onPick(prefix, event.target.value)} disabled={synced}>
           <option value="">{zhText('Manual')}</option>
           {customers.map((customer) => (
             <option value={customer.id} key={customer.id}>
@@ -342,17 +453,53 @@ function PartyFields({
         </select>
       </Field>
       <Field label={`${title} company`}>
-        <input className={inputClass} {...form.register(`${prefix}_company`)} />
+        <input
+          className={inputClass}
+          list={datalistId}
+          value={companyValue ?? ''}
+          onChange={(event) => onCompanySearch(prefix, event.target.value)}
+          readOnly={synced}
+          placeholder={zhText('Search') ?? undefined}
+        />
+        <datalist id={datalistId}>
+          {customers.map((customer) => (
+            <option value={customerSearchValue(customer)} key={customer.id}>
+              {customer.name}
+            </option>
+          ))}
+        </datalist>
         {required && form.formState.errors.client_company ? <span className="mt-1 block text-xs text-red-600">{form.formState.errors.client_company.message}</span> : null}
       </Field>
       <Field label={`${title} address`}>
-        <input className={inputClass} {...form.register(`${prefix}_address`)} />
+        <input className={inputClass} readOnly={synced} {...form.register(`${prefix}_address`)} />
       </Field>
       <Field label={`${title} contact`}>
-        <input className={inputClass} {...form.register(`${prefix}_contact`)} />
+        <select
+          className={inputClass}
+          value={contactValue ?? ''}
+          onChange={(event) => {
+            const contact = contactOptions.find((item) => item.name === event.target.value)
+
+            if (contact) {
+              onContactPick(prefix, contact)
+              return
+            }
+
+            form.setValue(`${prefix}_contact` as const, event.target.value, { shouldDirty: true })
+          }}
+          disabled={synced || !selectedCustomer}
+        >
+          <option value="">{zhText('Manual')}</option>
+          {contactOptions.map((contact) => (
+            <option value={contact.name} key={contact.id}>
+              {contact.name}
+            </option>
+          ))}
+        </select>
+        <input className={`${inputClass} mt-2`} readOnly={synced} {...form.register(`${prefix}_contact`)} />
       </Field>
       <Field label={`${title} phone`}>
-        <input className={inputClass} {...form.register(`${prefix}_phone`)} />
+        <input className={inputClass} readOnly={synced} {...form.register(`${prefix}_phone`)} />
       </Field>
     </div>
   )

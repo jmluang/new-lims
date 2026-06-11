@@ -3,6 +3,7 @@
 namespace Tests\Feature\TestOrders;
 
 use App\Models\Customer;
+use App\Models\CustomerContact;
 use App\Models\Standard;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -151,6 +152,36 @@ class TestOrderApiTest extends TestCase
             ->assertJsonCount(2, 'data.samples')
             ->assertJsonPath('data.samples.0.sample_name', '路灯')
             ->assertJsonMissingPath('data.samples.0.detail_content');
+    }
+
+    public function test_form_options_return_customers_contacts_and_standards_without_customer_read_permission(): void
+    {
+        $manager = $this->userWithPermissions(['test_orders.create']);
+        $customer = Customer::query()->create([
+            'name' => '中山市星河检测客户',
+            'credit_code' => '91442000MA7TEST',
+            'phone' => '0760-88886666',
+            'address' => '中山市古镇镇',
+            'status' => 'active',
+        ]);
+        CustomerContact::query()->create([
+            'customer_id' => $customer->id,
+            'name' => '客户管理人A',
+            'phone' => '13900000000',
+            'is_default' => true,
+            'status' => 'active',
+        ]);
+        $standard = $this->standard();
+
+        $this->getJsonAs($manager, '/api/customers')->assertForbidden();
+
+        $this->getJsonAs($manager, '/api/test-orders/form-options')
+            ->assertOk()
+            ->assertJsonPath('data.customers.0.id', $customer->id)
+            ->assertJsonPath('data.customers.0.name', '中山市星河检测客户')
+            ->assertJsonPath('data.customers.0.contacts.0.name', '客户管理人A')
+            ->assertJsonPath('data.customers.0.default_contact.name', '客户管理人A')
+            ->assertJsonPath('data.standards.0.id', $standard->id);
     }
 
     private function payload(Customer $customer, Standard $standard): array

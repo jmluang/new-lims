@@ -18,7 +18,7 @@ const resourceLabels: Record<string, string> = {
   samples: '样品',
   sample_flows: '样品流转',
   equipment: '设备',
-  equipment_locations: '设备位置',
+  equipment_locations: '位置名称',
   equipment_systems: '设备系统',
   equipment_labels: '设备标签',
   temp_humidity_records: '温湿度记录',
