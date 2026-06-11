@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
-import { type ApiCollection, inputClass } from '../system/utils'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
+import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
 
 export type FieldPermissionMeta = Record<string, { read?: boolean; update?: boolean; export?: boolean; hidden?: boolean }>
 
@@ -67,10 +67,12 @@ export function StandardListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<StandardFilters>(emptyFilters)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(15)
   const standardsQuery = useQuery({
-    queryKey: ['standards', filters],
+    queryKey: ['standards', filters, page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<Standard>>('/api/standards', { params: cleanParams(filters) })
+      const response = await api.get<ApiCollection<Standard>>('/api/standards', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
     },
@@ -202,6 +204,16 @@ export function StandardListPage() {
           </div>
         </>
       ) : null}
+      <PaginationControls
+        meta={standardsQuery.data?.meta}
+        page={page}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={(nextPerPage) => {
+          setPerPage(nextPerPage)
+          setPage(1)
+        }}
+      />
     </PageShell>
   )
 }
@@ -231,6 +243,6 @@ function StandardActions({ standard, onDelete }: { standard: Standard; onDelete:
   )
 }
 
-function cleanParams(filters: StandardFilters) {
+function cleanParams(filters: Record<string, string | number>) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }

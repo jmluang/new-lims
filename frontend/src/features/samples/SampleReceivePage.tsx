@@ -49,7 +49,7 @@ export function SampleReceivePage() {
   const ordersQuery = useQuery({
     queryKey: ['receive-test-orders'],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<TestOrder>>('/api/test-orders', { params: { per_page: 100 } })
+      const response = await api.get<ApiCollection<TestOrder>>('/api/samples/receive-options', { params: { limit: 100 } })
 
       return response.data.data
     },

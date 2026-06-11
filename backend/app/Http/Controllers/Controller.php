@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Audit\AuditLogger;
 use App\Services\Authorization\PermissionAccess;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 
 abstract class Controller
@@ -24,6 +25,9 @@ abstract class Controller
             );
         }
 
-        abort(403);
+        throw new HttpResponseException(response()->json([
+            'message' => 'Forbidden',
+            'permission' => $permission,
+        ], 403));
     }
 }

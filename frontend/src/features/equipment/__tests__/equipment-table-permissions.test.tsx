@@ -7,6 +7,8 @@ describe('equipment table permissions', () => {
 
     expect(defaultColumns).toContain('equipment_no')
     expect(defaultColumns).toContain('name')
+    expect(defaultColumns).toContain('measurement_range')
+    expect(defaultColumns).toContain('accuracy')
     expect(defaultColumns).not.toContain('legacy_placement')
   })
 

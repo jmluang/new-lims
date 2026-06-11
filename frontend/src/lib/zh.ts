@@ -219,6 +219,8 @@ export const textMap: Record<string, string> = {
   'Create customer': '新建客户',
   'New customer': '新建客户',
   'Equipment no': '设备编号',
+  'Measurement range': '测量范围',
+  Accuracy: '误差或精准度',
   Manufacturer: '制造商',
   Model: '型号',
   'Serial no': '序列号',

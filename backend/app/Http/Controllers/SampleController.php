@@ -39,6 +39,25 @@ class SampleController extends Controller
         return response()->json(['data' => $this->serializeSample($sample->load('testOrder'))]);
     }
 
+    public function receiveOptions(Request $request): JsonResponse
+    {
+        $this->authorizePermission($request, 'samples.receive', 'samples');
+
+        $orders = TestOrder::query()
+            ->whereIn('sample_status', ['not_received', 'partially_received'])
+            ->orderBy('id')
+            ->limit((int) $request->integer('limit', 100))
+            ->get();
+
+        return response()->json([
+            'data' => $orders->map(fn (TestOrder $order): array => [
+                'id' => $order->id,
+                'order_no' => $order->order_no,
+                'client_company' => $order->client_company,
+            ])->values(),
+        ]);
+    }
+
     public function receive(Request $request, ReceiveSamples $receiveSamples): JsonResponse
     {
         $this->authorizePermission($request, 'samples.receive', 'samples');

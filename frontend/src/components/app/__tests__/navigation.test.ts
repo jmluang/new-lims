@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isActivePath } from '../navigation'
+import { isActivePath, visibleNavGroups } from '../navigation'
 
 const routes = ['/', '/system', '/system/groups', '/equipment', '/equipment/locations', '/equipment/systems', '/equipment/labels', '/equipment/temp-humidity']
 
@@ -18,5 +18,21 @@ describe('navigation active path matching', () => {
     expect(isActivePath('/equipment/42/edit', '/equipment', routes)).toBe(true)
     expect(isActivePath('/equipment/systems/new', '/equipment/systems', routes)).toBe(true)
     expect(isActivePath('/equipment/systems/42/edit', '/equipment/systems', routes)).toBe(true)
+  })
+
+  it('hides navigation items without effective read permissions', () => {
+    const labels = visibleNavGroups({
+      resources: {
+        equipment: { actions: { read: true } },
+        samples: { actions: { read: true } },
+        system: { actions: { read: true } },
+      },
+    }).flatMap((group) => group.items.map((item) => item.label))
+
+    expect(labels).toContain('设备台账')
+    expect(labels).toContain('样品信息')
+    expect(labels).not.toContain('设备位置')
+    expect(labels).not.toContain('角色组')
+    expect(labels).not.toContain('审计日志')
   })
 })

@@ -62,6 +62,12 @@ export function EquipmentForm({
         <Field label="Model">
           <input className={inputClass} {...form.register('model')} />
         </Field>
+        <Field label="Measurement range">
+          <input className={inputClass} {...form.register('measurement_range')} />
+        </Field>
+        <Field label="Accuracy">
+          <input className={inputClass} {...form.register('accuracy')} />
+        </Field>
         <SensitiveField label="Serial no" field="serial_no" permissions={fieldPermissions}>
           <input className={inputClass} disabled={!canUpdate(fieldPermissions, 'serial_no')} {...form.register('serial_no')} />
         </SensitiveField>
@@ -155,6 +161,8 @@ function defaultValues(equipment?: Equipment | null): EquipmentFormValues {
     name: equipment?.name ?? '',
     manufacturer: equipment?.manufacturer ?? '',
     model: equipment?.model ?? '',
+    measurement_range: equipment?.measurement_range ?? '',
+    accuracy: equipment?.accuracy ?? '',
     serial_no: equipment?.serial_no ?? '',
     location_id: equipment?.location_id ? String(equipment.location_id) : '',
     system_id: equipment?.system_id ? String(equipment.system_id) : '',

@@ -1,8 +1,9 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { ChevronDown, FlaskConical } from 'lucide-react'
 import { useState } from 'react'
+import { useEffectivePermissions } from '../../features/auth/useCurrentUser'
 import { cn } from '../../lib/utils'
-import { isActivePath, navGroups } from './navigation'
+import { isActivePath, navGroups, visibleNavGroups } from './navigation'
 
 const defaultClosedGroups = Object.fromEntries(
   navGroups.filter((group) => group.label !== '工作台').map((group) => [group.label, true]),
@@ -10,6 +11,8 @@ const defaultClosedGroups = Object.fromEntries(
 
 export function Sidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const permissions = useEffectivePermissions()
+  const groups = visibleNavGroups(permissions.data)
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>(() => defaultClosedGroups)
 
   return (
@@ -24,7 +27,7 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="space-y-2 p-3">
-        {navGroups.map((group) => {
+        {groups.map((group) => {
           const hasActiveItem = group.items.some((item) => isActivePath(pathname, item.to))
           const open = hasActiveItem || !closedGroups[group.label]
 

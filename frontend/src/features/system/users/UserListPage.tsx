@@ -13,10 +13,11 @@ import {
   Field,
   LoadingState,
   PageShell,
+  PaginationControls,
   Panel,
   StatusBadge,
 } from '../shared'
-import { type ApiCollection, formatDateTime, inputClass } from '../utils'
+import { type ApiCollection, formatDateTime, inputClass, paginationParams } from '../utils'
 import { type DepartmentOption, type SystemUser, type UserGroupOption } from './UserForm'
 
 type UserFilters = {
@@ -30,10 +31,12 @@ export function UserListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<UserFilters>({ search: '', status: '', department_id: '', group_id: '' })
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
   const usersQuery = useQuery({
-    queryKey: ['system-users', filters],
+    queryKey: ['system-users', filters, page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<SystemUser>>('/api/system/users', { params: cleanParams(filters) })
+      const response = await api.get<ApiCollection<SystemUser>>('/api/system/users', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
     },
@@ -256,6 +259,16 @@ export function UserListPage() {
       </Panel>
 
       {renderUsers()}
+      <PaginationControls
+        meta={usersQuery.data?.meta}
+        page={page}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={(nextPerPage) => {
+          setPerPage(nextPerPage)
+          setPage(1)
+        }}
+      />
       {lockUser.error || unlockUser.error || resetPassword.error ? (
         <ErrorNotice error={lockUser.error ?? unlockUser.error ?? resetPassword.error} fallback="User operation failed" />
       ) : null}
@@ -303,6 +316,6 @@ function UserActions({
   )
 }
 
-function cleanParams(filters: UserFilters) {
+function cleanParams(filters: Record<string, string | number>) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }

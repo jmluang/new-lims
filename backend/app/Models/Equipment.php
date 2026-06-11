@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'name',
     'manufacturer',
     'model',
+    'measurement_range',
+    'accuracy',
     'serial_no',
     'location_id',
     'system_id',

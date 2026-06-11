@@ -16,9 +16,15 @@ class BackupController extends Controller
     public function index(Request $request): JsonResponse
     {
         $this->authorizePermission($request, 'system.backups.read');
+        $backups = BackupRun::query()->latest('id')->paginate((int) $request->integer('per_page', 15));
 
         return response()->json([
-            'data' => BackupRun::query()->latest('id')->get(),
+            'data' => $backups->getCollection(),
+            'meta' => [
+                'current_page' => $backups->currentPage(),
+                'per_page' => $backups->perPage(),
+                'total' => $backups->total(),
+            ],
         ]);
     }
 

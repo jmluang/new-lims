@@ -19,6 +19,8 @@ export type NavItem = {
   label: string
   to: string
   icon: LucideIcon
+  resource?: string
+  action?: string
 }
 
 export type NavGroup = {
@@ -34,40 +36,57 @@ export const navGroups: NavGroup[] = [
   {
     label: '系统管理',
     items: [
-      { label: '用户管理', to: '/system', icon: Settings },
-      { label: '角色组', to: '/system/groups', icon: ShieldCheck },
-      { label: '数据字典', to: '/system/dictionaries', icon: BookOpen },
+      { label: '用户管理', to: '/system', icon: Settings, resource: 'system.users', action: 'read' },
+      { label: '角色组', to: '/system/groups', icon: ShieldCheck, resource: 'system.groups', action: 'read' },
+      { label: '数据字典', to: '/system/dictionaries', icon: BookOpen, resource: 'system.dictionaries', action: 'read' },
     ],
   },
   {
     label: '业务管理',
     items: [
-      { label: '客户管理', to: '/customers', icon: Users },
-      { label: '检测标准库', to: '/standards', icon: BookOpen },
-      { label: '委托试验单', to: '/test-orders', icon: ClipboardList },
-      { label: '样品信息', to: '/samples', icon: PackageCheck },
+      { label: '客户管理', to: '/customers', icon: Users, resource: 'customers', action: 'read' },
+      { label: '检测标准库', to: '/standards', icon: BookOpen, resource: 'standards', action: 'read' },
+      { label: '委托试验单', to: '/test-orders', icon: ClipboardList, resource: 'test_orders', action: 'read' },
+      { label: '样品信息', to: '/samples', icon: PackageCheck, resource: 'samples', action: 'read' },
     ],
   },
   {
     label: '设备管理',
     items: [
-      { label: '设备台账', to: '/equipment', icon: ClipboardList },
-      { label: '设备位置', to: '/equipment/locations', icon: MapPinned },
-      { label: '设备系统', to: '/equipment/systems', icon: Workflow },
-      { label: '设备标签', to: '/equipment/labels', icon: Printer },
-      { label: '温湿度记录', to: '/equipment/temp-humidity', icon: Thermometer },
+      { label: '设备台账', to: '/equipment', icon: ClipboardList, resource: 'equipment', action: 'read' },
+      { label: '设备位置', to: '/equipment/locations', icon: MapPinned, resource: 'equipment_locations', action: 'read' },
+      { label: '设备系统', to: '/equipment/systems', icon: Workflow, resource: 'equipment_systems', action: 'read' },
+      { label: '设备标签', to: '/equipment/labels', icon: Printer, resource: 'equipment_labels', action: 'print' },
+      { label: '温湿度记录', to: '/equipment/temp-humidity', icon: Thermometer, resource: 'temp_humidity_records', action: 'read' },
     ],
   },
   {
     label: '运维审计',
     items: [
-      { label: '审计日志', to: '/audit-logs', icon: ScrollText },
-      { label: '备份管理', to: '/backups', icon: DatabaseBackup },
+      { label: '审计日志', to: '/audit-logs', icon: ScrollText, resource: 'system.audit_logs', action: 'read' },
+      { label: '备份管理', to: '/backups', icon: DatabaseBackup, resource: 'system.backups', action: 'read' },
     ],
   },
 ]
 
 export const navPaths = navGroups.flatMap((group) => group.items.map((item) => item.to))
+
+export type NavPermissions = {
+  resources: Record<string, { actions: Record<string, boolean> }>
+}
+
+export function visibleNavGroups(permissions?: NavPermissions): NavGroup[] {
+  if (!permissions) {
+    return navGroups
+  }
+
+  return navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.resource || Boolean(permissions.resources[item.resource]?.actions[item.action ?? 'read'])),
+    }))
+    .filter((group) => group.items.length > 0)
+}
 
 export function isActivePath(pathname: string, to: string, paths: string[] = navPaths) {
   if (pathname === to) {

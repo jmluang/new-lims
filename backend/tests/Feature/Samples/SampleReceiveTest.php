@@ -87,6 +87,28 @@ class SampleReceiveTest extends TestCase
         $this->assertDatabaseCount('sample_flows', 2);
     }
 
+    public function test_sample_receive_order_list_denial_names_missing_permission(): void
+    {
+        $receiver = $this->userWithPermissions(['samples.receive']);
+
+        $this->getJsonAs($receiver, '/api/test-orders')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Forbidden')
+            ->assertJsonPath('permission', 'test_orders.read');
+    }
+
+    public function test_receiver_can_load_minimal_receive_options_without_test_order_read_permission(): void
+    {
+        $receiver = $this->userWithPermissions(['samples.receive']);
+        [$order] = $this->orderWithSamples('RECV-OPTIONS');
+
+        $this->getJsonAs($receiver, '/api/samples/receive-options')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $order->id)
+            ->assertJsonPath('data.0.order_no', 'RECV-OPTIONS')
+            ->assertJsonMissingPath('data.0.samples');
+    }
+
     private function orderWithSamples(string $orderNo): array
     {
         $order = TestOrder::query()->create([
@@ -152,5 +174,12 @@ class SampleReceiveTest extends TestCase
         Sanctum::actingAs($user);
 
         return $this->postJson($uri, $data);
+    }
+
+    private function getJsonAs(User $user, string $uri)
+    {
+        Sanctum::actingAs($user);
+
+        return $this->getJson($uri);
     }
 }

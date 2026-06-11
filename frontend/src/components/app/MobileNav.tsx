@@ -1,11 +1,14 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { ChevronDown, Menu, X } from 'lucide-react'
 import { useState } from 'react'
+import { useEffectivePermissions } from '../../features/auth/useCurrentUser'
 import { cn } from '../../lib/utils'
-import { isActivePath, navGroups } from './navigation'
+import { isActivePath, navGroups, visibleNavGroups } from './navigation'
 
 export function MobileNav() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const permissions = useEffectivePermissions()
+  const groups = visibleNavGroups(permissions.data)
   const [open, setOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navGroups.map((group) => [group.label, true])),
@@ -40,7 +43,7 @@ export function MobileNav() {
               </button>
             </div>
             <nav className="space-y-2 p-3">
-              {navGroups.map((group) => {
+              {groups.map((group) => {
                 const expanded = openGroups[group.label] ?? true
 
                 return (

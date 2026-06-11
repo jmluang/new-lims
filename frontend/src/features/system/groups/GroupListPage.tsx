@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Edit3, Plus } from 'lucide-react'
+import { Edit3, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../../components/app/PermissionGate'
 import { api } from '../../../lib/api'
@@ -82,6 +82,18 @@ export function GroupListPage() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['system-groups'] }),
   })
+  const deleteGroup = useMutation({
+    mutationFn: async (group: Group) => {
+      await api.delete(`/api/system/groups/${group.id}`)
+    },
+    onSuccess: async (_, group) => {
+      if (selectedGroupId === group.id) {
+        setSelectedGroupId(null)
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ['system-groups'] })
+    },
+  })
   const groups = groupsQuery.data ?? []
   const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? groups[0]
   const selectedGroupName = selectedGroup ? (zhText(selectedGroup.name) ?? selectedGroup.name) : ''
@@ -150,14 +162,25 @@ export function GroupListPage() {
           {catalogQuery.isPending ? <LoadingState label="Loading permissions" /> : null}
           {catalogQuery.isError ? <ErrorNotice error={catalogQuery.error} fallback="Unable to load permission catalog" /> : null}
           {savePermissions.error ? <ErrorNotice error={savePermissions.error} fallback="Unable to save permissions" /> : null}
+          {deleteGroup.error ? <ErrorNotice error={deleteGroup.error} fallback="Unable to delete group" /> : null}
           {selectedGroup && catalogQuery.data ? (
             <div className="space-y-3">
-              <PermissionGate resource="system.groups" action="update">
-                <Button variant="secondary" onClick={() => editGroup(selectedGroup)}>
-                  <Edit3 className="size-4" aria-hidden="true" />
-                  Edit group info
-                </Button>
-              </PermissionGate>
+              <div className="flex flex-wrap gap-2">
+                <PermissionGate resource="system.groups" action="update">
+                  <Button variant="secondary" onClick={() => editGroup(selectedGroup)}>
+                    <Edit3 className="size-4" aria-hidden="true" />
+                    Edit group info
+                  </Button>
+                </PermissionGate>
+                {!selectedGroup.is_system ? (
+                  <PermissionGate resource="system.groups" action="delete">
+                    <Button variant="danger" disabled={deleteGroup.isPending} onClick={() => deleteGroup.mutate(selectedGroup)}>
+                      <Trash2 className="size-4" aria-hidden="true" />
+                      Delete group
+                    </Button>
+                  </PermissionGate>
+                ) : null}
+              </div>
               <PermissionMatrix
                 key={selectedGroup.id}
                 catalog={catalogQuery.data}

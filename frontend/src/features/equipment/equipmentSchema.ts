@@ -5,6 +5,8 @@ export const equipmentSchema = z.object({
   name: z.string().min(1, '请填写名称'),
   manufacturer: z.string().optional(),
   model: z.string().optional(),
+  measurement_range: z.string().optional(),
+  accuracy: z.string().optional(),
   serial_no: z.string().optional(),
   location_id: z.string().optional(),
   system_id: z.string().optional(),

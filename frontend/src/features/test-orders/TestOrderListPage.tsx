@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
-import { type ApiCollection, inputClass } from '../system/utils'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
+import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
 
 export type TestOrderStandard = {
   id: number
@@ -92,10 +92,12 @@ export function TestOrderListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<TestOrderFilters>(emptyFilters)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(15)
   const ordersQuery = useQuery({
-    queryKey: ['test-orders', filters],
+    queryKey: ['test-orders', filters, page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<TestOrder>>('/api/test-orders', { params: cleanParams(filters) })
+      const response = await api.get<ApiCollection<TestOrder>>('/api/test-orders', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
     },
@@ -230,6 +232,16 @@ export function TestOrderListPage() {
           </div>
         </>
       ) : null}
+      <PaginationControls
+        meta={ordersQuery.data?.meta}
+        page={page}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={(nextPerPage) => {
+          setPerPage(nextPerPage)
+          setPage(1)
+        }}
+      />
     </PageShell>
   )
 }
@@ -259,6 +271,6 @@ function TestOrderActions({ order, onDelete }: { order: TestOrder; onDelete: (or
   )
 }
 
-function cleanParams(filters: TestOrderFilters) {
+function cleanParams(filters: Record<string, string | number>) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }

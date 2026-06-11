@@ -85,6 +85,8 @@ class EquipmentApiTest extends TestCase
             'name' => 'Balance',
             'manufacturer' => 'Scale Inc',
             'model' => 'B100',
+            'measurement_range' => '0-220 g',
+            'accuracy' => '0.001 g',
             'serial_no' => 'SER-100',
             'location_id' => $location->id,
             'purchase_date' => '2026-01-01',
@@ -94,7 +96,10 @@ class EquipmentApiTest extends TestCase
             'next_calibration_date' => '2027-02-01',
             'status' => 'active',
             'remark' => 'Daily use',
-        ])->assertCreated()->json('data.id');
+        ])->assertCreated()
+            ->assertJsonPath('data.measurement_range', '0-220 g')
+            ->assertJsonPath('data.accuracy', '0.001 g')
+            ->json('data.id');
 
         $this->putJsonAs($admin, "/api/equipment/{$equipmentId}", [
             'name' => 'Balance Updated',

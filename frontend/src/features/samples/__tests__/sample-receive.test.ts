@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildReceiveSamplesPayload, acceptedReceiveRowCount, normalizeReceivePayload, receiveSamplesSchema } from '../sampleSchema'
+import { buildReceiveSamplesPayload, acceptedReceiveRowCount, normalizeReceivePayload, receiveSamplesSchema, sampleReceiveOrderPermissions } from '../sampleSchema'
 
 describe('sample receive form', () => {
   it('requires a test order, current location and at least one row', () => {
@@ -59,5 +59,9 @@ describe('sample receive form', () => {
         ],
       }),
     ).toThrow('请选择委托单')
+  })
+
+  it('documents the permission needed to load receive order options', () => {
+    expect(sampleReceiveOrderPermissions).toEqual(['samples.receive'])
   })
 })

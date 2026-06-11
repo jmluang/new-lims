@@ -13,10 +13,11 @@ import {
   Field,
   LoadingState,
   PageShell,
+  PaginationControls,
   Panel,
   StatusBadge,
 } from '../system/shared'
-import { type ApiCollection, inputClass } from '../system/utils'
+import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
 import { EquipmentLabelPrintArea, EquipmentLabelPrintStyles, type LabelPreview } from './EquipmentLabelPrintArea'
 import { visibleEquipmentColumns } from './equipmentColumns'
 import { activeLocationOptions } from './equipmentLocationOptions'
@@ -41,6 +42,8 @@ export type Equipment = {
   name: string
   manufacturer?: string | null
   model?: string | null
+  measurement_range?: string | null
+  accuracy?: string | null
   serial_no?: string | null
   location_id?: number | null
   location?: EquipmentLocation | null
@@ -85,14 +88,16 @@ export function EquipmentListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<EquipmentFilters>(emptyFilters)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(15)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [printLabels, setPrintLabels] = useState<LabelPreview[]>([])
   const [shouldPrint, setShouldPrint] = useState(false)
   const [printingId, setPrintingId] = useState<number | null>(null)
   const equipmentQuery = useQuery({
-    queryKey: ['equipment', filters],
+    queryKey: ['equipment', filters, page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<Equipment>>('/api/equipment', { params: cleanParams(filters) })
+      const response = await api.get<ApiCollection<Equipment>>('/api/equipment', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
     },
@@ -376,6 +381,16 @@ export function EquipmentListPage() {
           </div>
         </>
       ) : null}
+      <PaginationControls
+        meta={equipmentQuery.data?.meta}
+        page={page}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={(nextPerPage) => {
+          setPerPage(nextPerPage)
+          setPage(1)
+        }}
+      />
       <EquipmentLabelPrintArea labels={printLabels} screenHidden />
     </PageShell>
   )
@@ -418,6 +433,6 @@ function EquipmentActions({
   )
 }
 
-function cleanParams(filters: EquipmentFilters) {
+function cleanParams(filters: Record<string, string | number>) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }

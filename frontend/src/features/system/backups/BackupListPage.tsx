@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DatabaseBackup, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
 import { PermissionGate } from '../../../components/app/PermissionGate'
 import { api } from '../../../lib/api'
 import {
@@ -9,10 +10,11 @@ import {
   ErrorNotice,
   LoadingState,
   PageShell,
+  PaginationControls,
   Panel,
   StatusBadge,
 } from '../shared'
-import { type ApiCollection, formatBytes, formatDateTime } from '../utils'
+import { type ApiCollection, formatBytes, formatDateTime, paginationParams } from '../utils'
 
 type BackupRun = {
   id: number
@@ -28,12 +30,14 @@ type BackupRun = {
 
 export function BackupListPage() {
   const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(15)
   const backupsQuery = useQuery({
-    queryKey: ['backups'],
+    queryKey: ['backups', page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<BackupRun>>('/api/backups')
+      const response = await api.get<ApiCollection<BackupRun>>('/api/backups', { params: paginationParams(page, perPage) })
 
-      return response.data.data
+      return response.data
     },
   })
   const runBackup = useMutation({
@@ -48,7 +52,7 @@ export function BackupListPage() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['backups'] }),
   })
-  const backups = backupsQuery.data ?? []
+  const backups = backupsQuery.data?.data ?? []
 
   return (
     <PageShell
@@ -133,6 +137,17 @@ export function BackupListPage() {
           </Panel>
         ))}
       </div>
+
+      <PaginationControls
+        meta={backupsQuery.data?.meta}
+        page={page}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={(nextPerPage) => {
+          setPerPage(nextPerPage)
+          setPage(1)
+        }}
+      />
     </PageShell>
   )
 }

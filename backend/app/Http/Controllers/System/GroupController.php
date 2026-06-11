@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -109,6 +110,34 @@ class GroupController extends Controller
         );
 
         return response()->json(['data' => $this->serializeRole($group->fresh()->load('permissions'))]);
+    }
+
+    public function destroy(Request $request, Role $group, AuditLogger $auditLogger): JsonResponse
+    {
+        $this->authorizePermission($request, 'system.groups.delete');
+
+        if ((bool) $group->is_system) {
+            throw ValidationException::withMessages([
+                'group' => ['system_group_delete_forbidden'],
+            ]);
+        }
+
+        $before = $this->auditValues($group->load('permissions'));
+        $groupId = $group->id;
+
+        $group->delete();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $auditLogger->record(
+            actor: $request->user(),
+            action: 'system.groups.delete',
+            module: 'system.groups',
+            subject: $group,
+            before: $before,
+            after: ['deleted' => true, 'id' => $groupId],
+        );
+
+        return response()->json(['data' => ['deleted' => true]]);
     }
 
     private function rules(?int $ignoreId = null, bool $requireName = true): array

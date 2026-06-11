@@ -2,7 +2,7 @@ import { Children, cloneElement, isValidElement, type ReactElement, type ReactNo
 import { AlertCircle, Loader2, X } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { zhText } from '../../lib/zh'
-import { errorMessage } from './utils'
+import { errorMessage, type PaginationMeta } from './utils'
 
 export function PageShell({
   title,
@@ -185,6 +185,62 @@ export function DataTable({ children }: { children: ReactNode }) {
   return (
     <div className="hidden overflow-x-auto rounded-lg border border-emerald-900/10 bg-white shadow-[0_1px_2px_rgb(15_23_42/0.05)] md:block">
       <table className="min-w-full divide-y divide-slate-200 text-sm">{translateTableHead(children)}</table>
+    </div>
+  )
+}
+
+export function PaginationControls({
+  meta,
+  page,
+  perPage,
+  onPageChange,
+  onPerPageChange,
+}: {
+  meta?: Partial<PaginationMeta>
+  page: number
+  perPage: number
+  onPageChange: (page: number) => void
+  onPerPageChange: (perPage: number) => void
+}) {
+  const total = Number(meta?.total ?? 0)
+  const currentPage = Number(meta?.current_page ?? page)
+  const effectivePerPage = Number(meta?.per_page ?? perPage)
+  const totalPages = Math.max(1, Math.ceil(total / Math.max(effectivePerPage, 1)))
+
+  if (total <= 0) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-emerald-900/10 bg-white px-3 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        共 <span className="font-medium text-slate-900">{total}</span> 条
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2">
+          <span>每页</span>
+          <select
+            className="h-9 rounded-md border border-emerald-900/20 bg-white px-2 text-sm text-slate-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+            value={perPage}
+            onChange={(event) => onPerPageChange(Number(event.target.value))}
+          >
+            {[15, 30, 50, 100].map((value) => (
+              <option value={value} key={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button variant="secondary" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}>
+          上一页
+        </Button>
+        <span className="min-w-20 text-center">
+          第 {currentPage} / {totalPages} 页
+        </span>
+        <Button variant="secondary" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}>
+          下一页
+        </Button>
+      </div>
     </div>
   )
 }

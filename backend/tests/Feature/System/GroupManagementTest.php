@@ -128,6 +128,44 @@ class GroupManagementTest extends TestCase
         $this->getJson('/api/system/groups')->assertOk();
     }
 
+    public function test_admin_can_delete_non_system_group(): void
+    {
+        $admin = $this->userWithPermissions(['system.groups.read', 'system.groups.delete']);
+        $group = Role::create([
+            'name' => 'obsolete_group',
+            'guard_name' => 'web',
+            'display_name' => 'Obsolete Group',
+            'status' => 'active',
+        ]);
+        $group->givePermissionTo(Permission::findOrCreate('customers.read', 'web'));
+
+        $this->deleteJsonAs($admin, "/api/system/groups/{$group->id}")
+            ->assertOk()
+            ->assertJsonPath('data.deleted', true);
+
+        $this->assertDatabaseMissing('roles', ['id' => $group->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'system.groups.delete', 'subject_id' => (string) $group->id]);
+    }
+
+    public function test_system_group_cannot_be_deleted(): void
+    {
+        $admin = $this->userWithPermissions(['system.groups.delete']);
+        $group = Role::create([
+            'name' => 'super_admin',
+            'guard_name' => 'web',
+            'display_name' => 'Super Admin',
+            'system_key' => 'super_admin',
+            'is_system' => true,
+            'status' => 'active',
+        ]);
+
+        $this->deleteJsonAs($admin, "/api/system/groups/{$group->id}")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['group']);
+
+        $this->assertDatabaseHas('roles', ['id' => $group->id]);
+    }
+
     private function userWithPermissions(array $permissions): User
     {
         $role = Role::create(['name' => 'test_group_admin_'.str()->random(8), 'guard_name' => 'web']);
@@ -154,5 +192,12 @@ class GroupManagementTest extends TestCase
         Sanctum::actingAs($user);
 
         return $this->putJson($uri, $data);
+    }
+
+    private function deleteJsonAs(User $user, string $uri)
+    {
+        Sanctum::actingAs($user);
+
+        return $this->deleteJson($uri);
     }
 }

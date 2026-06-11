@@ -2,7 +2,13 @@ import { zhErrorText } from '../../lib/zh'
 
 export type ApiCollection<T> = {
   data: T[]
-  meta?: Record<string, unknown>
+  meta?: Record<string, unknown> & Partial<PaginationMeta>
+}
+
+export type PaginationMeta = {
+  current_page: number
+  per_page: number
+  total: number
 }
 
 export type ApiResource<T> = {
@@ -11,9 +17,11 @@ export type ApiResource<T> = {
 
 export type ApiError = {
   response?: {
+    status?: number
     data?: {
       message?: string
       errors?: Record<string, string[]>
+      permission?: string
     }
   }
 }
@@ -24,6 +32,12 @@ export function errorMessage(error: unknown, fallback = 'Request failed') {
   }
 
   const apiError = error as ApiError
+  const missingPermission = apiError.response?.status === 403 ? apiError.response?.data?.permission : undefined
+
+  if (missingPermission) {
+    return `没有权限执行该操作：缺少 ${missingPermission}`
+  }
+
   const validationErrors = apiError.response?.data?.errors
   const firstValidationError = validationErrors ? Object.values(validationErrors).flat()[0] : undefined
 
@@ -76,3 +90,7 @@ export const inputClass =
 
 export const textareaClass =
   'min-h-20 min-w-0 w-full rounded-md border border-emerald-900/20 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100'
+
+export function paginationParams(page: number, perPage: number) {
+  return { page, per_page: perPage }
+}

@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
-import { type ApiCollection, inputClass } from '../system/utils'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
+import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
 
 export type Sample = {
   id: number
@@ -46,10 +46,12 @@ const emptyFilters: SampleFilters = {
 export function SampleListPage() {
   const navigate = useNavigate()
   const [filters, setFilters] = useState<SampleFilters>(emptyFilters)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(15)
   const samplesQuery = useQuery({
-    queryKey: ['samples', filters],
+    queryKey: ['samples', filters, page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<Sample>>('/api/samples', { params: cleanParams(filters) })
+      const response = await api.get<ApiCollection<Sample>>('/api/samples', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
     },
@@ -155,10 +157,20 @@ export function SampleListPage() {
           </div>
         </>
       ) : null}
+      <PaginationControls
+        meta={samplesQuery.data?.meta}
+        page={page}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={(nextPerPage) => {
+          setPerPage(nextPerPage)
+          setPage(1)
+        }}
+      />
     </PageShell>
   )
 }
 
-function cleanParams(filters: SampleFilters) {
+function cleanParams(filters: Record<string, string | number>) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }

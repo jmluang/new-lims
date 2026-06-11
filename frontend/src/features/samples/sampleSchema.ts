@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export const sampleReceiveOrderPermissions = ['samples.receive'] as const
+
 export const receiveSampleRowSchema = z.object({
   test_order_sample_id: z.number().nullable().optional(),
   sample_name: z.string().min(1, '请填写样品名称'),

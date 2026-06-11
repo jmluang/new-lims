@@ -11,6 +11,8 @@ export const equipmentColumns: EquipmentColumn[] = [
   { key: 'name', label: 'Name' },
   { key: 'manufacturer', label: 'Manufacturer' },
   { key: 'model', label: 'Model' },
+  { key: 'measurement_range', label: 'Measurement range' },
+  { key: 'accuracy', label: 'Accuracy' },
   { key: 'serial_no', label: 'Serial no', sensitive: true },
   { key: 'next_calibration_date', label: 'Next calibration' },
   { key: 'status', label: 'Status' },

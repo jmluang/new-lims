@@ -59,7 +59,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/system/users/{user}/unlock', [UserController::class, 'unlock']);
 
         Route::apiResource('/system/departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
-        Route::apiResource('/system/groups', GroupController::class)->parameters(['groups' => 'group'])->only(['index', 'store', 'show', 'update']);
+        Route::apiResource('/system/groups', GroupController::class)->parameters(['groups' => 'group'])->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::put('/system/groups/{group}/permissions', [GroupController::class, 'syncPermissionMatrix']);
 
         Route::get('/dictionaries', [DictionaryController::class, 'index']);
@@ -102,6 +102,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::apiResource('/test-orders', TestOrderController::class);
 
         Route::get('/samples', [SampleController::class, 'index']);
+        Route::get('/samples/receive-options', [SampleController::class, 'receiveOptions']);
         Route::post('/samples/receive', [SampleController::class, 'receive']);
         Route::get('/samples/{sample}', [SampleController::class, 'show']);
         Route::get('/samples/{sample}/flows', [SampleFlowController::class, 'index']);

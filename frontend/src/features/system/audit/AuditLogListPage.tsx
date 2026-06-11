@@ -11,9 +11,10 @@ import {
   Field,
   LoadingState,
   PageShell,
+  PaginationControls,
   Panel,
 } from '../shared'
-import { type ApiCollection, formatDateTime, inputClass } from '../utils'
+import { type ApiCollection, formatDateTime, inputClass, paginationParams } from '../utils'
 
 type AuditLog = {
   id: number
@@ -57,11 +58,13 @@ const emptyFilters: AuditFilters = {
 
 export function AuditLogListPage() {
   const [filters, setFilters] = useState<AuditFilters>(emptyFilters)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(15)
   const [selected, setSelected] = useState<AuditLog | null>(null)
   const auditLogsQuery = useQuery({
-    queryKey: ['audit-logs', filters],
+    queryKey: ['audit-logs', filters, page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<AuditLog>>('/api/audit-logs', { params: cleanParams(filters) })
+      const response = await api.get<ApiCollection<AuditLog>>('/api/audit-logs', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
     },
@@ -200,6 +203,16 @@ export function AuditLogListPage() {
               </div>
             </>
           ) : null}
+          <PaginationControls
+            meta={auditLogsQuery.data?.meta}
+            page={page}
+            perPage={perPage}
+            onPageChange={setPage}
+            onPerPageChange={(nextPerPage) => {
+              setPerPage(nextPerPage)
+              setPage(1)
+            }}
+          />
         </section>
 
         <Panel title="Record detail" description={selected ? `#${selected.id} ${selected.action}` : 'Select an audit record'}>
@@ -241,6 +254,6 @@ function JsonBlock({ title, value }: { title: string; value?: Record<string, unk
   )
 }
 
-function cleanParams(filters: AuditFilters) {
+function cleanParams(filters: Record<string, string | number>) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }

@@ -13,10 +13,11 @@ import {
   Field,
   LoadingState,
   PageShell,
+  PaginationControls,
   Panel,
   StatusBadge,
 } from '../system/shared'
-import { type ApiCollection, inputClass } from '../system/utils'
+import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
 import { CustomerContactList } from './CustomerContactList'
 import { visibleCustomerColumns, visibleCustomerMobileFields } from './customerColumns'
 
@@ -76,11 +77,13 @@ export function CustomerListPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<CustomerFilters>(emptyFilters)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(15)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const customersQuery = useQuery({
-    queryKey: ['customers', filters],
+    queryKey: ['customers', filters, page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<Customer>>('/api/customers', { params: cleanParams(filters) })
+      const response = await api.get<ApiCollection<Customer>>('/api/customers', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
     },
@@ -249,6 +252,16 @@ export function CustomerListPage() {
             </div>
           </>
         ) : null}
+        <PaginationControls
+          meta={customersQuery.data?.meta}
+          page={page}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={(nextPerPage) => {
+            setPerPage(nextPerPage)
+            setPage(1)
+          }}
+        />
       </section>
 
       <Panel title="Contacts" description={selectedCustomer?.name}>
@@ -322,6 +335,6 @@ function DictionaryFilter({
   )
 }
 
-function cleanParams(filters: CustomerFilters) {
+function cleanParams(filters: Record<string, string | number>) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }
