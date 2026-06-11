@@ -8,8 +8,10 @@ use App\Http\Controllers\EquipmentController;
 use App\Http\Controllers\EquipmentLabelController;
 use App\Http\Controllers\EquipmentLocationController;
 use App\Http\Controllers\EquipmentSystemController;
+use App\Http\Controllers\EquipmentUsageRecordController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SampleFlowController;
+use App\Http\Controllers\SampleLabelController;
 use App\Http\Controllers\StandardCatalogController;
 use App\Http\Controllers\StandardController;
 use App\Http\Controllers\StandardItemController;
@@ -108,9 +110,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/samples/{sample}', [SampleController::class, 'show']);
         Route::get('/samples/{sample}/flows', [SampleFlowController::class, 'index']);
         Route::post('/samples/{sample}/flows', [SampleFlowController::class, 'store']);
+        Route::post('/sample-labels/preview', [SampleLabelController::class, 'preview']);
 
         Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
         Route::apiResource('/equipment-systems', EquipmentSystemController::class)->parameters(['equipment-systems' => 'equipmentSystem'])->only(['index', 'store', 'update', 'destroy']);
+        Route::get('/equipment-usage-records/form-options', [EquipmentUsageRecordController::class, 'formOptions']);
+        Route::post('/equipment-usage-records/start', [EquipmentUsageRecordController::class, 'start']);
+        Route::post('/equipment-usage-records/batch-end', [EquipmentUsageRecordController::class, 'batchEnd']);
+        Route::post('/equipment-usage-records/{equipmentUsageRecord}/end', [EquipmentUsageRecordController::class, 'end']);
+        Route::apiResource('/equipment-usage-records', EquipmentUsageRecordController::class)->parameters(['equipment-usage-records' => 'equipmentUsageRecord'])->only(['index', 'update', 'destroy']);
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
         Route::apiResource('/equipment', EquipmentController::class);
         Route::post('/equipment-labels/preview', [EquipmentLabelController::class, 'preview']);

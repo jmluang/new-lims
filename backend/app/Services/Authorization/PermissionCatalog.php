@@ -25,11 +25,13 @@ class PermissionCatalog
             'test_order_standards' => ['read', 'create', 'update', 'delete'],
             'test_order_samples' => ['read', 'create', 'update', 'delete'],
             'samples' => ['read', 'receive', 'update', 'export'],
+            'sample_labels' => ['read', 'print'],
             'sample_flows' => ['read', 'create'],
             'equipment' => ['read', 'create', 'update', 'delete', 'export'],
             'equipment_locations' => ['read', 'create', 'update', 'delete'],
             'equipment_systems' => ['read', 'create', 'update', 'delete'],
             'equipment_labels' => ['read', 'print'],
+            'equipment_usage_records' => ['read', 'create', 'update', 'delete'],
             'temp_humidity_records' => ['read', 'create', 'update', 'delete'],
         ];
     }

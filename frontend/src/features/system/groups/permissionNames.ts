@@ -16,11 +16,13 @@ const resourceLabels: Record<string, string> = {
   test_order_standards: '委托单标准',
   test_order_samples: '委托单样品',
   samples: '样品',
+  sample_labels: '样品标签',
   sample_flows: '样品流转',
   equipment: '设备',
   equipment_locations: '位置名称',
   equipment_systems: '设备系统',
   equipment_labels: '设备标签',
+  equipment_usage_records: '设备使用记录',
   temp_humidity_records: '温湿度记录',
 }
 

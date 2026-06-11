@@ -28,6 +28,8 @@ export const textMap: Record<string, string> = {
   'Sample detail': '样品详情',
   'Receive samples': '接收样品',
   'Equipment Labels': '设备标签',
+  'Sample Labels': '样品标签',
+  'Equipment Usage Records': '设备使用记录',
   'Equipment Locations': '位置名称',
   'Backup Runs': '备份任务',
   'Group-based access control': '基于角色组的权限控制',

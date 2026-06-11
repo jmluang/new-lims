@@ -87,6 +87,10 @@ class CanonicalAcceptanceSeeder extends Seeder
             'equipment_systems.delete',
             'equipment_labels.read',
             'equipment_labels.print',
+            'equipment_usage_records.read',
+            'equipment_usage_records.create',
+            'equipment_usage_records.update',
+            'equipment_usage_records.delete',
         ]);
         $testOrderManager = $this->group('test_order_manager', [
             'standards.read',
@@ -104,14 +108,21 @@ class CanonicalAcceptanceSeeder extends Seeder
             'test_order_samples.update',
             'test_order_samples.delete',
             'samples.receive',
+            'sample_labels.read',
+            'sample_labels.print',
         ]);
         $sampleManager = $this->group('sample_manager', [
             'samples.read',
             'samples.receive',
             'samples.update',
             'samples.export',
+            'sample_labels.read',
+            'sample_labels.print',
             'sample_flows.read',
             'sample_flows.create',
+            'equipment_usage_records.read',
+            'equipment_usage_records.create',
+            'equipment_usage_records.update',
         ]);
         $auditor = $this->group('auditor', [
             'system.audit_logs.read',

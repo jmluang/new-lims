@@ -1,12 +1,14 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Eye, PackageCheck, Search } from 'lucide-react'
-import { useState } from 'react'
+import { Eye, PackageCheck, Printer, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
+import { SampleLabelPrintArea, SampleLabelPrintStyles, type SampleLabelPreview } from './SampleLabelPrintArea'
+import { sampleLabelSpec } from './sampleLabelSpec'
 
 export type Sample = {
   id: number
@@ -48,6 +50,10 @@ export function SampleListPage() {
   const [filters, setFilters] = useState<SampleFilters>(emptyFilters)
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(15)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [printLabels, setPrintLabels] = useState<SampleLabelPreview[]>([])
+  const [shouldPrint, setShouldPrint] = useState(false)
+  const [printingId, setPrintingId] = useState<number | null>(null)
   const samplesQuery = useQuery({
     queryKey: ['samples', filters, page, perPage],
     queryFn: async () => {
@@ -56,21 +62,68 @@ export function SampleListPage() {
       return response.data
     },
   })
+  const printSamples = useMutation({
+    mutationFn: async (sampleIds: number[]) => {
+      const response = await api.post<{ data: SampleLabelPreview[] }>('/api/sample-labels/preview', {
+        sample_ids: sampleIds,
+        label_width_mm: sampleLabelSpec.widthMm,
+        label_height_mm: sampleLabelSpec.heightMm,
+      })
+
+      return response.data.data
+    },
+    onSuccess: (labels) => {
+      setPrintLabels(labels)
+      setShouldPrint(true)
+    },
+    onSettled: () => setPrintingId(null),
+  })
   const samples = samplesQuery.data?.data ?? []
+
+  useEffect(() => {
+    if (!shouldPrint || printLabels.length === 0) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      window.print()
+      setShouldPrint(false)
+    })
+
+    return () => window.clearTimeout(timeout)
+  }, [printLabels, shouldPrint])
+
+  function toggleSelected(id: number) {
+    setSelectedIds((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]))
+  }
+
+  function printSingle(sample: Sample) {
+    setPrintingId(sample.id)
+    printSamples.mutate([sample.id])
+  }
 
   return (
     <PageShell
       title="Samples"
       description="Track received physical samples, holder, location and flow records."
       actions={
-        <PermissionGate resource="samples" action="receive">
-          <Button variant="primary" onClick={() => void navigate({ to: '/samples/receive' })}>
-            <PackageCheck className="size-4" aria-hidden="true" />
-            Receive samples
-          </Button>
-        </PermissionGate>
+        <>
+          <PermissionGate resource="sample_labels" action="print">
+            <Button variant="secondary" disabled={selectedIds.length === 0} onClick={() => printSamples.mutate(selectedIds)}>
+              <Printer className="size-4" aria-hidden="true" />
+              样品标签 ({selectedIds.length})
+            </Button>
+          </PermissionGate>
+          <PermissionGate resource="samples" action="receive">
+            <Button variant="primary" onClick={() => void navigate({ to: '/samples/receive' })}>
+              <PackageCheck className="size-4" aria-hidden="true" />
+              Receive samples
+            </Button>
+          </PermissionGate>
+        </>
       }
     >
+      <SampleLabelPrintStyles />
       <Panel title="Filters">
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="Search">
@@ -101,6 +154,7 @@ export function SampleListPage() {
       </Panel>
 
       {samplesQuery.isError ? <ErrorNotice error={samplesQuery.error} fallback="Unable to load samples" /> : null}
+      {printSamples.error ? <ErrorNotice error={printSamples.error} fallback="Unable to create sample labels" /> : null}
       {samplesQuery.isPending ? <LoadingState label="Loading samples" /> : null}
       {!samplesQuery.isPending && samples.length === 0 ? <EmptyState title="No samples found" description="Receive samples from a test order before tracking flows." /> : null}
       {samples.length > 0 ? (
@@ -108,6 +162,7 @@ export function SampleListPage() {
           <DataTable>
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
+                <th className="px-3 py-2 font-medium">选择</th>
                 <th className="px-3 py-2 font-medium">Sample no</th>
                 <th className="px-3 py-2 font-medium">Sample name</th>
                 <th className="px-3 py-2 font-medium">Order no</th>
@@ -120,6 +175,14 @@ export function SampleListPage() {
             <tbody className="divide-y divide-slate-200">
               {samples.map((sample) => (
                 <tr key={sample.id}>
+                  <td className="px-3 py-3">
+                    <input
+                      className="size-4 rounded border-slate-300 text-emerald-600"
+                      type="checkbox"
+                      checked={selectedIds.includes(sample.id)}
+                      onChange={() => toggleSelected(sample.id)}
+                    />
+                  </td>
                   <td className="px-3 py-3 text-sm font-medium text-slate-900">{sample.sample_no}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{sample.sample_name}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{sample.order_no ?? '-'}</td>
@@ -129,10 +192,18 @@ export function SampleListPage() {
                   <td className="px-3 py-3 text-sm text-slate-700">{sample.current_holder ?? '-'}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{sample.current_location ?? '-'}</td>
                   <td className="px-3 py-3">
-                    <Button variant="secondary" onClick={() => void navigate({ to: '/samples/$sampleId', params: { sampleId: String(sample.id) } })}>
-                      <Eye className="size-4" aria-hidden="true" />
-                      View
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <PermissionGate resource="sample_labels" action="print">
+                        <Button variant="secondary" disabled={printingId === sample.id} onClick={() => printSingle(sample)}>
+                          <Printer className="size-4" aria-hidden="true" />
+                          打印
+                        </Button>
+                      </PermissionGate>
+                      <Button variant="secondary" onClick={() => void navigate({ to: '/samples/$sampleId', params: { sampleId: String(sample.id) } })}>
+                        <Eye className="size-4" aria-hidden="true" />
+                        View
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -167,6 +238,7 @@ export function SampleListPage() {
           setPage(1)
         }}
       />
+      <SampleLabelPrintArea labels={printLabels} screenHidden />
     </PageShell>
   )
 }

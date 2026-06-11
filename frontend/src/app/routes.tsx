@@ -7,6 +7,7 @@ import { EquipmentFormPage } from '../features/equipment/EquipmentFormPage'
 import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
 import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
 import { EquipmentSystemPage } from '../features/equipment/EquipmentSystemPage'
+import { EquipmentUsageRecordPage } from '../features/equipment/EquipmentUsageRecordPage'
 import { TempHumidityListPage } from '../features/equipment/TempHumidityListPage'
 import { SampleDetailPage } from '../features/samples/SampleDetailPage'
 import { SampleListPage } from '../features/samples/SampleListPage'
@@ -230,6 +231,13 @@ const equipmentLabelsRoute = createRoute({
   component: EquipmentLabelPrintPage,
 })
 
+const equipmentUsageRecordsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/usage-records',
+  beforeLoad: () => requireRoutePermission('equipment_usage_records'),
+  component: EquipmentUsageRecordPage,
+})
+
 const tempHumidityRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment/temp-humidity',
@@ -280,6 +288,7 @@ export const routeTree = rootRoute.addChildren([
     equipmentLocationsRoute,
     equipmentSystemsRoute,
     equipmentLabelsRoute,
+    equipmentUsageRecordsRoute,
     tempHumidityRoute,
     auditLogsRoute,
     backupsRoute,
