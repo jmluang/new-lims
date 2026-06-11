@@ -19,7 +19,8 @@ import {
 } from '../shared'
 import { type ApiCollection, formatDateTime, inputClass, paginationParams } from '../utils'
 import { type DepartmentOption, type SystemUser, type UserGroupOption } from './UserForm'
-import { resetPasswordSuccessMessage, temporaryResetPassword } from './userPasswordReset'
+import { ResetPasswordNoticeModal } from './ResetPasswordNoticeModal'
+import { temporaryResetPassword } from './userPasswordReset'
 
 type UserFilters = {
   search: string
@@ -270,13 +271,7 @@ export function UserListPage() {
 
       {renderUsers()}
       {resetNotice ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
-          <div className="font-medium">密码已重置</div>
-          <div className="mt-1">{resetPasswordSuccessMessage(resetNotice.userName, resetNotice.password)}</div>
-          <div className="mt-2 inline-flex rounded-md border border-emerald-200 bg-white px-2 py-1 font-mono text-sm text-emerald-950">
-            {resetNotice.password}
-          </div>
-        </div>
+        <ResetPasswordNoticeModal userName={resetNotice.userName} password={resetNotice.password} onClose={() => setResetNotice(null)} />
       ) : null}
       <PaginationControls
         meta={usersQuery.data?.meta}

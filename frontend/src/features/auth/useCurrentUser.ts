@@ -13,6 +13,12 @@ type LoginPayload = {
   password: string
 }
 
+type ChangePasswordPayload = {
+  current_password: string
+  password: string
+  password_confirmation: string
+}
+
 export type EffectivePermissions = {
   resources: Record<
     string,
@@ -70,6 +76,24 @@ export function useLogin() {
       setAuthToken(token)
       queryClient.setQueryData(currentUserQueryKey, user)
       void queryClient.invalidateQueries({ queryKey: effectivePermissionsQueryKey })
+    },
+  })
+}
+
+export function useChangePassword() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: ChangePasswordPayload) => {
+      const response = await api.post<{ data: { must_change_password: boolean } }>('/api/auth/password', payload)
+
+      return response.data.data
+    },
+    onSuccess: () => {
+      queryClient.setQueryData<CurrentUser | undefined>(currentUserQueryKey, (current) =>
+        current ? { ...current, must_change_password: false } : current,
+      )
+      void queryClient.invalidateQueries({ queryKey: currentUserQueryKey })
     },
   })
 }

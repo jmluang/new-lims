@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { AppLayout } from '../components/app/AppLayout'
 import { clearAuthToken, isUnauthorizedError } from '../lib/api'
 import { useCurrentUser, useEffectivePermissions } from '../features/auth/useCurrentUser'
+import { PasswordChangeRequiredModal } from '../features/auth/PasswordChangeRequiredModal'
 import { ErrorNotice, LoadingState } from '../features/system/shared'
 
 export function ProtectedLayout() {
@@ -34,6 +35,14 @@ export function ProtectedLayout() {
     }
 
     return <LoadingState label="正在跳转登录" />
+  }
+
+  if (currentUser.data?.must_change_password) {
+    return (
+      <AppLayout>
+        <PasswordChangeRequiredModal user={currentUser.data} />
+      </AppLayout>
+    )
   }
 
   return (
