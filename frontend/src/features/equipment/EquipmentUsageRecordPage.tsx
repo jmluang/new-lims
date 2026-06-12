@@ -181,10 +181,10 @@ export function EquipmentUsageRecordPage() {
         <Panel title="开始新测试">
           {optionsQuery.isPending ? <LoadingState label="正在加载设备和样品" /> : null}
           {optionsQuery.isError ? <ErrorNotice error={optionsQuery.error} fallback="无法加载设备使用选项" /> : null}
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-3">
             <Field label="设备">
               <select
-                className={inputClass}
+                className={`${inputClass} min-h-28 py-2 align-top`}
                 multiple
                 value={form.equipment_ids.map(String)}
                 onChange={(event) => setForm({ ...form, equipment_ids: selectedNumberOptions(event.currentTarget) })}
@@ -198,7 +198,7 @@ export function EquipmentUsageRecordPage() {
             </Field>
             <Field label="样品">
               <select
-                className={inputClass}
+                className={`${inputClass} min-h-28 py-2 align-top`}
                 multiple
                 value={form.sample_ids.map(String)}
                 onChange={(event) => setForm({ ...form, sample_ids: selectedNumberOptions(event.currentTarget) })}
@@ -213,7 +213,7 @@ export function EquipmentUsageRecordPage() {
             <Field label="开始时间">
               <input className={inputClass} type="datetime-local" value={form.start_time} onChange={(event) => setForm({ ...form, start_time: event.target.value })} />
             </Field>
-            <Field label="备注">
+            <Field label="备注明细" className="md:col-span-3">
               <textarea className={textareaClass} value={form.remark} onChange={(event) => setForm({ ...form, remark: event.target.value })} />
             </Field>
           </div>
