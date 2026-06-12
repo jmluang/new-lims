@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Sample;
 use App\Models\SampleFlow;
+use App\Services\Samples\SampleFlowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,7 +22,7 @@ class SampleFlowController extends Controller
         ]);
     }
 
-    public function store(Request $request, Sample $sample): JsonResponse
+    public function store(Request $request, Sample $sample, SampleFlowService $sampleFlowService): JsonResponse
     {
         $this->authorizePermission($request, 'sample_flows.create', 'sample_flows', $sample);
         $this->authorizePermission($request, 'samples.update', 'samples', $sample);
@@ -32,72 +33,10 @@ class SampleFlowController extends Controller
             'location_to' => ['nullable', 'string', 'max:255'],
             'remark' => ['nullable', 'string'],
         ]);
-        $beforeHolder = $sample->current_holder;
-        $beforeLocation = $sample->current_location;
-        $updates = $this->sampleUpdates($sample, $data);
-        $sample->update([
-            ...$updates,
-            'updated_by' => $request->user()?->id,
-        ]);
 
-        $flow = $sample->flows()->create([
-            'action_type' => $data['action_type'],
-            'action_by' => $request->user()?->id,
-            'action_time' => now(),
-            'holder_from' => $beforeHolder,
-            'holder_to' => $sample->fresh()->current_holder,
-            'location_from' => $beforeLocation,
-            'location_to' => $sample->fresh()->current_location,
-            'remark' => $data['remark'] ?? null,
-        ]);
+        $flow = $sampleFlowService->record($request->user(), $sample, $data);
 
         return response()->json(['data' => $this->serializeFlow($flow)], 201);
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function sampleUpdates(Sample $sample, array $data): array
-    {
-        return match ($data['action_type']) {
-            'lend' => [
-                'status' => 'testing',
-                'current_holder' => $data['holder_to'] ?? $sample->current_holder,
-                'current_location' => $data['location_to'] ?? $sample->current_location,
-            ],
-            'transfer' => [
-                'current_holder' => $data['holder_to'] ?? $sample->current_holder,
-                'current_location' => $data['location_to'] ?? $sample->current_location,
-            ],
-            'send_out' => [
-                'status' => 'outsourced',
-                'current_holder' => $data['holder_to'] ?? $sample->current_holder,
-                'current_location' => $data['location_to'] ?? $sample->current_location,
-            ],
-            'receive_back' => [
-                'status' => 'outsource_returned',
-                'current_holder' => '样品室',
-                'current_location' => $data['location_to'] ?? $sample->current_location,
-            ],
-            'return_room' => [
-                'status' => 'pending',
-                'current_holder' => '样品室',
-                'current_location' => $data['location_to'] ?? $sample->current_location,
-            ],
-            'return_client' => [
-                'status' => 'returned',
-                'current_holder' => $data['holder_to'] ?? '客户',
-                'current_location' => $data['location_to'] ?? $sample->current_location,
-            ],
-            'scrap' => [
-                'status' => 'scrapped',
-                'current_location' => $data['location_to'] ?? $sample->current_location,
-            ],
-            'position_change' => [
-                'current_location' => $data['location_to'] ?? $sample->current_location,
-            ],
-        };
     }
 
     private function serializeFlow(SampleFlow $flow): array
