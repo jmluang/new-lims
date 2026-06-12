@@ -24,6 +24,9 @@ const resourceLabels: Record<string, string> = {
   equipment_labels: '设备标签',
   equipment_usage_records: '设备使用记录',
   temp_humidity_records: '温湿度记录',
+  calibration_projects: '定标项目',
+  calibration_project_labels: '定标项目标签',
+  equipment_calibrations: '设备定标记录',
 }
 
 const actionLabels: Record<string, string> = {
@@ -47,6 +50,8 @@ const fieldLabels: Record<string, string> = {
   instruction_files: '操作规程文件',
   calibration_files: '校准文件',
   other_files: '其他文件',
+  attachment_files: '附件',
+  photo_files: '现场照片',
 }
 
 export function resourcePermissionName(resource: string, action: string) {

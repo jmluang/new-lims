@@ -6,6 +6,7 @@ import {
   MapPinned,
   PackageCheck,
   Printer,
+  Ruler,
   ScanLine,
   ScrollText,
   Settings,
@@ -42,6 +43,7 @@ export const navGroups: NavGroup[] = [
       { label: '角色组', to: '/system/groups', icon: ShieldCheck, resource: 'system.groups', action: 'read' },
       { label: '数据字典', to: '/system/dictionaries', icon: BookOpen, resource: 'system.dictionaries', action: 'read' },
       { label: '位置名称', to: '/equipment/locations', icon: MapPinned, resource: 'equipment_locations', action: 'read' },
+      { label: '定标项目', to: '/system/calibration-projects', icon: Ruler, resource: 'calibration_projects', action: 'read' },
     ],
   },
   {

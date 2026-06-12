@@ -165,6 +165,11 @@ class PermissionCatalogTest extends TestCase
             'temp_humidity_records.create',
             'temp_humidity_records.update',
             'temp_humidity_records.delete',
+            'calibration_projects.read',
+            'calibration_projects.create',
+            'calibration_projects.update',
+            'calibration_projects.delete',
+            'calibration_project_labels.print',
         ];
     }
 }

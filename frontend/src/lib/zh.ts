@@ -106,6 +106,8 @@ export const textMap: Record<string, string> = {
   'Flow history': '流转历史',
   'Print flow card': '打印流转卡',
   Operator: '操作人',
+  'Calibration projects': '定标项目',
+  'Maintain calibration project catalog and print project labels.': '维护定标项目并打印项目标签。',
   'Scan sample flow': '扫码流转',
   'Scan or type a sample number, then record an allowed flow action.': '扫码或输入样品编号，记录允许的流转操作。',
   'sample no': '样品编号',

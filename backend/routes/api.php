@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CalibrationProjectController;
+use App\Http\Controllers\CalibrationProjectLabelController;
 use App\Http\Controllers\CustomerContactController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\EquipmentController;
@@ -129,6 +131,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
         Route::apiResource('/equipment', EquipmentController::class);
         Route::post('/equipment-labels/preview', [EquipmentLabelController::class, 'preview']);
+
+        Route::post('/calibration-project-labels/preview', [CalibrationProjectLabelController::class, 'preview']);
+        Route::apiResource('/calibration-projects', CalibrationProjectController::class)->parameters(['calibration-projects' => 'calibrationProject'])->only(['index', 'store', 'update', 'destroy']);
 
         Route::get('/temp-humidity-records', [TempHumidityRecordController::class, 'index']);
         Route::post('/temp-humidity-records', [TempHumidityRecordController::class, 'store']);

@@ -8,6 +8,7 @@ import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
 import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
 import { EquipmentSystemPage } from '../features/equipment/EquipmentSystemPage'
 import { EquipmentUsageRecordPage } from '../features/equipment/EquipmentUsageRecordPage'
+import { CalibrationProjectPage } from '../features/equipment/CalibrationProjectPage'
 import { TempHumidityListPage } from '../features/equipment/TempHumidityListPage'
 import { SampleDetailPage } from '../features/samples/SampleDetailPage'
 import { SampleListPage } from '../features/samples/SampleListPage'
@@ -197,6 +198,13 @@ const sampleDetailRoute = createRoute({
   component: SampleDetailPage,
 })
 
+const calibrationProjectsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/system/calibration-projects',
+  beforeLoad: () => requireRoutePermission('calibration_projects'),
+  component: CalibrationProjectPage,
+})
+
 const equipmentRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment',
@@ -291,6 +299,7 @@ export const routeTree = rootRoute.addChildren([
     sampleReceiveRoute,
     sampleScanRoute,
     sampleDetailRoute,
+    calibrationProjectsRoute,
     equipmentRoute,
     equipmentCreateRoute,
     equipmentEditRoute,
