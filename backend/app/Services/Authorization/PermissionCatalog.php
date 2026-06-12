@@ -35,6 +35,7 @@ class PermissionCatalog
             'temp_humidity_records' => ['read', 'create', 'update', 'delete'],
             'calibration_projects' => ['read', 'create', 'update', 'delete'],
             'calibration_project_labels' => ['print'],
+            'equipment_calibrations' => ['read', 'create', 'update', 'delete'],
         ];
     }
 
@@ -64,6 +65,10 @@ class PermissionCatalog
                 'instruction_files' => ['read', 'update'],
                 'calibration_files' => ['read', 'update'],
                 'other_files' => ['read', 'update'],
+            ],
+            'equipment_calibrations' => [
+                'attachment_files' => ['read', 'update'],
+                'photo_files' => ['read', 'update'],
             ],
         ];
     }

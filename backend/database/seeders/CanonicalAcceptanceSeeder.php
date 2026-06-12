@@ -96,6 +96,14 @@ class CanonicalAcceptanceSeeder extends Seeder
             'calibration_projects.update',
             'calibration_projects.delete',
             'calibration_project_labels.print',
+            'equipment_calibrations.read',
+            'equipment_calibrations.create',
+            'equipment_calibrations.update',
+            'equipment_calibrations.delete',
+            'equipment_calibrations.field.attachment_files.read',
+            'equipment_calibrations.field.attachment_files.update',
+            'equipment_calibrations.field.photo_files.read',
+            'equipment_calibrations.field.photo_files.update',
         ]);
         $testOrderManager = $this->group('test_order_manager', [
             'standards.read',
