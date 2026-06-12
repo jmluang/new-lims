@@ -1,8 +1,9 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Eye, PackageCheck, Printer, Search } from 'lucide-react'
+import { ArrowLeftRight, Eye, FileText, HandCoins, PackageCheck, Printer, Search, Undo2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
+import { useCurrentUser } from '../auth/useCurrentUser'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
@@ -47,6 +48,8 @@ const emptyFilters: SampleFilters = {
 
 export function SampleListPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const currentUser = useCurrentUser()
   const [filters, setFilters] = useState<SampleFilters>(emptyFilters)
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(15)
@@ -78,7 +81,25 @@ export function SampleListPage() {
     },
     onSettled: () => setPrintingId(null),
   })
+  const quickFlow = useMutation({
+    mutationFn: async (input: { sampleId: number; payload: Record<string, string> }) => {
+      await api.post(`/api/samples/${input.sampleId}/scan-flow`, input.payload)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['samples'] })
+    },
+  })
   const samples = samplesQuery.data?.data ?? []
+
+  function claimSample(sample: Sample) {
+    const holder = currentUser.data?.name?.trim() || zhText('Operator') || '操作人'
+
+    quickFlow.mutate({ sampleId: sample.id, payload: { action_type: 'lend', holder_to: holder } })
+  }
+
+  function goToDetail(sample: Sample) {
+    void navigate({ to: '/samples/$sampleId', params: { sampleId: String(sample.id) } })
+  }
 
   useEffect(() => {
     if (!shouldPrint || printLabels.length === 0) {
@@ -155,6 +176,7 @@ export function SampleListPage() {
 
       {samplesQuery.isError ? <ErrorNotice error={samplesQuery.error} fallback="Unable to load samples" /> : null}
       {printSamples.error ? <ErrorNotice error={printSamples.error} fallback="Unable to create sample labels" /> : null}
+      {quickFlow.error ? <ErrorNotice error={quickFlow.error} fallback="无法完成样品流转" /> : null}
       {samplesQuery.isPending ? <LoadingState label="Loading samples" /> : null}
       {!samplesQuery.isPending && samples.length === 0 ? <EmptyState title="No samples found" description="Receive samples from a test order before tracking flows." /> : null}
       {samples.length > 0 ? (
@@ -193,13 +215,39 @@ export function SampleListPage() {
                   <td className="px-3 py-3 text-sm text-slate-700">{sample.current_location ?? '-'}</td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-2">
+                      <PermissionGate resource="sample_flows" action="create">
+                        {sample.status === 'pending' && sample.current_holder === '样品室' ? (
+                          <Button variant="secondary" disabled={quickFlow.isPending} onClick={() => claimSample(sample)}>
+                            <HandCoins className="size-4" aria-hidden="true" />
+                            领样
+                          </Button>
+                        ) : null}
+                        {sample.status === 'testing' && sample.current_holder !== '样品室' ? (
+                          <>
+                            <Button variant="secondary" onClick={() => goToDetail(sample)}>
+                              <ArrowLeftRight className="size-4" aria-hidden="true" />
+                              流转
+                            </Button>
+                            <Button variant="secondary" onClick={() => goToDetail(sample)}>
+                              <Undo2 className="size-4" aria-hidden="true" />
+                              归还
+                            </Button>
+                          </>
+                        ) : null}
+                      </PermissionGate>
+                      <PermissionGate resource="sample_flows" action="read">
+                        <Button variant="secondary" onClick={() => goToDetail(sample)}>
+                          <FileText className="size-4" aria-hidden="true" />
+                          流转卡
+                        </Button>
+                      </PermissionGate>
                       <PermissionGate resource="sample_labels" action="print">
                         <Button variant="secondary" disabled={printingId === sample.id} onClick={() => printSingle(sample)}>
                           <Printer className="size-4" aria-hidden="true" />
                           打印
                         </Button>
                       </PermissionGate>
-                      <Button variant="secondary" onClick={() => void navigate({ to: '/samples/$sampleId', params: { sampleId: String(sample.id) } })}>
+                      <Button variant="secondary" onClick={() => goToDetail(sample)}>
                         <Eye className="size-4" aria-hidden="true" />
                         View
                       </Button>

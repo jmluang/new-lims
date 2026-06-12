@@ -6,6 +6,7 @@ import {
   MapPinned,
   PackageCheck,
   Printer,
+  ScanLine,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -50,6 +51,7 @@ export const navGroups: NavGroup[] = [
       { label: '检测标准库', to: '/standards', icon: BookOpen, resource: 'standards', action: 'read' },
       { label: '委托试验单', to: '/test-orders', icon: ClipboardList, resource: 'test_orders', action: 'read' },
       { label: '样品信息', to: '/samples', icon: PackageCheck, resource: 'samples', action: 'read' },
+      { label: '扫码流转', to: '/samples/scan', icon: ScanLine, resource: 'sample_flows', action: 'create' },
     ],
   },
   {
