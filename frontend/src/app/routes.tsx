@@ -9,6 +9,9 @@ import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocati
 import { EquipmentSystemPage } from '../features/equipment/EquipmentSystemPage'
 import { EquipmentUsageRecordPage } from '../features/equipment/EquipmentUsageRecordPage'
 import { CalibrationProjectPage } from '../features/equipment/CalibrationProjectPage'
+import { EquipmentCalibrationListPage } from '../features/equipment/EquipmentCalibrationListPage'
+import { EquipmentCalibrationFormPage } from '../features/equipment/EquipmentCalibrationFormPage'
+import { EquipmentCalibrationDetailPage } from '../features/equipment/EquipmentCalibrationDetailPage'
 import { TempHumidityListPage } from '../features/equipment/TempHumidityListPage'
 import { SampleDetailPage } from '../features/samples/SampleDetailPage'
 import { SampleListPage } from '../features/samples/SampleListPage'
@@ -254,6 +257,34 @@ const equipmentUsageRecordsRoute = createRoute({
   component: EquipmentUsageRecordPage,
 })
 
+const equipmentCalibrationsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/calibrations',
+  beforeLoad: () => requireRoutePermission('equipment_calibrations'),
+  component: EquipmentCalibrationListPage,
+})
+
+const equipmentCalibrationCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/calibrations/new',
+  beforeLoad: () => requireRoutePermission('equipment_calibrations', 'create'),
+  component: EquipmentCalibrationFormPage,
+})
+
+const equipmentCalibrationDetailRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/calibrations/$calibrationId',
+  beforeLoad: () => requireRoutePermission('equipment_calibrations'),
+  component: EquipmentCalibrationDetailPage,
+})
+
+const equipmentCalibrationEditRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/calibrations/$calibrationId/edit',
+  beforeLoad: () => requireRoutePermission('equipment_calibrations', 'update'),
+  component: EquipmentCalibrationFormPage,
+})
+
 const tempHumidityRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment/temp-humidity',
@@ -307,6 +338,10 @@ export const routeTree = rootRoute.addChildren([
     equipmentSystemsRoute,
     equipmentLabelsRoute,
     equipmentUsageRecordsRoute,
+    equipmentCalibrationsRoute,
+    equipmentCalibrationCreateRoute,
+    equipmentCalibrationDetailRoute,
+    equipmentCalibrationEditRoute,
     tempHumidityRoute,
     auditLogsRoute,
     backupsRoute,

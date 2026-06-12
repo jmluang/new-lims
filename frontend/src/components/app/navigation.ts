@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  ClipboardCheck,
   ClipboardList,
   DatabaseBackup,
   LayoutDashboard,
@@ -63,6 +64,7 @@ export const navGroups: NavGroup[] = [
       { label: '设备系统', to: '/equipment/systems', icon: Workflow, resource: 'equipment_systems', action: 'read' },
       { label: '设备标签', to: '/equipment/labels', icon: Printer, resource: 'equipment_labels', action: 'print' },
       { label: '设备使用记录', to: '/equipment/usage-records', icon: Timer, resource: 'equipment_usage_records', action: 'read' },
+      { label: '设备定标记录', to: '/equipment/calibrations', icon: ClipboardCheck, resource: 'equipment_calibrations', action: 'read' },
       { label: '温湿度记录', to: '/equipment/temp-humidity', icon: Thermometer, resource: 'temp_humidity_records', action: 'read' },
     ],
   },
