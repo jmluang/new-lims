@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, Printer } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, DataTable, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, type ApiResource, inputClass, textareaClass } from '../system/utils'
+import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, type SampleFlowCardData } from './SampleFlowCardPrintArea'
 import { sampleFlowSchema, type SampleFlowValues } from './sampleSchema'
 import type { Sample } from './SampleListPage'
 
@@ -52,6 +53,15 @@ export function SampleDetailPage() {
       return response.data.data
     },
   })
+  const flowCardQuery = useQuery({
+    queryKey: ['sample-flow-card', sampleId],
+    queryFn: async () => {
+      const response = await api.get<ApiResource<SampleFlowCardData>>(`/api/samples/${sampleId}/flow-card`)
+
+      return response.data.data
+    },
+    enabled: sampleId !== null,
+  })
   const createFlow = useMutation({
     mutationFn: async () => {
       const parsed = sampleFlowSchema.safeParse(flowForm)
@@ -68,6 +78,7 @@ export function SampleDetailPage() {
       setFlowForm(emptyFlow)
       await queryClient.invalidateQueries({ queryKey: ['sample', sampleId] })
       await queryClient.invalidateQueries({ queryKey: ['sample-flows', sampleId] })
+      await queryClient.invalidateQueries({ queryKey: ['sample-flow-card', sampleId] })
       await queryClient.invalidateQueries({ queryKey: ['samples'] })
     },
   })
@@ -79,10 +90,20 @@ export function SampleDetailPage() {
       title="Sample detail"
       description="Inspect physical sample state and append flow records."
       actions={
-        <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          {zhText('Back to list')}
-        </Link>
+        <div className="flex items-center gap-2">
+          {flowCardQuery.data ? (
+            <PermissionGate resource="sample_flows" action="read">
+              <Button variant="secondary" onClick={() => window.print()}>
+                <Printer className="size-4" aria-hidden="true" />
+                {zhText('Print flow card')}
+              </Button>
+            </PermissionGate>
+          ) : null}
+          <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            {zhText('Back to list')}
+          </Link>
+        </div>
       }
     >
       {sampleQuery.isError ? <ErrorNotice error={sampleQuery.error} fallback="Unable to load sample" /> : null}
@@ -90,6 +111,12 @@ export function SampleDetailPage() {
       {createFlow.error ? <ErrorNotice error={createFlow.error} fallback="Unable to save sample flow" /> : null}
       {validationError ? <ErrorNotice error={validationError} fallback={validationError} /> : null}
       {sampleQuery.isPending ? <LoadingState label="Loading sample" /> : null}
+      {flowCardQuery.data ? (
+        <>
+          <SampleFlowCardPrintStyles />
+          <SampleFlowCardPrintArea card={flowCardQuery.data} screenHidden />
+        </>
+      ) : null}
       {sample ? (
         <div className="space-y-4">
           <Panel title="Sample profile">
