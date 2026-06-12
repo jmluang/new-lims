@@ -10,8 +10,10 @@ use App\Http\Controllers\EquipmentLocationController;
 use App\Http\Controllers\EquipmentSystemController;
 use App\Http\Controllers\EquipmentUsageRecordController;
 use App\Http\Controllers\SampleController;
+use App\Http\Controllers\SampleFlowCardController;
 use App\Http\Controllers\SampleFlowController;
 use App\Http\Controllers\SampleLabelController;
+use App\Http\Controllers\SampleScanController;
 use App\Http\Controllers\StandardCatalogController;
 use App\Http\Controllers\StandardController;
 use App\Http\Controllers\StandardItemController;
@@ -107,9 +109,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/samples', [SampleController::class, 'index']);
         Route::get('/samples/receive-options', [SampleController::class, 'receiveOptions']);
         Route::post('/samples/receive', [SampleController::class, 'receive']);
+        // Literal route must precede /samples/{sample} so implicit model binding does not treat "scan-lookup" as a sample id.
+        Route::get('/samples/scan-lookup', [SampleScanController::class, 'lookup']);
         Route::get('/samples/{sample}', [SampleController::class, 'show']);
         Route::get('/samples/{sample}/flows', [SampleFlowController::class, 'index']);
         Route::post('/samples/{sample}/flows', [SampleFlowController::class, 'store']);
+        Route::get('/samples/{sample}/flow-card', [SampleFlowCardController::class, 'show']);
+        Route::post('/samples/{sample}/scan-flow', [SampleScanController::class, 'store']);
         Route::post('/sample-labels/preview', [SampleLabelController::class, 'preview']);
 
         Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
