@@ -1,12 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Panel } from '../../features/system/shared'
 import { inputClass } from '../../features/system/utils'
-
-export function normalizeScanValue(value: string): string | null {
-  const text = value.trim()
-
-  return text === '' ? null : text
-}
+import { normalizeScanValue } from './qrScanner'
 
 type QrScannerPanelProps = {
   title: string
@@ -70,7 +65,10 @@ type QrCameraProps = {
 function QrCamera({ readerId, onDetected }: QrCameraProps) {
   const [error, setError] = useState<string | null>(null)
   const onDetectedRef = useRef(onDetected)
-  onDetectedRef.current = onDetected
+
+  useEffect(() => {
+    onDetectedRef.current = onDetected
+  }, [onDetected])
 
   useEffect(() => {
     let cancelled = false

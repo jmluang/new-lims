@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { QrScannerPanel, normalizeScanValue } from '../QrScannerPanel'
+import { QrScannerPanel } from '../QrScannerPanel'
+import { normalizeScanValue } from '../qrScanner'
 
 describe('normalizeScanValue', () => {
   it('trims surrounding whitespace and returns the code', () => {

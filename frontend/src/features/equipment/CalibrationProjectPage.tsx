@@ -6,10 +6,10 @@ import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, Panel, StatusBadge } from '../system/shared'
 import { inputClass, textareaClass } from '../system/utils'
+import { calibrationProjectLabelSpec } from './calibrationProjectLabelSpec'
 import {
   CalibrationProjectLabelPrintArea,
   CalibrationProjectLabelPrintStyles,
-  calibrationProjectLabelSpec,
   type CalibrationProjectLabelPreview,
 } from './CalibrationProjectLabelPrintArea'
 

@@ -8,6 +8,7 @@ use App\Services\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class EquipmentCalibrationController extends Controller
@@ -172,7 +173,7 @@ class EquipmentCalibrationController extends Controller
 
     /**
      * @param  array<string, mixed>  $payload
-     * @return \Illuminate\Support\Collection<int, Equipment>
+     * @return Collection<int, Equipment>
      */
     private function equipmentMap(array $payload)
     {

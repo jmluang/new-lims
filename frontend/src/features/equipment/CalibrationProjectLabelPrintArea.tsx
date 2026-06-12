@@ -1,10 +1,6 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { createPortal } from 'react-dom'
-
-export const calibrationProjectLabelSpec = {
-  widthMm: 40,
-  heightMm: 60,
-} as const
+import { calibrationProjectLabelSpec } from './calibrationProjectLabelSpec'
 
 export type CalibrationProjectLabelPreview = {
   project_no: string
