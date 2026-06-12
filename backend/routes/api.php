@@ -121,6 +121,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
         Route::apiResource('/equipment-systems', EquipmentSystemController::class)->parameters(['equipment-systems' => 'equipmentSystem'])->only(['index', 'store', 'update', 'destroy']);
         Route::get('/equipment-usage-records/form-options', [EquipmentUsageRecordController::class, 'formOptions']);
+        Route::get('/equipment-usage-records/lookup', [EquipmentUsageRecordController::class, 'lookup']);
         Route::post('/equipment-usage-records/start', [EquipmentUsageRecordController::class, 'start']);
         Route::post('/equipment-usage-records/batch-end', [EquipmentUsageRecordController::class, 'batchEnd']);
         Route::post('/equipment-usage-records/{equipmentUsageRecord}/end', [EquipmentUsageRecordController::class, 'end']);

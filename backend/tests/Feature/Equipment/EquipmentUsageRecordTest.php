@@ -95,6 +95,31 @@ class EquipmentUsageRecordTest extends TestCase
             ->assertJsonPath('data.samples.0.sample_no', 'SAMPLE-OPTION');
     }
 
+    public function test_usage_lookup_resolves_equipment_and_samples_by_number(): void
+    {
+        $operator = $this->userWithPermissions(['equipment_usage_records.create']);
+        $equipment = Equipment::query()->create(['equipment_no' => 'EQ-SCAN-001', 'name' => '积分球', 'status' => 'active']);
+        $sample = $this->sample('S-SCAN-001');
+
+        $this->getJsonAs($operator, '/api/equipment-usage-records/lookup?type=equipment&code=EQ-SCAN-001')
+            ->assertOk()
+            ->assertJsonPath('data.id', $equipment->id)
+            ->assertJsonPath('data.equipment_no', 'EQ-SCAN-001');
+
+        $this->getJsonAs($operator, '/api/equipment-usage-records/lookup?type=sample&code=S-SCAN-001')
+            ->assertOk()
+            ->assertJsonPath('data.id', $sample->id)
+            ->assertJsonPath('data.sample_no', 'S-SCAN-001');
+    }
+
+    public function test_usage_lookup_returns_404_for_unknown_code(): void
+    {
+        $operator = $this->userWithPermissions(['equipment_usage_records.create']);
+
+        $this->getJsonAs($operator, '/api/equipment-usage-records/lookup?type=equipment&code=NOPE')
+            ->assertNotFound();
+    }
+
     private function sample(string $sampleNo): Sample
     {
         $order = TestOrder::query()->first()

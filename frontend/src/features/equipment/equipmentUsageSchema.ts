@@ -21,3 +21,11 @@ export function buildEquipmentUsageStartPayload(values: EquipmentUsageStartValue
 export function equipmentUsageStatus(endTime?: string | null) {
   return endTime ? 'finished' : 'using'
 }
+
+/**
+ * De-duplicates selected equipment/sample ids while dropping invalid entries,
+ * so scan and click selection can be merged without producing duplicate rows.
+ */
+export function uniqueNumberList(values: number[]) {
+  return Array.from(new Set(values.filter((value) => Number.isFinite(value) && value > 0)))
+}

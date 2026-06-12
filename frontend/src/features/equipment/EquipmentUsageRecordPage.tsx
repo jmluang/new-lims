@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Edit3, Plus, Search, Trash2 } from 'lucide-react'
+import { CheckCircle2, Edit3, Plus, Search, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
+import { QrScannerPanel } from '../../components/app/QrScannerPanel'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
-import { type ApiCollection, inputClass, paginationParams, textareaClass } from '../system/utils'
-import { buildEquipmentUsageStartPayload } from './equipmentUsageSchema'
+import { type ApiCollection, type ApiResource, inputClass, paginationParams, textareaClass } from '../system/utils'
+import { buildEquipmentUsageStartPayload, uniqueNumberList } from './equipmentUsageSchema'
 
 type UsageStatus = 'using' | 'finished'
 
@@ -59,6 +60,7 @@ export function EquipmentUsageRecordPage() {
     start_time: new Date().toISOString().slice(0, 16),
     remark: '',
   })
+  const [scannedLabels, setScannedLabels] = useState<{ equipment: Record<number, string>; sample: Record<number, string> }>({ equipment: {}, sample: {} })
   const canCreate = Boolean(permissions.data?.resources.equipment_usage_records?.actions.create)
   const recordsQuery = useQuery({
     queryKey: ['equipment-usage-records', filters, page, perPage],
@@ -79,6 +81,32 @@ export function EquipmentUsageRecordPage() {
       return response.data.data
     },
   })
+  const lookupEquipment = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await api.get<ApiResource<{ id: number; equipment_no: string; name: string }>>('/api/equipment-usage-records/lookup', {
+        params: { type: 'equipment', code },
+      })
+
+      return response.data.data
+    },
+    onSuccess: (item) => {
+      setForm((current) => ({ ...current, equipment_ids: uniqueNumberList([...current.equipment_ids, item.id]) }))
+      setScannedLabels((current) => ({ ...current, equipment: { ...current.equipment, [item.id]: `${item.equipment_no} - ${item.name}` } }))
+    },
+  })
+  const lookupSample = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await api.get<ApiResource<{ id: number; sample_no: string; sample_name: string }>>('/api/equipment-usage-records/lookup', {
+        params: { type: 'sample', code },
+      })
+
+      return response.data.data
+    },
+    onSuccess: (item) => {
+      setForm((current) => ({ ...current, sample_ids: uniqueNumberList([...current.sample_ids, item.id]) }))
+      setScannedLabels((current) => ({ ...current, sample: { ...current.sample, [item.id]: `${item.sample_no} - ${item.sample_name}` } }))
+    },
+  })
   const startUsage = useMutation({
     mutationFn: async () => {
       const payload = buildEquipmentUsageStartPayload(form)
@@ -88,6 +116,7 @@ export function EquipmentUsageRecordPage() {
     onSuccess: async () => {
       setSelectedIds([])
       setForm((current) => ({ ...current, equipment_ids: [], sample_ids: [], remark: '' }))
+      setScannedLabels({ equipment: {}, sample: {} })
       await queryClient.invalidateQueries({ queryKey: ['equipment-usage-records'] })
     },
   })
@@ -149,6 +178,26 @@ export function EquipmentUsageRecordPage() {
     })
   }
 
+  function equipmentLabelFor(id: number) {
+    const option = optionsQuery.data?.equipment.find((item) => item.id === id)
+
+    return scannedLabels.equipment[id] ?? (option ? `${option.equipment_no} - ${option.name}` : `#${id}`)
+  }
+
+  function sampleLabelFor(id: number) {
+    const option = optionsQuery.data?.samples.find((item) => item.id === id)
+
+    return scannedLabels.sample[id] ?? (option ? `${option.sample_no} - ${option.sample_name}` : `#${id}`)
+  }
+
+  function removeEquipment(id: number) {
+    setForm((current) => ({ ...current, equipment_ids: current.equipment_ids.filter((value) => value !== id) }))
+  }
+
+  function removeSample(id: number) {
+    setForm((current) => ({ ...current, sample_ids: current.sample_ids.filter((value) => value !== id) }))
+  }
+
   return (
     <PageShell title="设备使用记录" description="记录设备和样品的开始测试、使用中和结束状态。">
       <Panel title="Filters">
@@ -181,6 +230,18 @@ export function EquipmentUsageRecordPage() {
         <Panel title="开始新测试">
           {optionsQuery.isPending ? <LoadingState label="正在加载设备和样品" /> : null}
           {optionsQuery.isError ? <ErrorNotice error={optionsQuery.error} fallback="无法加载设备使用选项" /> : null}
+          <div className="mb-3 grid gap-3 md:grid-cols-2">
+            <div className="space-y-2">
+              <QrScannerPanel title="扫码/输入设备编号" placeholder="设备编号" onDetected={(code) => lookupEquipment.mutate(code)} />
+              {lookupEquipment.isError ? <ErrorNotice error="未找到设备" fallback="未找到设备" /> : null}
+              <SelectedChips ids={form.equipment_ids} labelFor={equipmentLabelFor} onRemove={removeEquipment} />
+            </div>
+            <div className="space-y-2">
+              <QrScannerPanel title="扫码/输入样品编号" placeholder="样品编号" onDetected={(code) => lookupSample.mutate(code)} />
+              {lookupSample.isError ? <ErrorNotice error="未找到样品" fallback="未找到样品" /> : null}
+              <SelectedChips ids={form.sample_ids} labelFor={sampleLabelFor} onRemove={removeSample} />
+            </div>
+          </div>
           <div className="grid gap-3 md:grid-cols-3">
             <Field label="设备">
               <select
@@ -370,6 +431,25 @@ function selectedNumberOptions(select: HTMLSelectElement) {
 
 function dateTimeLocalValue(value: string) {
   return value.replace(' ', 'T').slice(0, 16)
+}
+
+function SelectedChips({ ids, labelFor, onRemove }: { ids: number[]; labelFor: (id: number) => string; onRemove: (id: number) => void }) {
+  if (ids.length === 0) {
+    return <p className="text-xs text-slate-500">{zhText('已选') ?? '已选'}: -</p>
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {ids.map((id) => (
+        <span className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800" key={id}>
+          {labelFor(id)}
+          <button type="button" className="text-emerald-700 hover:text-emerald-900" aria-label="移除" onClick={() => onRemove(id)}>
+            <X className="size-3" aria-hidden="true" />
+          </button>
+        </span>
+      ))}
+    </div>
+  )
 }
 
 function Stat({ label, value }: { label: string; value: number }) {

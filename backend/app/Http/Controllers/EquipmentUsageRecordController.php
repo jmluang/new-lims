@@ -48,29 +48,65 @@ class EquipmentUsageRecordController extends Controller
                     ->orderBy('equipment_no')
                     ->limit((int) $request->integer('limit', 100))
                     ->get()
-                    ->map(fn (Equipment $equipment): array => [
-                        'id' => $equipment->id,
-                        'equipment_no' => $equipment->equipment_no,
-                        'name' => $equipment->name,
-                        'model' => $equipment->model,
-                        'status' => $equipment->status,
-                        'calibration_date' => $equipment->calibration_date?->toDateString(),
-                    ])
+                    ->map(fn (Equipment $equipment): array => $this->serializeEquipmentOption($equipment))
                     ->values(),
                 'samples' => Sample::query()
                     ->orderByDesc('id')
                     ->limit((int) $request->integer('limit', 100))
                     ->get()
-                    ->map(fn (Sample $sample): array => [
-                        'id' => $sample->id,
-                        'sample_no' => $sample->sample_no,
-                        'sample_name' => $sample->sample_name,
-                        'model' => $sample->model,
-                        'status' => $sample->status,
-                    ])
+                    ->map(fn (Sample $sample): array => $this->serializeSampleOption($sample))
                     ->values(),
             ],
         ]);
+    }
+
+    public function lookup(Request $request): JsonResponse
+    {
+        $this->authorizePermission($request, 'equipment_usage_records.create', self::RESOURCE);
+
+        $payload = $request->validate([
+            'type' => ['required', 'in:equipment,sample'],
+            'code' => ['required', 'string', 'max:255'],
+        ]);
+
+        if ($payload['type'] === 'equipment') {
+            $equipment = Equipment::query()->where('equipment_no', $payload['code'])->firstOrFail();
+
+            return response()->json(['data' => $this->serializeEquipmentOption($equipment)]);
+        }
+
+        $sample = Sample::query()->where('sample_no', $payload['code'])->firstOrFail();
+
+        return response()->json(['data' => $this->serializeSampleOption($sample)]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeEquipmentOption(Equipment $equipment): array
+    {
+        return [
+            'id' => $equipment->id,
+            'equipment_no' => $equipment->equipment_no,
+            'name' => $equipment->name,
+            'model' => $equipment->model,
+            'status' => $equipment->status,
+            'calibration_date' => $equipment->calibration_date?->toDateString(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeSampleOption(Sample $sample): array
+    {
+        return [
+            'id' => $sample->id,
+            'sample_no' => $sample->sample_no,
+            'sample_name' => $sample->sample_name,
+            'model' => $sample->model,
+            'status' => $sample->status,
+        ];
     }
 
     public function start(Request $request, AuditLogger $auditLogger): JsonResponse

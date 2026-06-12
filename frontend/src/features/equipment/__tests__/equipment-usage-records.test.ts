@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildEquipmentUsageStartPayload, equipmentUsageStatus } from '../equipmentUsageSchema'
+import { buildEquipmentUsageStartPayload, equipmentUsageStatus, uniqueNumberList } from '../equipmentUsageSchema'
 
 describe('equipment usage records', () => {
   it('normalizes selected equipment and sample ids into a start payload', () => {
@@ -21,5 +21,10 @@ describe('equipment usage records', () => {
   it('derives usage status from the end time', () => {
     expect(equipmentUsageStatus(null)).toBe('using')
     expect(equipmentUsageStatus('2026-06-12 11:00:00')).toBe('finished')
+  })
+
+  it('removes duplicate and invalid ids when merging scan and click selection', () => {
+    expect(uniqueNumberList([1, 2, 2, 3])).toEqual([1, 2, 3])
+    expect(uniqueNumberList([1, 0, -2, Number.NaN, 4])).toEqual([1, 4])
   })
 })
