@@ -137,6 +137,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::apiResource('/calibration-projects', CalibrationProjectController::class)->parameters(['calibration-projects' => 'calibrationProject'])->only(['index', 'store', 'update', 'destroy']);
         Route::apiResource('/equipment-calibrations', EquipmentCalibrationController::class)->parameters(['equipment-calibrations' => 'equipmentCalibration'])->only(['index', 'store', 'show', 'update', 'destroy']);
 
+        Route::get('/temp-humidity-records/equipment-lookup', [TempHumidityRecordController::class, 'equipmentLookup']);
         Route::get('/temp-humidity-records', [TempHumidityRecordController::class, 'index']);
         Route::post('/temp-humidity-records', [TempHumidityRecordController::class, 'store']);
         Route::put('/temp-humidity-records/{tempHumidityRecord}', [TempHumidityRecordController::class, 'update']);

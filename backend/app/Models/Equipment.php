@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'serial_no',
     'location_id',
     'system_id',
+    'legacy_placement',
     'purchase_date',
     'enable_date',
     'calibration_date',

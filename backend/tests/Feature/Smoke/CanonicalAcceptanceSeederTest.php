@@ -39,6 +39,7 @@ class CanonicalAcceptanceSeederTest extends TestCase
         $equipmentManager = Role::query()->where('name', 'equipment_manager')->firstOrFail();
         foreach (['read', 'create', 'update', 'delete'] as $action) {
             $this->assertTrue($equipmentManager->hasPermissionTo("equipment_systems.{$action}"));
+            $this->assertTrue($equipmentManager->hasPermissionTo("temp_humidity_records.{$action}"));
         }
 
         foreach (['device_image', 'manual_files', 'instruction_files', 'calibration_files', 'other_files'] as $field) {

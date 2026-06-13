@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
+    'equipment_id',
     'equip_no',
     'temperature',
     'humidity',
@@ -30,6 +31,11 @@ class TempHumidityRecord extends Model
     }
 
     public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
+
+    public function legacyEquipment(): BelongsTo
     {
         return $this->belongsTo(Equipment::class, 'equip_no', 'equipment_no');
     }
