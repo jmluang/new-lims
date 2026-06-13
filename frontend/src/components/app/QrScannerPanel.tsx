@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Panel } from '../../features/system/shared'
 import { inputClass } from '../../features/system/utils'
-import { normalizeScanValue } from './qrScanner'
+import { normalizeScanValue, stopQrScannerIfRunning, type QrScannerInstance } from './qrScanner'
 
 type QrScannerPanelProps = {
   title: string
@@ -72,39 +72,57 @@ function QrCamera({ readerId, onDetected }: QrCameraProps) {
 
   useEffect(() => {
     let cancelled = false
-    let scanner: { stop: () => Promise<void>; clear: () => void } | null = null
+    let scanner: QrScannerInstance | null = null
+    let scannerStarted = false
+    let startSettled = false
+    let cleanupRequested = false
 
-    void import('html5-qrcode')
-      .then(({ Html5Qrcode }) => {
+    function cleanupScanner() {
+      if (!scanner || !startSettled) {
+        return
+      }
+
+      void stopQrScannerIfRunning(scanner, scannerStarted).catch(() => {})
+    }
+
+    async function startScanner() {
+      try {
+        const { Html5Qrcode } = await import('html5-qrcode')
         if (cancelled) {
-          return undefined
+          return
         }
 
         const instance = new Html5Qrcode(readerId)
         scanner = instance
 
-        return instance.start(
+        await instance.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (decodedText: string) => onDetectedRef.current(decodedText),
           () => {},
         )
-      })
-      .catch((startError: unknown) => {
+
+        scannerStarted = true
+      } catch (startError: unknown) {
         if (!cancelled) {
           setError(startError instanceof Error ? startError.message : '摄像头不可用，请使用手动输入')
         }
-      })
+      } finally {
+        startSettled = true
+
+        if (cleanupRequested) {
+          cleanupScanner()
+        }
+      }
+    }
+
+    void startScanner()
 
     return () => {
       cancelled = true
+      cleanupRequested = true
 
-      if (scanner) {
-        void scanner
-          .stop()
-          .then(() => scanner?.clear())
-          .catch(() => {})
-      }
+      cleanupScanner()
     }
   }, [readerId])
 
