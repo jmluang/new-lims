@@ -125,6 +125,20 @@ class EffectivePermissionTest extends TestCase
         $this->assertTrue($permissions->allows('system.users', 'email', 'update'));
     }
 
+    public function test_seeded_equipment_manager_receives_temp_humidity_effective_permissions(): void
+    {
+        $this->seed(\Database\Seeders\CanonicalAcceptanceSeeder::class);
+        $equipmentManager = User::query()->where('email', 'equipment_manager@example.test')->firstOrFail();
+        Sanctum::actingAs($equipmentManager);
+
+        $this->getJson('/api/permissions/effective')
+            ->assertOk()
+            ->assertJsonPath('data.resources.temp_humidity_records.actions.read', true)
+            ->assertJsonPath('data.resources.temp_humidity_records.actions.create', true)
+            ->assertJsonPath('data.resources.temp_humidity_records.actions.update', true)
+            ->assertJsonPath('data.resources.temp_humidity_records.actions.delete', true);
+    }
+
     /**
      * @param  array<int, string>  $permissionNames
      */

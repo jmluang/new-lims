@@ -65,6 +65,30 @@ Frontend:
 
 Both are acceptance users with password `Password123!`.
 
+## Temperature And Humidity Records
+
+Legacy references:
+
+- `example/temp_humidity.php`
+- `example/temp_humidity-1.php`
+- `example/post.php`
+
+Target routes:
+
+- `GET|POST /api/device/temp-humidity`
+- `GET /api/temp-humidity-records/equipment-lookup`
+- `GET /api/temp-humidity-records`
+- `POST /api/temp-humidity-records`
+- `PUT /api/temp-humidity-records/{tempHumidityRecord}`
+- `DELETE /api/temp-humidity-records/{tempHumidityRecord}`
+
+Key adaptations:
+
+- New records keep `equip_no` as a legacy/device snapshot and use nullable `equipment_id` when the equipment exists.
+- Equipment lookup resolves placement from `equipment.location_id`, `equipment_locations.parent_id`, and `equipment.legacy_placement`.
+- Public device ingest remains GET/POST compatible and enriches known equipment automatically.
+- React uses the shared `QrScannerPanel` instead of inline page JavaScript.
+
 ## Verification
 
 Run these from the repository root:

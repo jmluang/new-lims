@@ -4,15 +4,19 @@ import { Edit3, Plus, Search, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { PermissionGate } from '../../components/app/PermissionGate'
-import { useCurrentUser } from '../auth/useCurrentUser'
+import { QrScannerPanel } from '../../components/app/QrScannerPanel'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, Panel } from '../system/shared'
-import { type ApiCollection, formatDateTime, inputClass, textareaClass } from '../system/utils'
+import { useCurrentUser } from '../auth/useCurrentUser'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel } from '../system/shared'
+import { type ApiCollection, type ApiResource, formatDateTime, inputClass, textareaClass } from '../system/utils'
+import { applyDetectedEquipmentCode, applyLookupEquipment, buildTempHumidityListParams, emptyTempHumidityFilters, equipmentLookupErrorText, type TempHumidityFilters } from './tempHumidityPageState'
 import { tempHumiditySchema, type TempHumidityFormValues } from './tempHumiditySchema'
+import type { TempHumidityEquipmentLookup } from './tempHumidityTypes'
 
 export type TempHumidityRecord = {
   id: number
+  equipment_id?: number | null
   equip_no?: string | null
   equipment_name?: string | null
   temperature?: string | number | null
@@ -28,16 +32,35 @@ export type TempHumidityRecord = {
 export function TempHumidityListPage() {
   const queryClient = useQueryClient()
   const currentUser = useCurrentUser()
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState<TempHumidityFilters>(emptyTempHumidityFilters)
+  const [page, setPage] = useState(1)
+  const [perPage, setPerPage] = useState(30)
   const [editing, setEditing] = useState<TempHumidityRecord | null>(null)
+  const [lookupEquipment, setLookupEquipment] = useState<TempHumidityEquipmentLookup | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const recordsQuery = useQuery({
-    queryKey: ['temp-humidity-records', search],
+    queryKey: ['temp-humidity-records', filters, page, perPage],
     queryFn: async () => {
-      const params = search ? { search } : undefined
-      const response = await api.get<ApiCollection<TempHumidityRecord>>('/api/temp-humidity-records', { params })
+      const response = await api.get<ApiCollection<TempHumidityRecord>>('/api/temp-humidity-records', {
+        params: buildTempHumidityListParams(filters, page, perPage),
+      })
 
       return response.data
+    },
+  })
+  const lookupEquipmentMutation = useMutation({
+    mutationFn: async (equipNo: string) => {
+      const response = await api.get<ApiResource<TempHumidityEquipmentLookup>>('/api/temp-humidity-records/equipment-lookup', {
+        params: { equip_no: equipNo },
+      })
+
+      return response.data.data
+    },
+    onMutate: () => {
+      setLookupEquipment(null)
+    },
+    onSuccess: (equipment) => {
+      setLookupEquipment(equipment)
     },
   })
   const saveRecord = useMutation({
@@ -63,6 +86,8 @@ export function TempHumidityListPage() {
     onSuccess: async () => {
       setFormOpen(false)
       setEditing(null)
+      setLookupEquipment(null)
+      lookupEquipmentMutation.reset()
       await queryClient.invalidateQueries({ queryKey: ['temp-humidity-records'] })
     },
   })
@@ -76,16 +101,32 @@ export function TempHumidityListPage() {
   })
   const records = recordsQuery.data?.data ?? []
 
+  function updateFilter(key: keyof TempHumidityFilters, value: string) {
+    setFilters((current) => ({ ...current, [key]: value }))
+    setPage(1)
+  }
+
   function openCreate() {
     setEditing(null)
+    setLookupEquipment(null)
+    lookupEquipmentMutation.reset()
     setFormOpen(true)
     saveRecord.reset()
   }
 
   function openEdit(record: TempHumidityRecord) {
     setEditing(record)
+    setLookupEquipment(null)
+    lookupEquipmentMutation.reset()
     setFormOpen(true)
     saveRecord.reset()
+  }
+
+  function closeForm() {
+    setFormOpen(false)
+    setEditing(null)
+    setLookupEquipment(null)
+    lookupEquipmentMutation.reset()
   }
 
   return (
@@ -102,17 +143,35 @@ export function TempHumidityListPage() {
       }
     >
       <Panel title="Filters">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">
           <Field label="Search">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden="true" />
               <input
                 className={`${inputClass} pl-9`}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                value={filters.search}
+                onChange={(event) => updateFilter('search', event.target.value)}
                 placeholder={zhText('equip no, site, room, person') ?? undefined}
               />
             </div>
+          </Field>
+          <Field label="开始时间">
+            <input className={inputClass} type="date" value={filters.record_time_from} onChange={(event) => updateFilter('record_time_from', event.target.value)} />
+          </Field>
+          <Field label="结束时间">
+            <input className={inputClass} type="date" value={filters.record_time_to} onChange={(event) => updateFilter('record_time_to', event.target.value)} />
+          </Field>
+          <Field label="最低温度">
+            <input className={inputClass} type="number" step="0.1" value={filters.temperature_min} onChange={(event) => updateFilter('temperature_min', event.target.value)} />
+          </Field>
+          <Field label="最高温度">
+            <input className={inputClass} type="number" step="0.1" value={filters.temperature_max} onChange={(event) => updateFilter('temperature_max', event.target.value)} />
+          </Field>
+          <Field label="最低湿度">
+            <input className={inputClass} type="number" step="0.1" value={filters.humidity_min} onChange={(event) => updateFilter('humidity_min', event.target.value)} />
+          </Field>
+          <Field label="最高湿度">
+            <input className={inputClass} type="number" step="0.1" value={filters.humidity_max} onChange={(event) => updateFilter('humidity_max', event.target.value)} />
           </Field>
         </div>
       </Panel>
@@ -199,24 +258,29 @@ export function TempHumidityListPage() {
         </>
       ) : null}
 
-      <Modal
-        title={editing ? 'Edit reading' : 'Add reading'}
-        open={formOpen}
-        onClose={() => {
-          setFormOpen(false)
-          setEditing(null)
+      <PaginationControls
+        meta={recordsQuery.data?.meta}
+        page={page}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={(nextPerPage) => {
+          setPerPage(nextPerPage)
+          setPage(1)
         }}
-      >
+      />
+
+      <Modal title={editing ? 'Edit reading' : 'Add reading'} open={formOpen} onClose={closeForm}>
         {saveRecord.error ? <ErrorNotice error={saveRecord.error} fallback="Unable to save reading" /> : null}
         <TempHumidityForm
           record={editing}
           defaultPerson={currentUser.data?.name ?? ''}
+          lookupEquipment={lookupEquipment}
+          lookupError={lookupEquipmentMutation.error}
+          lookupPending={lookupEquipmentMutation.isPending}
           submitting={saveRecord.isPending}
+          onLookupEquipment={(equipNo) => lookupEquipmentMutation.mutate(equipNo)}
           onSubmit={(values) => saveRecord.mutateAsync(values)}
-          onCancel={() => {
-            setFormOpen(false)
-            setEditing(null)
-          }}
+          onCancel={closeForm}
         />
       </Modal>
     </PageShell>
@@ -245,13 +309,21 @@ function RecordActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () 
 function TempHumidityForm({
   record,
   defaultPerson,
+  lookupEquipment,
+  lookupError,
+  lookupPending,
   submitting,
+  onLookupEquipment,
   onSubmit,
   onCancel,
 }: {
   record: TempHumidityRecord | null
   defaultPerson: string
+  lookupEquipment: TempHumidityEquipmentLookup | null
+  lookupError: unknown
+  lookupPending: boolean
   submitting: boolean
+  onLookupEquipment: (equipNo: string) => void
   onSubmit: (values: TempHumidityFormValues) => Promise<void>
   onCancel: () => void
 }) {
@@ -264,8 +336,29 @@ function TempHumidityForm({
     form.reset(recordDefaults(record, defaultPerson))
   }, [record, defaultPerson, form])
 
+  useEffect(() => {
+    if (!lookupEquipment || record) {
+      return
+    }
+
+    const nextValues = applyLookupEquipment(form.getValues(), lookupEquipment, Boolean(record))
+    form.setValue('equip_no', nextValues.equip_no, { shouldDirty: true, shouldValidate: true })
+    form.setValue('location_site', nextValues.location_site, { shouldDirty: true, shouldValidate: true })
+    form.setValue('location_room', nextValues.location_room, { shouldDirty: true, shouldValidate: true })
+  }, [form, lookupEquipment, record])
+
+  function handleEquipmentDetected(equipNo: string) {
+    const nextValues = applyDetectedEquipmentCode(form.getValues(), equipNo)
+    form.setValue('equip_no', nextValues.equip_no, { shouldDirty: true, shouldValidate: true })
+    onLookupEquipment(equipNo)
+  }
+
   return (
     <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_20rem]">
+        <QrScannerPanel title="扫码/输入设备编号" placeholder="设备编号" onDetected={handleEquipmentDetected} />
+        <EquipmentLookupSummary equipment={lookupEquipment} pending={lookupPending} error={lookupError} />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Placement site">
           <input className={inputClass} {...form.register('location_site')} />
@@ -301,6 +394,73 @@ function TempHumidityForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+function EquipmentLookupSummary({
+  equipment,
+  pending,
+  error,
+}: {
+  equipment: TempHumidityEquipmentLookup | null
+  pending: boolean
+  error: unknown
+}) {
+  if (pending) {
+    return (
+      <Panel title="设备信息">
+        <LoadingState label="正在查询设备" />
+      </Panel>
+    )
+  }
+
+  if (error) {
+    const message = equipmentLookupErrorText(error)
+
+    return (
+      <Panel title="设备信息">
+        {message ? <p className="text-sm text-red-700">{message}</p> : <ErrorNotice error={error} fallback="未找到设备" />}
+      </Panel>
+    )
+  }
+
+  if (!equipment) {
+    return (
+      <Panel title="设备信息">
+        <p className="text-sm text-slate-500">扫码或输入设备编号后显示设备信息。</p>
+      </Panel>
+    )
+  }
+
+  return (
+    <Panel title="设备信息">
+      <dl className="grid gap-2 text-sm">
+        <div>
+          <dt className="text-slate-500">设备编号</dt>
+          <dd className="font-medium text-slate-900">{equipment.equipment_no}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">设备名称</dt>
+          <dd className="font-medium text-slate-900">{equipment.name}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">型号</dt>
+          <dd>{equipment.model ?? '-'}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">状态</dt>
+          <dd>{equipment.status}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">校准日期</dt>
+          <dd>{equipment.calibration_date ?? '-'}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">下次校准</dt>
+          <dd>{equipment.next_calibration_date ?? '-'}</dd>
+        </div>
+      </dl>
+    </Panel>
   )
 }
 
