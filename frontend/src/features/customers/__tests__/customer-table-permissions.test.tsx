@@ -24,4 +24,13 @@ describe('customer table permissions', () => {
     expect(columns).toContain('phone')
     expect(columns).toContain('email')
   })
+
+  it('does not expose removed classification columns', () => {
+    const columns = visibleCustomerColumns().map((column) => column.key)
+
+    expect(columns).not.toContain('type')
+    expect(columns).not.toContain('level')
+    expect(columns).not.toContain('source')
+    expect(columns).not.toContain('industry')
+  })
 })

@@ -27,10 +27,6 @@ export type Customer = {
   id: number
   name: string
   credit_code?: string | null
-  type?: string | null
-  level?: string | null
-  source?: string | null
-  industry?: string | null
   phone?: string | null
   email?: string | null
   address?: string | null
@@ -56,29 +52,13 @@ export type Customer = {
   _field_permissions?: FieldPermissionMeta
 }
 
-export type DictionarySet = {
-  id: number
-  code: string
-  name: string
-  status: 'active' | 'disabled'
-  items: Array<{ id: number; label: string; value: string; status: 'active' | 'disabled' }>
-}
-
 type CustomerFilters = {
   search: string
-  type: string
-  level: string
-  source: string
-  industry: string
   status: string
 }
 
 const emptyFilters: CustomerFilters = {
   search: '',
-  type: '',
-  level: '',
-  source: '',
-  industry: '',
   status: '',
 }
 
@@ -95,14 +75,6 @@ export function CustomerListPage() {
       const response = await api.get<ApiCollection<Customer>>('/api/customers', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
-    },
-  })
-  const dictionariesQuery = useQuery({
-    queryKey: ['dictionary-options'],
-    queryFn: async () => {
-      const response = await api.get<ApiCollection<DictionarySet>>('/api/dictionary-options')
-
-      return response.data.data
     },
   })
   const deleteCustomer = useMutation({
@@ -160,7 +132,7 @@ export function CustomerListPage() {
       }
     >
       <Panel title="Filters">
-        <div className="grid gap-3 md:grid-cols-6">
+        <div className="grid gap-3 md:grid-cols-2">
           <Field label="Search">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden="true" />
@@ -172,18 +144,16 @@ export function CustomerListPage() {
               />
             </div>
           </Field>
-          <DictionaryFilter label="Type" code="customer.type" dictionaries={dictionariesQuery.data ?? []} value={filters.type} onChange={(type) => setFilters({ ...filters, type })} />
-          <DictionaryFilter label="Level" code="customer.level" dictionaries={dictionariesQuery.data ?? []} value={filters.level} onChange={(level) => setFilters({ ...filters, level })} />
-          <DictionaryFilter label="Source" code="customer.source" dictionaries={dictionariesQuery.data ?? []} value={filters.source} onChange={(source) => setFilters({ ...filters, source })} />
-          <DictionaryFilter label="Industry" code="customer.industry" dictionaries={dictionariesQuery.data ?? []} value={filters.industry} onChange={(industry) => setFilters({ ...filters, industry })} />
-          <DictionaryFilter
-            label="Status"
-            code="customer.status"
-            dictionaries={dictionariesQuery.data ?? []}
-            fallbackOptions={['active', 'disabled']}
-            value={filters.status}
-            onChange={(status) => setFilters({ ...filters, status })}
-          />
+          <Field label="Status">
+            <select className={inputClass} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
+              <option value="">{zhText('All')}</option>
+              {['active', 'disabled'].map((status) => (
+                <option value={status} key={status}>
+                  {zhText(status)}
+                </option>
+              ))}
+            </select>
+          </Field>
         </div>
       </Panel>
 
@@ -235,9 +205,7 @@ export function CustomerListPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="truncate text-sm font-semibold text-slate-950">{customer.name}</h2>
-                      <p className="truncate text-xs text-slate-500">
-                        {[customer.level, customer.type, customer.industry].filter(Boolean).join(' · ') || zhText('Unclassified')}
-                      </p>
+                      <p className="truncate text-xs text-slate-500">{customer.credit_code ?? customer.address ?? '-'}</p>
                     </div>
                     <StatusBadge status={customer.status} />
                   </div>
@@ -309,38 +277,6 @@ function CustomerActions({
         </Button>
       </PermissionGate>
     </div>
-  )
-}
-
-function DictionaryFilter({
-  label,
-  code,
-  dictionaries,
-  value,
-  onChange,
-  fallbackOptions = [],
-}: {
-  label: string
-  code: string
-  dictionaries: DictionarySet[]
-  value: string
-  onChange: (value: string) => void
-  fallbackOptions?: string[]
-}) {
-  const options = dictionaries.find((dictionary) => dictionary.code === code)?.items ?? []
-  const renderedOptions = options.length > 0 ? options : fallbackOptions.map((option) => ({ label: option, value: option, status: 'active' }))
-
-  return (
-    <Field label={label}>
-      <select className={inputClass} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">{zhText('All')}</option>
-        {renderedOptions.map((option) => (
-          <option value={option.value} key={option.value}>
-            {zhText(option.label)}
-          </option>
-        ))}
-      </select>
-    </Field>
   )
 }
 

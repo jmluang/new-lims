@@ -22,7 +22,6 @@ use App\Http\Controllers\StandardController;
 use App\Http\Controllers\StandardItemController;
 use App\Http\Controllers\System\BackupController;
 use App\Http\Controllers\System\DepartmentController;
-use App\Http\Controllers\System\DictionaryController;
 use App\Http\Controllers\System\EffectivePermissionController;
 use App\Http\Controllers\System\GroupController;
 use App\Http\Controllers\System\PdfServiceHealthController;
@@ -58,7 +57,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::middleware(EnsurePasswordChangeIsNotRequired::class)->group(function (): void {
         Route::get('/system/permissions/catalog', PermissionCatalogController::class);
-        Route::get('/dictionary-options', [DictionaryController::class, 'options']);
 
         Route::apiResource('/system/users', UserController::class)->except(['destroy']);
         Route::post('/system/users/{user}/reset-password', [UserController::class, 'resetPassword']);
@@ -68,12 +66,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::apiResource('/system/departments', DepartmentController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::apiResource('/system/groups', GroupController::class)->parameters(['groups' => 'group'])->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::put('/system/groups/{group}/permissions', [GroupController::class, 'syncPermissionMatrix']);
-
-        Route::get('/dictionaries', [DictionaryController::class, 'index']);
-        Route::post('/dictionaries', [DictionaryController::class, 'store']);
-        Route::put('/dictionaries/{dictionarySet}', [DictionaryController::class, 'update']);
-        Route::post('/dictionaries/{dictionarySet}/items', [DictionaryController::class, 'storeItem']);
-        Route::put('/dictionaries/{dictionarySet}/items/{dictionaryItem}', [DictionaryController::class, 'updateItem']);
 
         Route::get('/backups', [BackupController::class, 'index']);
         Route::post('/backups', [BackupController::class, 'store']);

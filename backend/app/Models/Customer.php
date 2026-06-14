@@ -9,10 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'name',
     'credit_code',
-    'type',
-    'level',
-    'source',
-    'industry',
     'phone',
     'email',
     'address',

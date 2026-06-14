@@ -3,6 +3,7 @@ import { Save, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
+import { zhText } from '../../../lib/zh'
 import { useEffectivePermissions } from '../../auth/useCurrentUser'
 import { Button, ErrorNotice, Field } from '../shared'
 import { inputClass } from '../utils'
@@ -113,12 +114,12 @@ export function UserForm({
 
         <Field label="Phone">
           <input className={inputClass} disabled={!canUpdatePhone} {...form.register('phone')} />
-          {!canUpdatePhone ? <span className="mt-1 block text-xs text-slate-500">No update permission</span> : null}
+          {!canUpdatePhone ? <span className="mt-1 block text-xs text-slate-500">{zhText('No update permission')}</span> : null}
         </Field>
 
         <Field label="Department">
           <select className={inputClass} {...form.register('department_id')}>
-            <option value="">No department</option>
+            <option value="">{zhText('No department')}</option>
             {departments.map((department) => (
               <option value={department.id} key={department.id}>
                 {department.name}
@@ -129,9 +130,9 @@ export function UserForm({
 
         <Field label="Status">
           <select className={inputClass} {...form.register('status')}>
-            <option value="active">active</option>
-            <option value="disabled">disabled</option>
-            <option value="locked">locked</option>
+            <option value="active">{zhText('active')}</option>
+            <option value="disabled">{zhText('disabled')}</option>
+            <option value="locked">{zhText('locked')}</option>
           </select>
         </Field>
 
@@ -146,12 +147,12 @@ export function UserForm({
 
         <label className="flex items-center gap-2 pt-6 text-sm text-slate-700">
           <input className="size-4 rounded border-slate-300 text-emerald-600" type="checkbox" {...form.register('must_change_password')} />
-          Must change password
+          {zhText('Must change password')}
         </label>
       </div>
 
       <div>
-        <div className="text-xs font-medium uppercase tracking-normal text-slate-500">Groups</div>
+        <div className="text-xs font-medium uppercase tracking-normal text-slate-500">{zhText('Groups')}</div>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           {groups.map((group) => (
             <label

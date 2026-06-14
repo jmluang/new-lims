@@ -1,13 +1,17 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check } from 'lucide-react'
 import { useState } from 'react'
 import { QrScannerPanel } from '../../components/app/QrScannerPanel'
 import { api, isUnauthorizedError } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field, PageShell, Panel, StatusBadge } from '../system/shared'
-import { type ApiResource, inputClass, textareaClass } from '../system/utils'
+import { type ApiCollection, type ApiResource, inputClass, textareaClass } from '../system/utils'
+import { useCurrentUser } from '../auth/useCurrentUser'
+import type { EquipmentLocation } from '../equipment/EquipmentListPage'
+import { buildLocationSelection, changeLocationSelection, findLocationSelectionIdsByLabel, type LocationSelection } from './sampleScanLocations'
 import {
   buildSampleScanFlowPayload,
+  sampleScanActionDefaults,
   sampleScanActionRequiresHolder,
   SampleScanFlowValidationError,
   type SampleScanAction,
@@ -44,8 +48,19 @@ export function SampleScanPage() {
   const queryClient = useQueryClient()
   const [lookup, setLookup] = useState<ScanLookup | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([])
   const [validationError, setValidationError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  const currentUser = useCurrentUser()
+
+  const locationsQuery = useQuery({
+    queryKey: ['equipment-locations'],
+    queryFn: async () => {
+      const response = await api.get<ApiCollection<EquipmentLocation>>('/api/equipment-locations')
+
+      return response.data.data
+    },
+  })
 
   const lookupMutation = useMutation({
     mutationFn: async (sampleNo: string) => {
@@ -56,6 +71,7 @@ export function SampleScanPage() {
     onSuccess: (data) => {
       setLookup(data)
       setForm(emptyForm)
+      setSelectedLocationIds([])
       setValidationError(null)
       setDone(null)
     },
@@ -80,6 +96,7 @@ export function SampleScanPage() {
 
       setLookup(null)
       setForm(emptyForm)
+      setSelectedLocationIds([])
     },
     onError: (error) => {
       if (error instanceof SampleScanFlowValidationError) {
@@ -94,11 +111,22 @@ export function SampleScanPage() {
   }
 
   function selectAction(action: SampleScanAction) {
-    setForm({ ...emptyForm, action_type: action, location_to: lookup?.sample.current_location ?? '' })
+    const locationIds = findLocationSelectionIdsByLabel(locationsQuery.data ?? [], lookup?.sample.current_location)
+    const locationSelection = buildLocationSelection(locationsQuery.data ?? [], locationIds)
+
+    setSelectedLocationIds(locationIds)
+    setForm(sampleScanActionDefaults(action, locationSelection.value, currentUser.data?.name))
     setValidationError(null)
   }
 
+  function selectLocation(selection: LocationSelection) {
+    setSelectedLocationIds(selection.selectedNodes.map((location) => String(location.id)))
+    setForm((current) => ({ ...current, location_to: selection.value }))
+  }
+
   const sample = lookup?.sample
+  const locations = locationsQuery.data ?? []
+  const actionSelectionDisabled = locationsQuery.isPending || locationsQuery.isError || currentUser.isPending
 
   return (
     <PageShell title="Scan sample flow" description="Scan or type a sample number, then record an allowed flow action.">
@@ -112,6 +140,7 @@ export function SampleScanPage() {
             <ErrorNotice error={lookupMutation.error} fallback="样品查询失败" />
           )
         ) : null}
+        {locationsQuery.isError ? <ErrorNotice error={locationsQuery.error} fallback="Unable to load locations" /> : null}
         {flowMutation.error && !(flowMutation.error instanceof SampleScanFlowValidationError) ? (
           <ErrorNotice error={flowMutation.error} fallback="流转操作失败" />
         ) : null}
@@ -141,7 +170,12 @@ export function SampleScanPage() {
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {lookup.available_actions.map((action) => (
-                    <Button key={action} variant={form.action_type === action ? 'primary' : 'secondary'} onClick={() => selectAction(action)}>
+                    <Button
+                      key={action}
+                      variant={form.action_type === action ? 'primary' : 'secondary'}
+                      onClick={() => selectAction(action)}
+                      disabled={actionSelectionDisabled}
+                    >
                       {zhText(action)}
                     </Button>
                   ))}
@@ -151,8 +185,13 @@ export function SampleScanPage() {
 
             {form.action_type ? (
               <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <Field label="Location to">
-                  <input className={inputClass} value={form.location_to} onChange={(event) => setForm({ ...form, location_to: event.target.value })} />
+                <Field label="Location to" className="md:col-span-2">
+                  <LocationCascadeSelect
+                    locations={locations}
+                    selectedIds={selectedLocationIds}
+                    loading={locationsQuery.isPending}
+                    onChange={selectLocation}
+                  />
                 </Field>
                 {sampleScanActionRequiresHolder(form.action_type) ? (
                   <Field label="Holder to">
@@ -174,6 +213,52 @@ export function SampleScanPage() {
         ) : null}
       </div>
     </PageShell>
+  )
+}
+
+function LocationCascadeSelect({
+  locations,
+  selectedIds,
+  loading,
+  onChange,
+}: {
+  locations: EquipmentLocation[]
+  selectedIds: string[]
+  loading: boolean
+  onChange: (selection: LocationSelection) => void
+}) {
+  const selection = buildLocationSelection(locations, selectedIds)
+
+  if (loading) {
+    return <div className="rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500">{zhText('Loading locations')}</div>
+  }
+
+  if (locations.length === 0) {
+    return <div className="rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-500">暂无位置名称</div>
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {selection.levels.map((level) => (
+          <select
+            key={level.depth}
+            className={inputClass}
+            value={level.selectedId}
+            aria-label={`位置名称第 ${level.depth + 1} 级`}
+            onChange={(event) => onChange(changeLocationSelection(locations, selectedIds, level.depth, event.target.value))}
+          >
+            <option value="">{level.depth === 0 ? '请选择位置名称' : '请选择下级位置'}</option>
+            {level.options.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        ))}
+      </div>
+      <p className="min-h-5 text-xs text-slate-500">{selection.value ? `已选：${selection.value}` : '请选择位置名称'}</p>
+    </div>
   )
 }
 

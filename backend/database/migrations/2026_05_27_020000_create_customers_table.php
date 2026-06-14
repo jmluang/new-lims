@@ -12,10 +12,6 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('credit_code')->nullable();
-            $table->string('type')->nullable();
-            $table->string('level')->nullable();
-            $table->string('source')->nullable();
-            $table->string('industry')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
             $table->string('address')->nullable();

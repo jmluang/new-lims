@@ -49,7 +49,12 @@ class CustomerApiTest extends TestCase
             'address' => 'Hangzhou',
             'remark' => 'VIP',
             'status' => 'active',
-        ])->assertCreated()->json('data.id');
+        ])->assertCreated()
+            ->assertJsonMissingPath('data.type')
+            ->assertJsonMissingPath('data.level')
+            ->assertJsonMissingPath('data.source')
+            ->assertJsonMissingPath('data.industry')
+            ->json('data.id');
 
         $this->putJsonAs($admin, "/api/customers/{$customerId}", [
             'name' => 'Acme Lab Updated',
@@ -121,10 +126,6 @@ class CustomerApiTest extends TestCase
         $target = Customer::query()->create([
             'name' => 'Filtered Customer',
             'credit_code' => 'FILTER-CREDIT',
-            'type' => 'enterprise',
-            'level' => 'a',
-            'source' => 'referral',
-            'industry' => 'testing',
             'phone' => '13800001111',
             'email' => 'filtered@example.test',
             'status' => 'active',
@@ -138,20 +139,20 @@ class CustomerApiTest extends TestCase
         ]);
         Customer::query()->create([
             'name' => 'Other Customer',
-            'type' => 'hospital',
-            'level' => 'b',
-            'source' => 'website',
-            'industry' => 'medical',
             'phone' => '13900001111',
             'status' => 'disabled',
         ]);
 
-        $this->getJsonAs($admin, '/api/customers?search=FILTER-CREDIT&type=enterprise&level=a&source=referral&industry=testing&status=active')
+        $this->getJsonAs($admin, '/api/customers?search=FILTER-CREDIT&status=active')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $target->id)
             ->assertJsonPath('data.0.default_contact.name', 'Default Contact')
-            ->assertJsonPath('data.0.default_contact.phone', '13800002222');
+            ->assertJsonPath('data.0.default_contact.phone', '13800002222')
+            ->assertJsonMissingPath('data.0.type')
+            ->assertJsonMissingPath('data.0.level')
+            ->assertJsonMissingPath('data.0.source')
+            ->assertJsonMissingPath('data.0.industry');
     }
 
     public function test_customer_export_uses_filters_and_exportable_sensitive_fields(): void
@@ -164,10 +165,6 @@ class CustomerApiTest extends TestCase
         Customer::query()->create([
             'name' => 'Exported Customer',
             'credit_code' => 'EXPORT-CREDIT',
-            'type' => 'enterprise',
-            'level' => 'a',
-            'source' => 'referral',
-            'industry' => 'testing',
             'phone' => '13800003333',
             'email' => 'exported@example.test',
             'status' => 'active',
@@ -175,12 +172,11 @@ class CustomerApiTest extends TestCase
         Customer::query()->create([
             'name' => 'Hidden Export Customer',
             'credit_code' => 'HIDDEN-CREDIT',
-            'type' => 'hospital',
             'phone' => '13900003333',
             'status' => 'active',
         ]);
 
-        $response = $this->getJsonAs($admin, '/api/customers/export?type=enterprise')
+        $response = $this->getJsonAs($admin, '/api/customers/export?search=EXPORT-CREDIT')
             ->assertOk()
             ->assertJsonPath('headers.0', 'name');
 
@@ -188,6 +184,10 @@ class CustomerApiTest extends TestCase
         $this->assertStringContainsString('13800003333', $response->getContent());
         $this->assertStringNotContainsString('exported@example.test', $response->getContent());
         $this->assertStringNotContainsString('HIDDEN-CREDIT', $response->getContent());
+        $this->assertStringNotContainsString('type', $response->getContent());
+        $this->assertStringNotContainsString('level', $response->getContent());
+        $this->assertStringNotContainsString('source', $response->getContent());
+        $this->assertStringNotContainsString('industry', $response->getContent());
     }
 
     private function userWithPermissions(array $permissions): User

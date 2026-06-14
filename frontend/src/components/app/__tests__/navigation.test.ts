@@ -47,4 +47,14 @@ describe('navigation active path matching', () => {
 
     expect(systemGroup?.items).toEqual([expect.objectContaining({ label: '位置名称', to: '/equipment/locations' })])
   })
+
+  it('does not expose the removed data dictionary navigation item', () => {
+    const labels = visibleNavGroups({
+      resources: {
+        'system.dictionaries': { actions: { read: true } },
+      },
+    }).flatMap((group) => group.items.map((item) => item.label))
+
+    expect(labels).not.toContain('数据字典')
+  })
 })

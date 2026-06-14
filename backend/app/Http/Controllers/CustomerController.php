@@ -13,7 +13,7 @@ class CustomerController extends Controller
 {
     private const RESOURCE = 'customers';
 
-    private const BASE_FIELDS = ['id', 'name', 'type', 'level', 'source', 'industry', 'address', 'remark', 'status'];
+    private const BASE_FIELDS = ['id', 'name', 'address', 'remark', 'status'];
 
     public function index(Request $request, FieldPermissionFilter $fieldPermissionFilter): JsonResponse
     {
@@ -112,7 +112,7 @@ class CustomerController extends Controller
     {
         $this->authorizePermission($request, 'customers.export', self::RESOURCE);
 
-        $fields = $fieldPermissionFilter->exportableFields($request->user(), self::RESOURCE, ['name', 'type', 'level', 'source', 'industry', 'address', 'remark', 'status']);
+        $fields = $fieldPermissionFilter->exportableFields($request->user(), self::RESOURCE, ['name', 'address', 'remark', 'status']);
         $rows = $this->filteredQuery($request)
             ->orderBy('id')
             ->get()
@@ -149,10 +149,6 @@ class CustomerController extends Controller
                         ->orWhere('phone', 'like', "%{$search}%");
                 });
             })
-            ->when($request->filled('type'), fn ($query) => $query->where('type', $request->string('type')->toString()))
-            ->when($request->filled('level'), fn ($query) => $query->where('level', $request->string('level')->toString()))
-            ->when($request->filled('source'), fn ($query) => $query->where('source', $request->string('source')->toString()))
-            ->when($request->filled('industry'), fn ($query) => $query->where('industry', $request->string('industry')->toString()))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()));
     }
 
@@ -182,10 +178,6 @@ class CustomerController extends Controller
         return [
             'name' => [$requireName ? 'required' : 'sometimes', 'string', 'max:255'],
             'credit_code' => ['nullable', 'string', 'max:64'],
-            'type' => ['nullable', 'string', 'max:64'],
-            'level' => ['nullable', 'string', 'max:64'],
-            'source' => ['nullable', 'string', 'max:64'],
-            'industry' => ['nullable', 'string', 'max:64'],
             'phone' => ['nullable', 'string', 'max:32'],
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
@@ -219,10 +211,6 @@ class CustomerController extends Controller
             'id' => $customer->id,
             'name' => $customer->name,
             'credit_code' => $customer->credit_code,
-            'type' => $customer->type,
-            'level' => $customer->level,
-            'source' => $customer->source,
-            'industry' => $customer->industry,
             'phone' => $customer->phone,
             'email' => $customer->email,
             'address' => $customer->address,

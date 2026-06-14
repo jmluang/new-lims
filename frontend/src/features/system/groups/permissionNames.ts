@@ -5,7 +5,6 @@ const resourceLabels: Record<string, string> = {
   'system.departments': '部门',
   'system.groups': '角色组',
   'system.audit_logs': '审计日志',
-  'system.dictionaries': '数据字典',
   'system.backups': '备份',
   customers: '客户',
   customer_contacts: '客户联系人',

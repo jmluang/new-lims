@@ -13,6 +13,13 @@ export const sampleScanFlowSchema = z.object({
 
 export type SampleScanFlowValues = z.infer<typeof sampleScanFlowSchema>
 
+export type SampleScanActionDefaultValues = {
+  action_type: SampleScanAction
+  holder_to: string
+  location_to: string
+  remark: string
+}
+
 export class SampleScanFlowValidationError extends Error {
   constructor(message: string) {
     super(message)
@@ -25,6 +32,19 @@ export class SampleScanFlowValidationError extends Error {
  */
 export function sampleScanActionRequiresHolder(action: SampleScanAction): boolean {
   return action === 'lend' || action === 'transfer'
+}
+
+export function sampleScanActionDefaults(
+  action: SampleScanAction,
+  currentLocation?: string | null,
+  currentUserName?: string | null,
+): SampleScanActionDefaultValues {
+  return {
+    action_type: action,
+    holder_to: sampleScanActionRequiresHolder(action) ? (currentUserName ?? '') : '',
+    location_to: currentLocation ?? '',
+    remark: '',
+  }
 }
 
 export function buildSampleScanFlowPayload(values: unknown): Record<string, string> {

@@ -27,7 +27,6 @@ import { TestOrderFormPage } from '../features/test-orders/TestOrderFormPage'
 import { TestOrderListPage } from '../features/test-orders/TestOrderListPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
 import { BackupListPage } from '../features/system/backups/BackupListPage'
-import { DictionaryListPage } from '../features/system/dictionaries/DictionaryListPage'
 import { GroupListPage } from '../features/system/groups/GroupListPage'
 import { UserFormPage } from '../features/system/users/UserFormPage'
 import { UserListPage } from '../features/system/users/UserListPage'
@@ -87,13 +86,6 @@ const systemGroupsRoute = createRoute({
   path: '/system/groups',
   beforeLoad: () => requireRoutePermission('system.groups'),
   component: GroupListPage,
-})
-
-const systemDictionariesRoute = createRoute({
-  getParentRoute: () => protectedRoute,
-  path: '/system/dictionaries',
-  beforeLoad: () => requireRoutePermission('system.dictionaries'),
-  component: DictionaryListPage,
 })
 
 const customersRoute = createRoute({
@@ -314,7 +306,6 @@ export const routeTree = rootRoute.addChildren([
     systemUserCreateRoute,
     systemUserEditRoute,
     systemGroupsRoute,
-    systemDictionariesRoute,
     customersRoute,
     standardsRoute,
     standardCreateRoute,

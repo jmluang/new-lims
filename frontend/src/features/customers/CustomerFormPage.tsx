@@ -5,7 +5,7 @@ import { api } from '../../lib/api'
 import { ErrorNotice, LoadingState, PageShell, Panel } from '../system/shared'
 import type { ApiCollection, ApiResource } from '../system/utils'
 import { CustomerForm } from './CustomerForm'
-import type { Customer, DictionarySet, FieldPermissionMeta } from './CustomerListPage'
+import type { Customer, FieldPermissionMeta } from './CustomerListPage'
 import type { CustomerFormValues } from './customerSchema'
 
 export function CustomerFormPage() {
@@ -14,14 +14,6 @@ export function CustomerFormPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const customerId = customerIdFromPath(pathname)
   const isEditing = customerId !== null
-  const dictionariesQuery = useQuery({
-    queryKey: ['dictionary-options'],
-    queryFn: async () => {
-      const response = await api.get<ApiCollection<DictionarySet>>('/api/dictionary-options')
-
-      return response.data.data
-    },
-  })
   const customerQuery = useQuery({
     queryKey: ['customer', customerId],
     enabled: isEditing,
@@ -58,7 +50,6 @@ export function CustomerFormPage() {
   })
   const fieldPermissions = customerQuery.data?.meta?.fields ?? createMetaQuery.data
   const loading =
-    dictionariesQuery.isPending ||
     (isEditing && customerQuery.isPending) ||
     (!isEditing && createMetaQuery.isPending)
 
@@ -74,14 +65,12 @@ export function CustomerFormPage() {
       }
     >
       <Panel title={isEditing ? 'Edit customer' : 'Create customer'}>
-        {dictionariesQuery.isError ? <ErrorNotice error={dictionariesQuery.error} fallback="Unable to load dictionaries" /> : null}
         {customerQuery.isError ? <ErrorNotice error={customerQuery.error} fallback="Unable to load customers" /> : null}
         {createMetaQuery.isError ? <ErrorNotice error={createMetaQuery.error} fallback="Unable to load customers" /> : null}
         {loading ? <LoadingState label="Loading data" /> : null}
-        {!loading && !dictionariesQuery.isError && !customerQuery.isError && !createMetaQuery.isError ? (
+        {!loading && !customerQuery.isError && !createMetaQuery.isError ? (
           <CustomerForm
             customer={customerQuery.data?.data ?? null}
-            dictionaries={dictionariesQuery.data ?? []}
             fieldPermissions={fieldPermissions}
             submitting={saveCustomer.isPending}
             error={saveCustomer.error}

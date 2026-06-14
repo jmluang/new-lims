@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { filterForbiddenCustomerFields } from '../customerPermissions'
+import { customerSchema } from '../customerSchema'
 
 describe('customer form permissions', () => {
   it('excludes fields without update permission from submit payloads', () => {
@@ -7,10 +8,6 @@ describe('customer form permissions', () => {
       {
         name: 'Acme Lab',
         credit_code: '91330000123456789X',
-        type: 'enterprise',
-        level: 'a',
-        source: 'referral',
-        industry: 'testing',
         phone: '13800000000',
         email: 'acme@example.test',
         address: 'Hangzhou',
@@ -30,5 +27,21 @@ describe('customer form permissions', () => {
     })
     expect(payload.credit_code).toBeUndefined()
     expect(payload.phone).toBeUndefined()
+  })
+
+  it('strips removed classification fields from customer form values', () => {
+    const payload = customerSchema.parse({
+      name: 'Acme Lab',
+      type: 'enterprise',
+      level: 'a',
+      source: 'referral',
+      industry: 'testing',
+      status: 'active',
+    })
+
+    expect(payload).not.toHaveProperty('type')
+    expect(payload).not.toHaveProperty('level')
+    expect(payload).not.toHaveProperty('source')
+    expect(payload).not.toHaveProperty('industry')
   })
 })

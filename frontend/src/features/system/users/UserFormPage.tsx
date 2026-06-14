@@ -69,7 +69,7 @@ export function UserFormPage() {
     >
       <Panel title={isEditing ? 'Edit user' : 'Create user'}>
         {groupsQuery.isError ? <ErrorNotice error={groupsQuery.error} fallback="Unable to load groups" /> : null}
-        {departmentsQuery.isError ? <ErrorNotice error={departmentsQuery.error} fallback="Unable to load users" /> : null}
+        {departmentsQuery.isError ? <ErrorNotice error={departmentsQuery.error} fallback="Unable to load departments" /> : null}
         {userQuery.isError ? <ErrorNotice error={userQuery.error} fallback="Unable to load users" /> : null}
         {loading ? <LoadingState label="Loading data" /> : null}
         {!loading && !groupsQuery.isError && !departmentsQuery.isError && !userQuery.isError ? (

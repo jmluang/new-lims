@@ -35,7 +35,8 @@ class PermissionCatalogTest extends TestCase
             ->assertJsonPath('data.resources.samples.actions', ['read', 'receive', 'update', 'export'])
             ->assertJsonPath('data.resources.equipment.fields.serial_no', ['read', 'update', 'export'])
             ->assertJsonPath('data.resources.equipment_systems.actions', ['read', 'create', 'update', 'delete'])
-            ->assertJsonMissingPath('data.resources.equipment.fields.legacy_placement');
+            ->assertJsonMissingPath('data.resources.equipment.fields.legacy_placement')
+            ->assertJsonMissingPath('data.resources.system.dictionaries');
     }
 
     /**
@@ -63,10 +64,6 @@ class PermissionCatalogTest extends TestCase
             'system.groups.delete',
             'system.audit_logs.read',
             'system.audit_logs.export',
-            'system.dictionaries.read',
-            'system.dictionaries.create',
-            'system.dictionaries.update',
-            'system.dictionaries.delete',
             'system.backups.read',
             'system.backups.create',
             'system.backups.restore',
