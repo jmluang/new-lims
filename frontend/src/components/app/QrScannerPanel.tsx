@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { Button, Panel } from '../../features/system/shared'
 import { inputClass } from '../../features/system/utils'
-import { normalizeScanValue, stopQrScannerIfRunning, type QrScannerInstance } from './qrScanner'
+import { completeDetectedScan, normalizeScanValue, stopQrScannerIfRunning, type QrScannerInstance } from './qrScanner'
 
 type QrScannerPanelProps = {
   title: string
@@ -23,9 +23,13 @@ export function QrScannerPanel({ title, placeholder, onDetected }: QrScannerPane
     }
   }
 
+  function handleCameraDetected(text: string) {
+    completeDetectedScan(text, onDetected, () => setCameraEnabled(false))
+  }
+
   return (
     <Panel title={title}>
-      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <input
           className={inputClass}
           value={manualValue}
@@ -38,16 +42,16 @@ export function QrScannerPanel({ title, placeholder, onDetected }: QrScannerPane
           }}
           placeholder={placeholder}
         />
-        <Button variant="secondary" onClick={submitManual}>
+        <Button className="w-full sm:w-auto" variant="secondary" onClick={submitManual}>
           添加
         </Button>
       </div>
       <div className="mt-3 flex gap-2">
-        <Button variant="secondary" onClick={() => setCameraEnabled((value) => !value)}>
+        <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setCameraEnabled((value) => !value)}>
           {cameraEnabled ? '关闭扫码' : '打开扫码'}
         </Button>
       </div>
-      {cameraEnabled ? <QrCamera readerId={readerId} onDetected={onDetected} /> : null}
+      {cameraEnabled ? <QrCamera readerId={readerId} onDetected={handleCameraDetected} /> : null}
     </Panel>
   )
 }

@@ -4,6 +4,23 @@ export function normalizeScanValue(value: string): string | null {
   return text === '' ? null : text
 }
 
+export function completeDetectedScan(
+  value: string,
+  onDetected: (text: string) => void,
+  closeScanner: () => void,
+) {
+  const text = normalizeScanValue(value)
+
+  if (text === null) {
+    return false
+  }
+
+  onDetected(text)
+  closeScanner()
+
+  return true
+}
+
 export type QrScannerInstance = {
   stop: () => Promise<void>
   clear: () => void

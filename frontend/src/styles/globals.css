@@ -42,7 +42,8 @@ a {
 
 
 /* Date inputs have a large native intrinsic width on some mobile browsers; keep them inside cards. */
-input[type="date"] {
+input[type="date"],
+input[type="datetime-local"] {
   max-width: 100%;
   min-width: 0;
 }

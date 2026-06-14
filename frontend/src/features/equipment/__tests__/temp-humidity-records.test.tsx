@@ -1,8 +1,19 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { TempHumidityRecordFormPreview } from '../tempHumidityPreview'
 import { applyDetectedEquipmentCode, applyLookupEquipment, buildTempHumidityListParams, emptyTempHumidityFilters, equipmentLookupErrorText } from '../tempHumidityPageState'
 import { tempHumiditySchema } from '../tempHumiditySchema'
+
+const tempHumidityListPageSource = readFileSync(
+  fileURLToPath(new URL('../TempHumidityListPage.tsx', import.meta.url)),
+  'utf8',
+)
+const globalsCssSource = readFileSync(
+  fileURLToPath(new URL('../../../styles/globals.css', import.meta.url)),
+  'utf8',
+)
 
 describe('TempHumidityRecordFormPreview', () => {
   it('renders lookup equipment details and placement fields in the add form preview', () => {
@@ -156,5 +167,13 @@ describe('TempHumidityRecordFormPreview', () => {
   it('uses a local not-found message for unknown equipment lookup', () => {
     expect(equipmentLookupErrorText({ response: { status: 404 } })).toBe('未找到设备')
     expect(equipmentLookupErrorText({ response: { status: 500 } })).toBeNull()
+  })
+
+  it('keeps the datetime-local record-time input within the mobile form width', () => {
+    expect(tempHumidityListPageSource).toContain('const datetimeLocalInputClass')
+    expect(tempHumidityListPageSource).toContain('[min-inline-size:0]')
+    expect(tempHumidityListPageSource).toContain('[max-inline-size:100%]')
+    expect(tempHumidityListPageSource).toContain('type="datetime-local"')
+    expect(globalsCssSource).toContain('input[type="datetime-local"]')
   })
 })

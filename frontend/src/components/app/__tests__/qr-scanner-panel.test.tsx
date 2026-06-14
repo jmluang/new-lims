@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { QrScannerPanel } from '../QrScannerPanel'
-import { normalizeScanValue, stopQrScannerIfRunning } from '../qrScanner'
+import { completeDetectedScan, normalizeScanValue, stopQrScannerIfRunning } from '../qrScanner'
 
 describe('normalizeScanValue', () => {
   it('trims surrounding whitespace and returns the code', () => {
@@ -24,6 +24,36 @@ describe('QrScannerPanel', () => {
     // Camera reader element is only mounted after the user opens the camera.
     expect(html).not.toContain('qr-reader-')
     expect(html).toContain('打开扫码')
+  })
+
+  it('keeps manual add and camera toggle buttons full-width on mobile', () => {
+    const html = renderToStaticMarkup(
+      <QrScannerPanel title="扫码/输入设备编号" placeholder="设备编号" onDetected={() => {}} />,
+    )
+
+    expect(html).toContain('w-full sm:w-auto')
+  })
+})
+
+describe('completeDetectedScan', () => {
+  it('emits a normalized scan value and closes the active camera', () => {
+    const onDetected = vi.fn()
+    const closeCamera = vi.fn()
+
+    expect(completeDetectedScan('  EQ-001  ', onDetected, closeCamera)).toBe(true)
+
+    expect(onDetected).toHaveBeenCalledWith('EQ-001')
+    expect(closeCamera).toHaveBeenCalledOnce()
+  })
+
+  it('ignores blank scan values without closing the active camera', () => {
+    const onDetected = vi.fn()
+    const closeCamera = vi.fn()
+
+    expect(completeDetectedScan('  ', onDetected, closeCamera)).toBe(false)
+
+    expect(onDetected).not.toHaveBeenCalled()
+    expect(closeCamera).not.toHaveBeenCalled()
   })
 })
 

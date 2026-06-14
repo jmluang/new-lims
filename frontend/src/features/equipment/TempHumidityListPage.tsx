@@ -14,6 +14,8 @@ import { applyDetectedEquipmentCode, applyLookupEquipment, buildTempHumidityList
 import { tempHumiditySchema, type TempHumidityFormValues } from './tempHumiditySchema'
 import type { TempHumidityEquipmentLookup } from './tempHumidityTypes'
 
+const datetimeLocalInputClass = `${inputClass} max-w-full [max-inline-size:100%] [min-inline-size:0]`
+
 export type TempHumidityRecord = {
   id: number
   equipment_id?: number | null
@@ -379,7 +381,7 @@ function TempHumidityForm({
           <input className={inputClass} type="number" step="0.1" {...form.register('humidity')} />
         </Field>
         <Field label="Record time">
-          <input className={inputClass} type="datetime-local" {...form.register('record_time')} />
+          <input className={datetimeLocalInputClass} type="datetime-local" {...form.register('record_time')} />
         </Field>
         <Field label="Remark" className="sm:col-span-2">
           <textarea className={textareaClass} {...form.register('remark')} />
