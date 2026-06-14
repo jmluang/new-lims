@@ -6,6 +6,7 @@ use App\Models\BackupRun;
 use App\Models\User;
 use App\Services\System\BackupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use RuntimeException;
@@ -25,6 +26,8 @@ class BackupCommandTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         Storage::disk('local')->deleteDirectory('backups');
         Storage::disk('local')->deleteDirectory('uploads');
+        DB::disconnect('backup_source');
+        @unlink(storage_path('framework/testing-backup-source.sqlite'));
     }
 
     public function test_backup_command_writes_database_dump_file_archive_and_audit_log(): void
@@ -70,6 +73,39 @@ class BackupCommandTest extends TestCase
             'action' => 'system.backups.failed',
             'module' => 'system.backups',
         ]);
+    }
+
+    public function test_backup_command_dumps_configured_source_connection_instead_of_refreshed_default_database(): void
+    {
+        $sourcePath = storage_path('framework/testing-backup-source.sqlite');
+        touch($sourcePath);
+
+        config([
+            'database.connections.backup_source' => [
+                'driver' => 'sqlite',
+                'database' => $sourcePath,
+                'prefix' => '',
+                'foreign_key_constraints' => true,
+            ],
+            'backup.backup.source.database_connection' => 'backup_source',
+        ]);
+
+        DB::purge('backup_source');
+        DB::connection('backup_source')->getSchemaBuilder()->create('business_backup_probe', function ($table): void {
+            $table->id();
+            $table->string('marker');
+        });
+        DB::connection('backup_source')->table('business_backup_probe')->insert([
+            'marker' => 'probe_should_survive_refresh',
+        ]);
+
+        $this->artisan('lims:backup', ['--type' => 'daily'])->assertSuccessful();
+
+        $dump = Storage::disk('local')->get(BackupRun::query()->firstOrFail()->database_path);
+
+        $this->assertStringContainsString('business_backup_probe', $dump);
+        $this->assertStringContainsString('probe_should_survive_refresh', $dump);
+        $this->assertStringNotContainsString('backup_runs', $dump);
     }
 
     public function test_backup_restore_requires_permission_and_records_audit_log(): void

@@ -16,8 +16,8 @@ export function Sidebar() {
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>(() => defaultClosedGroups)
 
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-emerald-900/10 bg-white/95 lg:block">
-      <div className="flex h-16 items-center gap-3 border-b border-emerald-900/10 px-5">
+    <aside className="fixed inset-y-0 left-0 hidden h-svh w-64 flex-col border-r border-emerald-900/10 bg-white/95 lg:flex">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-emerald-900/10 px-5">
         <div className="flex size-9 items-center justify-center rounded-md bg-emerald-700 text-white shadow-sm">
           <FlaskConical size={20} aria-hidden="true" />
         </div>
@@ -26,7 +26,7 @@ export function Sidebar() {
           <div className="text-xs text-slate-500">管理后台</div>
         </div>
       </div>
-      <nav className="space-y-2 p-3">
+      <nav className="flex-1 overflow-y-auto space-y-2 p-3">
         {groups.map((group) => {
           const hasActiveItem = group.items.some((item) => isActivePath(pathname, item.to))
           const open = hasActiveItem || !closedGroups[group.label]

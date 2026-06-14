@@ -92,6 +92,8 @@ return [
             'databases' => [
                 env('DB_CONNECTION', 'mysql'),
             ],
+
+            'database_connection' => env('BACKUP_SOURCE_DB_CONNECTION', env('DB_CONNECTION', 'mysql')),
         ],
 
         /*
