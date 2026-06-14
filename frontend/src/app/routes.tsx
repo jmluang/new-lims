@@ -27,6 +27,7 @@ import { TestOrderFormPage } from '../features/test-orders/TestOrderFormPage'
 import { TestOrderListPage } from '../features/test-orders/TestOrderListPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
 import { BackupListPage } from '../features/system/backups/BackupListPage'
+import { DepartmentListPage } from '../features/system/departments/DepartmentListPage'
 import { GroupListPage } from '../features/system/groups/GroupListPage'
 import { UserFormPage } from '../features/system/users/UserFormPage'
 import { UserListPage } from '../features/system/users/UserListPage'
@@ -86,6 +87,13 @@ const systemGroupsRoute = createRoute({
   path: '/system/groups',
   beforeLoad: () => requireRoutePermission('system.groups'),
   component: GroupListPage,
+})
+
+const systemDepartmentsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/system/departments',
+  beforeLoad: () => requireRoutePermission('system.departments'),
+  component: DepartmentListPage,
 })
 
 const customersRoute = createRoute({
@@ -305,6 +313,7 @@ export const routeTree = rootRoute.addChildren([
     systemRoute,
     systemUserCreateRoute,
     systemUserEditRoute,
+    systemDepartmentsRoute,
     systemGroupsRoute,
     customersRoute,
     standardsRoute,

@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Edit3, Plus, Search, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { QrScannerPanel } from '../../components/app/QrScannerPanel'
 import { api } from '../../lib/api'
@@ -10,7 +10,15 @@ import { zhText } from '../../lib/zh'
 import { useCurrentUser } from '../auth/useCurrentUser'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel } from '../system/shared'
 import { type ApiCollection, type ApiResource, formatDateTime, inputClass, textareaClass } from '../system/utils'
-import { applyDetectedEquipmentCode, applyLookupEquipment, buildTempHumidityListParams, emptyTempHumidityFilters, equipmentLookupErrorText, type TempHumidityFilters } from './tempHumidityPageState'
+import {
+  applyDetectedEquipmentCode,
+  applyLookupEquipment,
+  buildTempHumidityListParams,
+  emptyTempHumidityFilters,
+  equipmentLookupErrorText,
+  randomReadingDefault,
+  type TempHumidityFilters,
+} from './tempHumidityPageState'
 import { tempHumiditySchema, type TempHumidityFormValues } from './tempHumiditySchema'
 import type { TempHumidityEquipmentLookup } from './tempHumidityTypes'
 
@@ -355,25 +363,22 @@ function TempHumidityForm({
     onLookupEquipment(equipNo)
   }
 
+  const locationSite = useWatch({ control: form.control, name: 'location_site' })
+  const locationRoom = useWatch({ control: form.control, name: 'location_room' })
+
   return (
     <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
+      <input type="hidden" {...form.register('location_site')} />
+      <input type="hidden" {...form.register('location_room')} />
+      <input type="hidden" {...form.register('equip_no')} />
+      <input type="hidden" {...form.register('record_person')} />
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_20rem]">
         <QrScannerPanel title="扫码/输入设备编号" placeholder="设备编号" onDetected={handleEquipmentDetected} />
         <EquipmentLookupSummary equipment={lookupEquipment} pending={lookupPending} error={lookupError} />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Placement site">
-          <input className={inputClass} {...form.register('location_site')} />
-        </Field>
-        <Field label="Placement room">
-          <input className={inputClass} {...form.register('location_room')} />
-        </Field>
-        <Field label="Equipment no">
-          <input className={inputClass} {...form.register('equip_no')} />
-        </Field>
-        <Field label="Record person">
-          <input className={inputClass} {...form.register('record_person')} />
-        </Field>
+        <ReadOnlyFormValue label="Placement site" value={locationSite} />
+        <ReadOnlyFormValue label="Placement room" value={locationRoom} />
         <Field label="Temperature">
           <input className={inputClass} type="number" step="0.1" {...form.register('temperature')} />
         </Field>
@@ -396,6 +401,17 @@ function TempHumidityForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+function ReadOnlyFormValue({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="block min-w-0">
+      <div className="text-xs font-medium tracking-normal text-slate-600">{zhText(label)}</div>
+      <div className="mt-1 flex min-h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
+        {value?.trim() ? value : '-'}
+      </div>
+    </div>
   )
 }
 
@@ -471,8 +487,8 @@ function recordDefaults(record: TempHumidityRecord | null, defaultPerson: string
     location_site: record?.location_site ?? '',
     location_room: record?.location_room ?? '',
     equip_no: record?.equip_no ?? '',
-    temperature: record?.temperature != null ? String(record.temperature) : '',
-    humidity: record?.humidity != null ? String(record.humidity) : '',
+    temperature: record?.temperature != null ? String(record.temperature) : randomReadingDefault(24.5, 25.5),
+    humidity: record?.humidity != null ? String(record.humidity) : randomReadingDefault(60, 65),
     record_person: record?.record_person ?? defaultPerson,
     remark: record?.remark ?? '',
     record_time: record ? toDatetimeLocal(record.record_time) : nowLocal(),

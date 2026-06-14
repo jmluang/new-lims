@@ -33,7 +33,7 @@ describe('user form locale', () => {
     )
 
     expect(html).toContain('初始密码')
-    expect(html).toContain('必须修改密码')
+    expect(html).toContain('用户下次登录后必须修改密码')
     expect(html).toContain('无部门')
     expect(html).toContain('无更新权限')
     expect(html).toContain('角色组')
@@ -50,5 +50,31 @@ describe('user form locale', () => {
     expect(html).not.toContain('>active<')
     expect(html).not.toContain('>disabled<')
     expect(html).not.toContain('>locked<')
+  })
+
+  it('renders active child departments as selectable department options', () => {
+    const html = renderToStaticMarkup(
+      createElement(UserForm, {
+        groups: [],
+        departments: [
+          {
+            id: 1,
+            name: '总部',
+            status: 'active',
+            children: [
+              { id: 2, name: '检测一部', status: 'active' },
+              { id: 3, name: '停用部门', status: 'disabled' },
+            ],
+          },
+        ],
+        submitting: false,
+        error: null,
+        onSubmit: async () => undefined,
+        onCancel: () => undefined,
+      }),
+    )
+
+    expect(html).toContain('总部 / 检测一部')
+    expect(html).not.toContain('停用部门')
   })
 })

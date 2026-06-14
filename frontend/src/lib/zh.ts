@@ -359,7 +359,7 @@ export const textMap: Record<string, string> = {
   'Edit user': '编辑用户',
   'Create user': '新建用户',
   'Initial password': '初始密码',
-  'Must change password': '必须修改密码',
+  'Must change password': '用户下次登录后必须修改密码',
   'No department': '无部门',
   'Loading users': '正在加载用户',
   'No users found': '未找到用户',

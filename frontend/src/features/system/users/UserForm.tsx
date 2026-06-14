@@ -18,8 +18,10 @@ export type UserGroupOption = {
 
 export type DepartmentOption = {
   id: number
+  parent_id?: number | null
   name: string
   status?: string
+  children?: DepartmentOption[]
 }
 
 export type SystemUser = {
@@ -83,6 +85,7 @@ export function UserForm({
     defaultValues: defaultValues(user),
   })
   const selectedGroupIds = useWatch({ control: form.control, name: 'group_ids' }) ?? []
+  const departmentOptions = flattenDepartmentOptions(departments)
 
   useEffect(() => {
     form.reset(defaultValues(user))
@@ -120,9 +123,9 @@ export function UserForm({
         <Field label="Department">
           <select className={inputClass} {...form.register('department_id')}>
             <option value="">{zhText('No department')}</option>
-            {departments.map((department) => (
+            {departmentOptions.map((department) => (
               <option value={department.id} key={department.id}>
-                {department.name}
+                {department.label}
               </option>
             ))}
           </select>
@@ -192,6 +195,24 @@ export function UserForm({
       </div>
     </form>
   )
+}
+
+function flattenDepartmentOptions(
+  departments: DepartmentOption[],
+  parents: string[] = [],
+): Array<{ id: number; label: string }> {
+  return departments.flatMap((department) => {
+    if (department.status === 'disabled') {
+      return []
+    }
+
+    const path = [...parents, department.name]
+
+    return [
+      { id: department.id, label: path.join(' / ') },
+      ...flattenDepartmentOptions(department.children ?? [], path),
+    ]
+  })
 }
 
 function defaultValues(user?: SystemUser | null): UserFormValues {

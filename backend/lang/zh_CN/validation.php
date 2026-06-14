@@ -39,7 +39,7 @@ return [
         'group_ids' => '角色组',
         'group_ids.*' => '角色组',
         'status' => '状态',
-        'must_change_password' => '必须修改密码',
+        'must_change_password' => '用户下次登录后必须修改密码',
         'permissions' => '权限',
         'permissions.*' => '权限',
         'code' => '编码',

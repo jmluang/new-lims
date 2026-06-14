@@ -60,6 +60,12 @@ export function equipmentLookupErrorText(error: unknown) {
   return null
 }
 
+export function randomReadingDefault(min: number, max: number, random = Math.random) {
+  const ratio = Math.min(Math.max(random(), 0), 1)
+
+  return (min + (max - min) * ratio).toFixed(1)
+}
+
 function cleanParams(filters: Record<string, string | number>) {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== ''))
 }

@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Building2,
   ClipboardCheck,
   ClipboardList,
   DatabaseBackup,
@@ -41,6 +42,7 @@ export const navGroups: NavGroup[] = [
     label: '系统管理',
     items: [
       { label: '用户管理', to: '/system', icon: Settings, resource: 'system.users', action: 'read' },
+      { label: '部门管理', to: '/system/departments', icon: Building2, resource: 'system.departments', action: 'read' },
       { label: '角色组', to: '/system/groups', icon: ShieldCheck, resource: 'system.groups', action: 'read' },
       { label: '位置名称', to: '/equipment/locations', icon: MapPinned, resource: 'equipment_locations', action: 'read' },
       { label: '定标项目', to: '/system/calibration-projects', icon: Ruler, resource: 'calibration_projects', action: 'read' },

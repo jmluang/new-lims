@@ -3,7 +3,14 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { TempHumidityRecordFormPreview } from '../tempHumidityPreview'
-import { applyDetectedEquipmentCode, applyLookupEquipment, buildTempHumidityListParams, emptyTempHumidityFilters, equipmentLookupErrorText } from '../tempHumidityPageState'
+import {
+  applyDetectedEquipmentCode,
+  applyLookupEquipment,
+  buildTempHumidityListParams,
+  emptyTempHumidityFilters,
+  equipmentLookupErrorText,
+  randomReadingDefault,
+} from '../tempHumidityPageState'
 import { tempHumiditySchema } from '../tempHumiditySchema'
 
 const tempHumidityListPageSource = readFileSync(
@@ -108,6 +115,12 @@ describe('TempHumidityRecordFormPreview', () => {
     ).toBe('UNKNOWN-SENSOR')
   })
 
+  it('generates one-decimal default readings inside configured ranges', () => {
+    expect(randomReadingDefault(24.5, 25.5, () => 0)).toBe('24.5')
+    expect(randomReadingDefault(24.5, 25.5, () => 1)).toBe('25.5')
+    expect(randomReadingDefault(60, 65, () => 0.46)).toBe('62.3')
+  })
+
   it('auto-fills placement on lookup success but does not overwrite edit snapshots', () => {
     const values = {
       location_site: '旧场所',
@@ -175,5 +188,26 @@ describe('TempHumidityRecordFormPreview', () => {
     expect(tempHumidityListPageSource).toContain('[max-inline-size:100%]')
     expect(tempHumidityListPageSource).toContain('type="datetime-local"')
     expect(globalsCssSource).toContain('input[type="datetime-local"]')
+  })
+
+  it('keeps equipment and recorder payload fields hidden in the manual record form', () => {
+    expect(tempHumidityListPageSource).toContain('<input type="hidden" {...form.register(\'equip_no\')} />')
+    expect(tempHumidityListPageSource).toContain('<input type="hidden" {...form.register(\'record_person\')} />')
+    expect(tempHumidityListPageSource).not.toContain('<Field label="Equipment no">')
+    expect(tempHumidityListPageSource).not.toContain('<Field label="Record person">')
+  })
+
+  it('defaults new manual readings to randomized editable temperature and humidity values', () => {
+    expect(tempHumidityListPageSource).toContain('randomReadingDefault(24.5, 25.5)')
+    expect(tempHumidityListPageSource).toContain('randomReadingDefault(60, 65)')
+    expect(tempHumidityListPageSource).toContain('<input className={inputClass} type="number" step="0.1" {...form.register(\'temperature\')} />')
+    expect(tempHumidityListPageSource).toContain('<input className={inputClass} type="number" step="0.1" {...form.register(\'humidity\')} />')
+  })
+
+  it('shows placement as read-only form values instead of editable inputs', () => {
+    expect(tempHumidityListPageSource).toContain('<ReadOnlyFormValue label="Placement site"')
+    expect(tempHumidityListPageSource).toContain('<ReadOnlyFormValue label="Placement room"')
+    expect(tempHumidityListPageSource).not.toContain('<input className={inputClass} {...form.register(\'location_site\')} />')
+    expect(tempHumidityListPageSource).not.toContain('<input className={inputClass} {...form.register(\'location_room\')} />')
   })
 })

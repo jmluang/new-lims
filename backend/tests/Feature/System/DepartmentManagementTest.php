@@ -45,6 +45,14 @@ class DepartmentManagementTest extends TestCase
             'status' => 'active',
         ])->assertCreated()->json('data.id');
 
+        $benchId = $this->postJsonAs($admin, '/api/system/departments', [
+            'parent_id' => $childId,
+            'name' => 'Chemistry Bench',
+            'code' => 'CHEM-BENCH',
+            'sort_order' => 1,
+            'status' => 'active',
+        ])->assertCreated()->json('data.id');
+
         $this->putJsonAs($admin, "/api/system/departments/{$childId}", [
             'parent_id' => $rootId,
             'name' => 'Chemistry Lab Updated',
@@ -59,6 +67,7 @@ class DepartmentManagementTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.id', $rootId)
             ->assertJsonPath('data.0.children.0.id', $childId)
+            ->assertJsonPath('data.0.children.0.children.0.id', $benchId)
             ->assertJsonPath('data.0.children.0.status', 'disabled');
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'system.departments.create', 'subject_id' => (string) $rootId]);
