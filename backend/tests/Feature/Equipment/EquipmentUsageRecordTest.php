@@ -3,6 +3,7 @@
 namespace Tests\Feature\Equipment;
 
 use App\Models\Equipment;
+use App\Models\EquipmentUsageRecord;
 use App\Models\Sample;
 use App\Models\TestOrder;
 use App\Models\User;
@@ -33,19 +34,32 @@ class EquipmentUsageRecordTest extends TestCase
             'model' => 'HT-1',
             'status' => 'active',
         ]);
+        $secondEquipment = Equipment::query()->create([
+            'equipment_no' => 'EQ-USAGE-002',
+            'name' => '光照箱',
+            'model' => 'LT-1',
+            'status' => 'active',
+        ]);
         $sampleA = $this->sample('SAMPLE-A');
         $sampleB = $this->sample('SAMPLE-B');
 
-        $this->postJsonAs($operator, '/api/equipment-usage-records/start', [
-            'equipment_ids' => [$equipment->id],
+        $startResponse = $this->postJsonAs($operator, '/api/equipment-usage-records/start', [
+            'equipment_ids' => [$equipment->id, $secondEquipment->id],
             'sample_ids' => [$sampleA->id, $sampleB->id],
             'start_time' => '2026-06-12 09:30:00',
             'remark' => '性能测试',
         ])->assertCreated()
-            ->assertJsonPath('meta.created_count', 2)
+            ->assertJsonPath('meta.created_count', 4)
             ->assertJsonPath('data.0.equipment_no', 'EQ-USAGE-001')
             ->assertJsonPath('data.0.sample_no', 'SAMPLE-A')
             ->assertJsonPath('data.0.status', 'using');
+
+        $usageBatchId = $startResponse->json('data.0.usage_batch_id');
+        $this->assertNotEmpty($usageBatchId);
+        $this->assertSame(
+            [$usageBatchId],
+            collect($startResponse->json('data'))->pluck('usage_batch_id')->unique()->values()->all(),
+        );
 
         $this->assertDatabaseHas('equipment_usage_records', [
             'equipment_id' => $equipment->id,
@@ -55,10 +69,14 @@ class EquipmentUsageRecordTest extends TestCase
             'remark' => '性能测试',
         ]);
 
-        $recordId = $this->getJsonAs($operator, '/api/equipment-usage-records?status=using')
+        $this->getJsonAs($operator, '/api/equipment-usage-records?status=using')
             ->assertOk()
-            ->assertJsonPath('data.0.status', 'using')
-            ->json('data.0.id');
+            ->assertJsonPath('data.0.status', 'using');
+
+        $recordId = EquipmentUsageRecord::query()
+            ->where('equipment_id', $equipment->id)
+            ->where('sample_id', $sampleA->id)
+            ->valueOrFail('id');
 
         $this->putJsonAs($operator, "/api/equipment-usage-records/{$recordId}", [
             'start_time' => '2026-06-12 09:45:00',
@@ -71,7 +89,25 @@ class EquipmentUsageRecordTest extends TestCase
             'end_time' => '2026-06-12 11:00:00',
         ])->assertOk()
             ->assertJsonPath('data.status', 'finished')
-            ->assertJsonPath('data.end_time', '2026-06-12 11:00:00');
+            ->assertJsonPath('data.end_time', '2026-06-12 11:00:00')
+            ->assertJsonPath('meta.updated_count', 2);
+
+        $this->assertSame(
+            2,
+            EquipmentUsageRecord::query()
+                ->where('usage_batch_id', $usageBatchId)
+                ->where('sample_id', $sampleA->id)
+                ->whereNotNull('end_time')
+                ->count(),
+        );
+        $this->assertSame(
+            2,
+            EquipmentUsageRecord::query()
+                ->where('usage_batch_id', $usageBatchId)
+                ->where('sample_id', $sampleB->id)
+                ->whereNull('end_time')
+                ->count(),
+        );
     }
 
     public function test_form_options_do_not_require_equipment_or_sample_read_permissions(): void

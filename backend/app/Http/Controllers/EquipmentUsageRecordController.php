@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class EquipmentUsageRecordController extends Controller
@@ -122,9 +123,10 @@ class EquipmentUsageRecordController extends Controller
             'remark' => ['nullable', 'string'],
         ]);
         $startTime = Carbon::parse($payload['start_time'] ?? now())->seconds(0);
+        $usageBatchId = (string) Str::uuid();
         $equipment = Equipment::query()->whereIn('id', $payload['equipment_ids'])->get()->keyBy('id');
         $samples = Sample::query()->whereIn('id', $payload['sample_ids'])->get()->keyBy('id');
-        $records = DB::transaction(function () use ($request, $payload, $equipment, $samples, $startTime): array {
+        $records = DB::transaction(function () use ($request, $payload, $equipment, $samples, $startTime, $usageBatchId): array {
             $created = [];
 
             foreach ($payload['equipment_ids'] as $equipmentId) {
@@ -135,6 +137,7 @@ class EquipmentUsageRecordController extends Controller
                     $created[] = EquipmentUsageRecord::query()->create([
                         'equipment_id' => $targetEquipment->id,
                         'sample_id' => $sample->id,
+                        'usage_batch_id' => $usageBatchId,
                         'equipment_no' => $targetEquipment->equipment_no,
                         'equipment_name' => $targetEquipment->name,
                         'sample_no' => $sample->sample_no,
@@ -158,6 +161,7 @@ class EquipmentUsageRecordController extends Controller
             after: [
                 'equipment_ids' => $payload['equipment_ids'],
                 'sample_ids' => $payload['sample_ids'],
+                'usage_batch_id' => $usageBatchId,
                 'created_count' => count($records),
             ],
         );
@@ -202,8 +206,20 @@ class EquipmentUsageRecordController extends Controller
         }
 
         $payload = $request->validate(['end_time' => ['nullable', 'date']]);
+        $endTime = Carbon::parse($payload['end_time'] ?? now())->seconds(0);
         $before = $this->serializeRecord($equipmentUsageRecord);
-        $equipmentUsageRecord->update(['end_time' => Carbon::parse($payload['end_time'] ?? now())->seconds(0)]);
+        [$targetIds, $updated] = DB::transaction(function () use ($equipmentUsageRecord, $endTime): array {
+            $targetIds = $this->sameSampleBatchQuery($equipmentUsageRecord)
+                ->whereNull('end_time')
+                ->lockForUpdate()
+                ->pluck('id')
+                ->all();
+            $updated = EquipmentUsageRecord::query()
+                ->whereIn('id', $targetIds)
+                ->update(['end_time' => $endTime, 'updated_at' => now()]);
+
+            return [$targetIds, $updated];
+        });
         $equipmentUsageRecord = $equipmentUsageRecord->fresh();
 
         $auditLogger->record(
@@ -212,10 +228,19 @@ class EquipmentUsageRecordController extends Controller
             module: self::RESOURCE,
             subject: $equipmentUsageRecord,
             before: $before,
-            after: $this->serializeRecord($equipmentUsageRecord),
+            after: [
+                'record' => $this->serializeRecord($equipmentUsageRecord),
+                'target_ids' => $targetIds,
+                'usage_batch_id' => $equipmentUsageRecord->usage_batch_id,
+                'sample_id' => $equipmentUsageRecord->sample_id,
+                'updated_count' => $updated,
+            ],
         );
 
-        return response()->json(['data' => $this->serializeRecord($equipmentUsageRecord)]);
+        return response()->json([
+            'data' => $this->serializeRecord($equipmentUsageRecord),
+            'meta' => ['updated_count' => $updated],
+        ]);
     }
 
     public function batchEnd(Request $request, AuditLogger $auditLogger): JsonResponse
@@ -286,6 +311,7 @@ class EquipmentUsageRecordController extends Controller
             'id' => $record->id,
             'equipment_id' => $record->equipment_id,
             'sample_id' => $record->sample_id,
+            'usage_batch_id' => $record->usage_batch_id,
             'equipment_no' => $record->equipment_no,
             'equipment_name' => $record->equipment_name,
             'sample_no' => $record->sample_no,
@@ -298,5 +324,18 @@ class EquipmentUsageRecordController extends Controller
             'operator_name' => $record->operator_name,
             'remark' => $record->remark,
         ];
+    }
+
+    private function sameSampleBatchQuery(EquipmentUsageRecord $record): Builder
+    {
+        $query = EquipmentUsageRecord::query();
+
+        if ($record->usage_batch_id === null) {
+            return $query->whereKey($record->id);
+        }
+
+        return $query
+            ->where('usage_batch_id', $record->usage_batch_id)
+            ->where('sample_id', $record->sample_id);
     }
 }

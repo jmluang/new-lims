@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Button, Panel } from '../../features/system/shared'
 import { inputClass } from '../../features/system/utils'
 import { completeDetectedScan, normalizeScanValue, stopQrScannerIfRunning, type QrScannerInstance } from './qrScanner'
@@ -7,9 +7,10 @@ type QrScannerPanelProps = {
   title: string
   placeholder: string
   onDetected: (text: string) => void
+  children?: ReactNode
 }
 
-export function QrScannerPanel({ title, placeholder, onDetected }: QrScannerPanelProps) {
+export function QrScannerPanel({ title, placeholder, onDetected, children }: QrScannerPanelProps) {
   const [manualValue, setManualValue] = useState('')
   const [cameraEnabled, setCameraEnabled] = useState(false)
   const readerId = `qr-reader-${useId().replace(/:/g, '')}`
@@ -51,6 +52,11 @@ export function QrScannerPanel({ title, placeholder, onDetected }: QrScannerPane
           {cameraEnabled ? '关闭扫码' : '打开扫码'}
         </Button>
       </div>
+      {children ? (
+        <div className="mt-3 border-t border-emerald-900/10 pt-3" data-scanner-selection>
+          {children}
+        </div>
+      ) : null}
       {cameraEnabled ? <QrCamera readerId={readerId} onDetected={handleCameraDetected} /> : null}
     </Panel>
   )

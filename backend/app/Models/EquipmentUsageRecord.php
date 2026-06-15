@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'equipment_id',
     'sample_id',
+    'usage_batch_id',
     'equipment_no',
     'equipment_name',
     'sample_no',

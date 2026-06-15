@@ -232,45 +232,19 @@ export function EquipmentUsageRecordPage() {
           {optionsQuery.isError ? <ErrorNotice error={optionsQuery.error} fallback="无法加载设备使用选项" /> : null}
           <div className="mb-3 grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <QrScannerPanel title="扫码/输入设备编号" placeholder="设备编号" onDetected={(code) => lookupEquipment.mutate(code)} />
+              <QrScannerPanel title="扫码/输入设备编号" placeholder="设备编号" onDetected={(code) => lookupEquipment.mutate(code)}>
+                <SelectedChips ids={form.equipment_ids} labelFor={equipmentLabelFor} onRemove={removeEquipment} />
+              </QrScannerPanel>
               {lookupEquipment.isError ? <ErrorNotice error="未找到设备" fallback="未找到设备" /> : null}
-              <SelectedChips ids={form.equipment_ids} labelFor={equipmentLabelFor} onRemove={removeEquipment} />
             </div>
             <div className="space-y-2">
-              <QrScannerPanel title="扫码/输入样品编号" placeholder="样品编号" onDetected={(code) => lookupSample.mutate(code)} />
+              <QrScannerPanel title="扫码/输入样品编号" placeholder="样品编号" onDetected={(code) => lookupSample.mutate(code)}>
+                <SelectedChips ids={form.sample_ids} labelFor={sampleLabelFor} onRemove={removeSample} />
+              </QrScannerPanel>
               {lookupSample.isError ? <ErrorNotice error="未找到样品" fallback="未找到样品" /> : null}
-              <SelectedChips ids={form.sample_ids} labelFor={sampleLabelFor} onRemove={removeSample} />
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
-            <Field label="设备">
-              <select
-                className={`${inputClass} min-h-28 py-2 align-top`}
-                multiple
-                value={form.equipment_ids.map(String)}
-                onChange={(event) => setForm({ ...form, equipment_ids: selectedNumberOptions(event.currentTarget) })}
-              >
-                {(optionsQuery.data?.equipment ?? []).map((equipment) => (
-                  <option value={equipment.id} key={equipment.id}>
-                    {equipment.equipment_no} - {equipment.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="样品">
-              <select
-                className={`${inputClass} min-h-28 py-2 align-top`}
-                multiple
-                value={form.sample_ids.map(String)}
-                onChange={(event) => setForm({ ...form, sample_ids: selectedNumberOptions(event.currentTarget) })}
-              >
-                {(optionsQuery.data?.samples ?? []).map((sample) => (
-                  <option value={sample.id} key={sample.id}>
-                    {sample.sample_no} - {sample.sample_name}
-                  </option>
-                ))}
-              </select>
-            </Field>
             <Field label="开始时间">
               <input className={inputClass} type="datetime-local" value={form.start_time} onChange={(event) => setForm({ ...form, start_time: event.target.value })} />
             </Field>
@@ -423,10 +397,6 @@ export function EquipmentUsageRecordPage() {
       />
     </PageShell>
   )
-}
-
-function selectedNumberOptions(select: HTMLSelectElement) {
-  return Array.from(select.selectedOptions).map((option) => Number(option.value)).filter((value) => Number.isInteger(value) && value > 0)
 }
 
 function dateTimeLocalValue(value: string) {
