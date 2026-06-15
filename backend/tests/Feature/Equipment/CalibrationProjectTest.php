@@ -5,6 +5,7 @@ namespace Tests\Feature\Equipment;
 use App\Models\CalibrationProject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -24,6 +25,7 @@ class CalibrationProjectTest extends TestCase
 
     public function test_manager_can_manage_calibration_projects_and_preview_labels(): void
     {
+        Carbon::setTestNow('2026-06-15 12:17:08');
         $manager = $this->userWithPermissions([
             'calibration_projects.read',
             'calibration_projects.create',
@@ -37,6 +39,11 @@ class CalibrationProjectTest extends TestCase
             'project_name' => '积分球定标',
             'status' => 'active',
         ])->assertCreated()->json('data.id');
+
+        $this->getJsonAs($manager, '/api/calibration-projects')
+            ->assertOk()
+            ->assertJsonPath('data.0.created_at', '2026-06-15 12:17:08')
+            ->assertJsonPath('data.0.updated_at', '2026-06-15 12:17:08');
 
         $this->postJsonAs($manager, "/api/calibration-projects/{$projectId}", [
             'project_no' => 'CP-001',

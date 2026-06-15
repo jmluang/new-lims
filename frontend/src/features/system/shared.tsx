@@ -29,12 +29,15 @@ export function PageShell({
   )
 }
 
-export function Panel({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+export function Panel({ title, description, actions, children }: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
   return (
     <section className="rounded-lg border border-emerald-900/10 bg-white shadow-[0_1px_2px_rgb(15_23_42/0.05)]">
-      <div className="border-b border-emerald-900/10 px-4 py-3">
-        <h2 className="text-sm font-semibold text-slate-950">{zhText(title)}</h2>
-        {description ? <p className="mt-1 text-xs leading-5 text-slate-500">{zhText(description)}</p> : null}
+      <div className="flex items-start justify-between gap-3 border-b border-emerald-900/10 px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-slate-950">{zhText(title)}</h2>
+          {description ? <p className="mt-1 text-xs leading-5 text-slate-500">{zhText(description)}</p> : null}
+        </div>
+        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
       <div className="p-4">{children}</div>
     </section>
@@ -44,12 +47,16 @@ export function Panel({ title, description, children }: { title: string; descrip
 export function Modal({
   title,
   description,
+  size = 'default',
+  actions,
   open,
   onClose,
   children,
 }: {
   title: string
   description?: string
+  size?: 'default' | 'wide'
+  actions?: ReactNode
   open: boolean
   onClose: () => void
   children: ReactNode
@@ -60,20 +67,23 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 px-4 py-8">
-      <section className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white shadow-xl" role="dialog" aria-modal="true">
+      <section className={cn('w-full rounded-lg border border-slate-200 bg-white shadow-xl', size === 'wide' ? 'max-w-7xl' : 'max-w-2xl')} role="dialog" aria-modal="true">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
-          <div>
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-900">{zhText(title)}</h2>
             {description ? <p className="mt-1 text-xs text-slate-500">{zhText(description)}</p> : null}
           </div>
-          <button
-            className="inline-flex size-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            type="button"
-            onClick={onClose}
-            aria-label="关闭"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </button>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {actions}
+            <button
+              className="inline-flex size-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              type="button"
+              onClick={onClose}
+              aria-label="关闭"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          </div>
         </div>
         <div className="p-4">{children}</div>
       </section>

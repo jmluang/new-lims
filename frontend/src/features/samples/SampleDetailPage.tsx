@@ -5,9 +5,9 @@ import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
+import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, type ApiResource, inputClass, textareaClass } from '../system/utils'
-import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, type SampleFlowCardData } from './SampleFlowCardPrintArea'
+import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, SampleFlowLedgerTable, type SampleFlowCardData } from './SampleFlowCardPrintArea'
 import { sampleFlowSchema, type SampleFlowValues } from './sampleSchema'
 import type { Sample } from './SampleListPage'
 
@@ -84,26 +84,24 @@ export function SampleDetailPage() {
   })
   const sample = sampleQuery.data
   const flows = flowsQuery.data ?? []
+  const printFlowCardAction = flowCardQuery.data ? (
+    <PermissionGate resource="sample_flows" action="read">
+      <Button variant="secondary" onClick={() => window.print()}>
+        <Printer className="size-4" aria-hidden="true" />
+        {zhText('Print flow card')}
+      </Button>
+    </PermissionGate>
+  ) : null
 
   return (
     <PageShell
       title="Sample detail"
       description="Inspect physical sample state and append flow records."
       actions={
-        <div className="flex items-center gap-2">
-          {flowCardQuery.data ? (
-            <PermissionGate resource="sample_flows" action="read">
-              <Button variant="secondary" onClick={() => window.print()}>
-                <Printer className="size-4" aria-hidden="true" />
-                {zhText('Print flow card')}
-              </Button>
-            </PermissionGate>
-          ) : null}
-          <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            {zhText('Back to list')}
-          </Link>
-        </div>
+        <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          {zhText('Back to list')}
+        </Link>
       }
     >
       {sampleQuery.isError ? <ErrorNotice error={sampleQuery.error} fallback="Unable to load sample" /> : null}
@@ -174,34 +172,9 @@ export function SampleDetailPage() {
             </Panel>
           </PermissionGate>
 
-          <Panel title="Flow records">
+          <Panel title="Flow records" actions={printFlowCardAction}>
             {flowsQuery.isPending ? <LoadingState label="Loading sample flows" /> : null}
-            <DataTable>
-              <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Time</th>
-                  <th className="px-3 py-2 font-medium">Action type</th>
-                  <th className="px-3 py-2 font-medium">Holder</th>
-                  <th className="px-3 py-2 font-medium">Location</th>
-                  <th className="px-3 py-2 font-medium">Remark</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {flows.map((flow) => (
-                  <tr key={flow.id}>
-                    <td className="px-3 py-3 text-sm text-slate-700">{flow.action_time ?? '-'}</td>
-                    <td className="px-3 py-3 text-sm font-medium text-slate-900">{zhText(flow.action_type)}</td>
-                    <td className="px-3 py-3 text-sm text-slate-700">
-                      {flow.holder_from ?? '-'} -&gt; {flow.holder_to ?? '-'}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-slate-700">
-                      {flow.location_from ?? '-'} -&gt; {flow.location_to ?? '-'}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-slate-700">{flow.remark ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </DataTable>
+            {sample ? <SampleFlowLedgerTable flows={flows} sample={sample} /> : null}
           </Panel>
         </div>
       ) : null}

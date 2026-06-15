@@ -6,6 +6,7 @@ use App\Models\Sample;
 use App\Models\TestOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -49,6 +50,7 @@ class SampleScanTest extends TestCase
 
     public function test_scan_flow_records_an_available_action(): void
     {
+        Carbon::setTestNow('2026-06-15 12:17:08');
         $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.create']);
         $sample = $this->receivedSample([
             'status' => 'pending',
@@ -61,7 +63,8 @@ class SampleScanTest extends TestCase
             'holder_to' => 'Alice',
             'location_to' => '实验区A',
         ])->assertCreated()
-            ->assertJsonPath('data.action_type', 'lend');
+            ->assertJsonPath('data.action_type', 'lend')
+            ->assertJsonPath('data.action_time', '2026-06-15 12:17:08');
 
         $this->assertDatabaseHas('samples', [
             'id' => $sample->id,

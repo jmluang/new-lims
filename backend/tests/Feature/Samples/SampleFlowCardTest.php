@@ -6,6 +6,7 @@ use App\Models\Sample;
 use App\Models\TestOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -30,7 +31,7 @@ class SampleFlowCardTest extends TestCase
         $sample->flows()->create([
             'action_type' => 'receive',
             'action_by' => $viewer->id,
-            'action_time' => now(),
+            'action_time' => Carbon::parse('2026-06-15 12:17:08'),
             'holder_from' => null,
             'holder_to' => '样品室',
             'location_from' => null,
@@ -42,6 +43,7 @@ class SampleFlowCardTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.sample.sample_no', 'S-FLOW-001')
             ->assertJsonPath('data.flows.0.action_type', 'receive')
+            ->assertJsonPath('data.flows.0.action_time', '2026-06-15 12:17:08')
             ->assertJsonPath('data.flows.0.action_by_name', $viewer->name);
     }
 

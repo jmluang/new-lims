@@ -7,7 +7,7 @@ import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
-import { type ApiCollection, type ApiResource, inputClass, paginationParams, textareaClass } from '../system/utils'
+import { type ApiCollection, type ApiResource, inputClass, localDateTimeInputValue, paginationParams, textareaClass } from '../system/utils'
 import { buildEquipmentUsageStartPayload, uniqueNumberList } from './equipmentUsageSchema'
 
 type UsageStatus = 'using' | 'finished'
@@ -57,7 +57,7 @@ export function EquipmentUsageRecordPage() {
   const [form, setForm] = useState({
     equipment_ids: [] as number[],
     sample_ids: [] as number[],
-    start_time: new Date().toISOString().slice(0, 16),
+    start_time: localDateTimeInputValue(),
     remark: '',
   })
   const [scannedLabels, setScannedLabels] = useState<{ equipment: Record<number, string>; sample: Record<number, string> }>({ equipment: {}, sample: {} })

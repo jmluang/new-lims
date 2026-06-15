@@ -6,8 +6,9 @@ import { PermissionGate } from '../../components/app/PermissionGate'
 import { useCurrentUser } from '../auth/useCurrentUser'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
-import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
+import { type ApiCollection, type ApiResource, inputClass, paginationParams } from '../system/utils'
+import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, SampleFlowLedgerTable, type SampleFlowCardData } from './SampleFlowCardPrintArea'
 import { SampleLabelPrintArea, SampleLabelPrintStyles, type SampleLabelPreview } from './SampleLabelPrintArea'
 import { sampleLabelSpec } from './sampleLabelSpec'
 
@@ -57,12 +58,26 @@ export function SampleListPage() {
   const [printLabels, setPrintLabels] = useState<SampleLabelPreview[]>([])
   const [shouldPrint, setShouldPrint] = useState(false)
   const [printingId, setPrintingId] = useState<number | null>(null)
+  const [flowRecordsSample, setFlowRecordsSample] = useState<Sample | null>(null)
   const samplesQuery = useQuery({
     queryKey: ['samples', filters, page, perPage],
     queryFn: async () => {
       const response = await api.get<ApiCollection<Sample>>('/api/samples', { params: cleanParams({ ...filters, ...paginationParams(page, perPage) }) })
 
       return response.data
+    },
+  })
+  const flowCardQuery = useQuery({
+    queryKey: ['sample-flow-card', flowRecordsSample?.id],
+    enabled: flowRecordsSample !== null,
+    queryFn: async () => {
+      if (!flowRecordsSample) {
+        throw new Error('sample_required')
+      }
+
+      const response = await api.get<ApiResource<SampleFlowCardData>>(`/api/samples/${flowRecordsSample.id}/flow-card`)
+
+      return response.data.data
     },
   })
   const printSamples = useMutation({
@@ -236,7 +251,7 @@ export function SampleListPage() {
                         ) : null}
                       </PermissionGate>
                       <PermissionGate resource="sample_flows" action="read">
-                        <Button variant="secondary" onClick={() => goToDetail(sample)}>
+                        <Button variant="secondary" onClick={() => setFlowRecordsSample(sample)}>
                           <FileText className="size-4" aria-hidden="true" />
                           流转卡
                         </Button>
@@ -286,8 +301,58 @@ export function SampleListPage() {
           setPage(1)
         }}
       />
+      <SampleFlowRecordsModal
+        card={flowCardQuery.data}
+        error={flowCardQuery.error}
+        isLoading={flowCardQuery.isPending && flowRecordsSample !== null}
+        onClose={() => setFlowRecordsSample(null)}
+        open={flowRecordsSample !== null}
+      />
       <SampleLabelPrintArea labels={printLabels} screenHidden />
     </PageShell>
+  )
+}
+
+export function SampleFlowRecordsModal({
+  card,
+  error,
+  isLoading,
+  onClose,
+  open,
+}: {
+  card?: SampleFlowCardData
+  error: unknown
+  isLoading: boolean
+  onClose: () => void
+  open: boolean
+}) {
+  return (
+    <Modal
+      title="流转记录"
+      size="wide"
+      actions={
+        card ? (
+          <Button variant="secondary" onClick={() => window.print()}>
+            <Printer className="size-4" aria-hidden="true" />
+            {zhText('Print flow card')}
+          </Button>
+        ) : null
+      }
+      open={open}
+      onClose={onClose}
+    >
+      {card ? (
+        <>
+          <SampleFlowCardPrintStyles />
+          <SampleFlowCardPrintArea card={card} screenHidden />
+        </>
+      ) : null}
+      <div className="space-y-3">
+        {isLoading ? <LoadingState label="Loading sample flows" /> : null}
+        {error ? <ErrorNotice error={error} fallback="Unable to load sample flows" /> : null}
+        {card ? <SampleFlowLedgerTable flows={card.flows} sample={card.sample} /> : null}
+      </div>
+    </Modal>
   )
 }
 

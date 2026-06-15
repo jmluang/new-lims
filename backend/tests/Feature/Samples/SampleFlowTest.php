@@ -6,6 +6,7 @@ use App\Models\Sample;
 use App\Models\TestOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -25,6 +26,7 @@ class SampleFlowTest extends TestCase
 
     public function test_sample_flow_actions_update_sample_and_append_flow_rows(): void
     {
+        Carbon::setTestNow('2026-06-15 12:17:08');
         $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.read', 'sample_flows.create']);
         $sample = $this->sample();
 
@@ -33,7 +35,8 @@ class SampleFlowTest extends TestCase
             'holder_to' => '检测员A',
             'remark' => '领取测试',
         ])->assertCreated()
-            ->assertJsonPath('data.action_type', 'lend');
+            ->assertJsonPath('data.action_type', 'lend')
+            ->assertJsonPath('data.action_time', '2026-06-15 12:17:08');
 
         $this->assertDatabaseHas('samples', ['id' => $sample->id, 'status' => 'testing', 'current_holder' => '检测员A']);
         $this->assertDatabaseHas('sample_flows', ['sample_id' => $sample->id, 'action_type' => 'lend', 'holder_from' => '样品室', 'holder_to' => '检测员A']);
@@ -57,7 +60,8 @@ class SampleFlowTest extends TestCase
 
         $this->getJsonAs($operator, "/api/samples/{$sample->id}/flows")
             ->assertOk()
-            ->assertJsonCount(3, 'data');
+            ->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.action_time', '2026-06-15 12:17:08');
     }
 
     public function test_lend_transfer_and_return_room_update_sample_and_append_flows(): void

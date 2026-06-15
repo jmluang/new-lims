@@ -2,7 +2,11 @@ import { createPortal } from 'react-dom'
 import { zhText } from '../../lib/zh'
 
 export type SampleFlowCardData = {
-  sample: {
+  sample: SampleFlowLedgerSample
+  flows: SampleFlowLedgerFlow[]
+}
+
+export type SampleFlowLedgerSample = {
     sample_no: string
     sample_name?: string | null
     specification?: string | null
@@ -15,8 +19,9 @@ export type SampleFlowCardData = {
     received_date?: string | null
     storage_condition?: string | null
     batch_no?: string | null
-  }
-  flows: Array<{
+}
+
+export type SampleFlowLedgerFlow = {
     id: number
     action_type: string
     action_by?: number | null
@@ -27,13 +32,17 @@ export type SampleFlowCardData = {
     location_from?: string | null
     location_to?: string | null
     remark?: string | null
-  }>
 }
 
 export function SampleFlowCardPrintStyles() {
   return (
     <style>{`
       @media print {
+        @page {
+          size: A4 landscape;
+          margin: 8mm;
+        }
+
         body > :not(.sample-flow-card-print-area) {
           display: none !important;
         }
@@ -46,8 +55,12 @@ export function SampleFlowCardPrintStyles() {
           display: block !important;
           position: static !important;
           margin: 0 !important;
-          padding: 16mm !important;
+          padding: 8mm !important;
           background: white !important;
+        }
+
+        .sample-flow-card-print-area table {
+          font-size: 10px !important;
         }
       }
 
@@ -74,59 +87,71 @@ function renderCard(card: SampleFlowCardData) {
   const { sample, flows } = card
 
   return (
-    <article className="space-y-5 text-slate-900">
+    <article className="space-y-4 text-slate-900">
       <header className="text-center">
-        <h1 className="text-lg font-semibold">{zhText('Sample flow card')}</h1>
-        <p className="mt-1 text-sm text-slate-500">{sample.sample_no}</p>
+        <h1 className="text-lg font-semibold">样品流转记录流水单</h1>
       </header>
 
-      <section>
-        <h2 className="mb-2 border-b border-slate-300 pb-1 text-sm font-semibold">{zhText('Sample profile')}</h2>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-          <CardField label="Sample no" value={sample.sample_no} />
-          <CardField label="Sample name" value={sample.sample_name} />
-          <CardField label="Order no" value={sample.order_no} />
-          <CardField label="Client company" value={sample.client_company} />
-          <CardField label="Specification" value={sample.specification} />
-          <CardField label="Model" value={sample.model} />
-          <CardField label="Status" value={sample.status ? zhText(sample.status) : null} />
-          <CardField label="Holder" value={sample.current_holder} />
-          <CardField label="Location" value={sample.current_location} />
-          <CardField label="Storage condition" value={sample.storage_condition} />
-          <CardField label="Received date" value={sample.received_date} />
-          <CardField label="Batch no" value={sample.batch_no} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-2 border-b border-slate-300 pb-1 text-sm font-semibold">{zhText('Flow history')}</h2>
-        <ol className="space-y-2 text-sm">
-          {flows.map((flow) => (
-            <li className="border-l-2 border-emerald-600 pl-3" key={flow.id}>
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="font-medium">{zhText(flow.action_type)}</span>
-                <span className="text-xs text-slate-500">{flow.action_time ?? '-'}</span>
-              </div>
-              <div className="text-slate-700">
-                {(flow.holder_from ?? '-')} → {(flow.holder_to ?? '-')} · {(flow.location_from ?? '-')} → {(flow.location_to ?? '-')}
-              </div>
-              <div className="text-xs text-slate-500">
-                {zhText('Operator')}: {flow.action_by_name ?? '-'}
-                {flow.remark ? ` · ${flow.remark}` : ''}
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
+      <SampleFlowLedgerTable flows={flows} sample={sample} />
     </article>
   )
 }
 
-function CardField({ label, value }: { label: string; value?: string | number | null }) {
+export function SampleFlowLedgerTable({ sample, flows }: { sample: SampleFlowLedgerSample; flows: SampleFlowLedgerFlow[] }) {
   return (
-    <div className="flex gap-2">
-      <span className="text-slate-500">{zhText(label)}:</span>
-      <span className="font-medium">{value || '-'}</span>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[980px] border-collapse text-left text-xs">
+        <thead>
+          <tr>
+            {['客户名称', '样品名称', '样品型号', '样品编号', '样品状态', '时间', '流转类型', '原位置', '现位置', '原持有人', '持有人'].map((label) => (
+              <th className="border border-slate-300 bg-slate-50 px-2 py-1.5 font-semibold text-slate-700" key={label}>
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {flows.length === 0 ? <SampleFlowLedgerRow flow={null} sample={sample} /> : flows.map((flow) => <SampleFlowLedgerRow flow={flow} sample={sample} key={flow.id} />)}
+        </tbody>
+      </table>
     </div>
   )
+}
+
+function SampleFlowLedgerRow({ sample, flow }: { sample: SampleFlowLedgerSample; flow: SampleFlowLedgerFlow | null }) {
+  return (
+    <tr className="align-top">
+      <LedgerCell value={sample.client_company} />
+      <LedgerCell value={sample.sample_name} />
+      <LedgerCell value={sample.model} />
+      <LedgerCell value={sample.sample_no} />
+      <LedgerCell value={sampleStatusText(sample.status)} />
+      <LedgerCell value={flow?.action_time} />
+      <LedgerCell value={flow?.action_type ? zhText(flow.action_type) : null} />
+      <LedgerCell value={flow?.location_from} />
+      <LedgerCell value={flow?.location_to} />
+      <LedgerCell value={flow?.holder_from} />
+      <LedgerCell value={flow?.holder_to} />
+    </tr>
+  )
+}
+
+function LedgerCell({ value }: { value?: string | number | null }) {
+  return <td className="border border-slate-300 px-2 py-1.5">{value || '-'}</td>
+}
+
+function sampleStatusText(status?: string | null) {
+  if (status === 'pending') {
+    return '待检'
+  }
+
+  if (status === 'testing') {
+    return '在检'
+  }
+
+  if (status === 'completed') {
+    return '检毕'
+  }
+
+  return status ? zhText(status) : null
 }

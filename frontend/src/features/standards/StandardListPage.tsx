@@ -6,7 +6,7 @@ import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
-import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
+import { type ApiCollection, inputClass, localDateInputValue, paginationParams } from '../system/utils'
 
 export type FieldPermissionMeta = Record<string, { read?: boolean; update?: boolean; export?: boolean; hidden?: boolean }>
 
@@ -94,7 +94,7 @@ export function StandardListPage() {
     const link = document.createElement('a')
 
     link.href = url
-    link.download = `standards-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = `standards-${localDateInputValue()}.json`
     link.click()
     URL.revokeObjectURL(url)
   }

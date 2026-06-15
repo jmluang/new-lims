@@ -116,8 +116,8 @@ class CalibrationProjectController extends Controller
             'status' => $project->status,
             'sort_order' => $project->sort_order,
             'remark' => $project->remark,
-            'created_at' => $project->created_at?->toISOString(),
-            'updated_at' => $project->updated_at?->toISOString(),
+            'created_at' => $project->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $project->updated_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

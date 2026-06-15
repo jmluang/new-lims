@@ -54,7 +54,7 @@ class BackupService
             'backup_run_id' => $backupRun->id,
             'database_path' => $backupRun->database_path,
             'files_path' => $backupRun->files_path,
-            'restored_at' => Carbon::now()->toISOString(),
+            'restored_at' => Carbon::now()->format('Y-m-d H:i:s'),
         ], JSON_THROW_ON_ERROR));
 
         return [
@@ -73,7 +73,7 @@ class BackupService
             '-- New LIMS database backup',
             '-- connection: '.$connection->getName(),
             '-- driver: '.$driver,
-            '-- created_at: '.Carbon::now()->toISOString(),
+            '-- created_at: '.Carbon::now()->format('Y-m-d H:i:s'),
             '',
         ];
 

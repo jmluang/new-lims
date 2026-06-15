@@ -3,7 +3,7 @@ import { Plus, Save, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { type UseFormReturn, useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorNotice, Field, Panel } from '../system/shared'
-import { inputClass, textareaClass } from '../system/utils'
+import { inputClass, localDateInputValue, textareaClass } from '../system/utils'
 import type { Customer } from '../customers/CustomerListPage'
 import type { Standard } from '../standards/StandardListPage'
 import { zhText } from '../../lib/zh'
@@ -508,7 +508,7 @@ function PartyFields({
 function defaultValues(order?: TestOrder | null): TestOrderFormValues {
   return {
     contract_no: order?.contract_no ?? '',
-    order_date: order?.order_date ?? new Date().toISOString().slice(0, 10),
+    order_date: order?.order_date ?? localDateInputValue(),
     planned_end_date: order?.planned_end_date ?? '',
     urgency: order?.urgency ?? 'normal',
     client_customer_id: order?.client_customer_id ?? null,

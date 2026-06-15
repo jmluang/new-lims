@@ -6,7 +6,7 @@ import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
-import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
+import { type ApiCollection, inputClass, localDateInputValue, paginationParams } from '../system/utils'
 
 export type TestOrderStandard = {
   id: number
@@ -119,7 +119,7 @@ export function TestOrderListPage() {
     const link = document.createElement('a')
 
     link.href = url
-    link.download = `test-orders-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = `test-orders-${localDateInputValue()}.json`
     link.click()
     URL.revokeObjectURL(url)
   }

@@ -6,6 +6,7 @@ use App\Models\BackupRun;
 use App\Models\User;
 use App\Services\System\BackupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -32,6 +33,7 @@ class BackupCommandTest extends TestCase
 
     public function test_backup_command_writes_database_dump_file_archive_and_audit_log(): void
     {
+        Carbon::setTestNow('2026-06-15 12:17:08');
         Storage::disk('local')->put('uploads/evidence.txt', 'file evidence');
 
         $this->artisan('lims:backup', ['--type' => 'daily'])
@@ -45,7 +47,10 @@ class BackupCommandTest extends TestCase
         $this->assertNotNull($backupRun->files_path);
         Storage::disk('local')->assertExists($backupRun->database_path);
         Storage::disk('local')->assertExists($backupRun->files_path);
-        $this->assertStringContainsString('backup_runs', Storage::disk('local')->get($backupRun->database_path));
+        $dump = Storage::disk('local')->get($backupRun->database_path);
+        $this->assertStringContainsString('backup_runs', $dump);
+        $this->assertStringContainsString('-- created_at: 2026-06-15 12:17:08', $dump);
+        $this->assertStringNotContainsString('T12:17:08', $dump);
         $this->assertGreaterThan(0, $backupRun->size_bytes);
 
         $this->assertDatabaseHas('audit_logs', [
@@ -110,6 +115,7 @@ class BackupCommandTest extends TestCase
 
     public function test_backup_restore_requires_permission_and_records_audit_log(): void
     {
+        Carbon::setTestNow('2026-06-15 12:17:08');
         Storage::disk('local')->put('backups/test/database.sql', '-- restore candidate');
         Storage::disk('local')->put('backups/test/files.zip', 'zip-bytes');
         $backupRun = BackupRun::query()->create([
@@ -135,6 +141,9 @@ class BackupCommandTest extends TestCase
             'module' => 'system.backups',
             'subject_id' => (string) $backupRun->id,
         ]);
+        $restoreMetadata = Storage::disk('local')->get("backups/restores/{$backupRun->id}.json");
+        $this->assertStringContainsString('"restored_at":"2026-06-15 12:17:08"', $restoreMetadata);
+        $this->assertStringNotContainsString('T12:17:08', $restoreMetadata);
     }
 
     private function userWithPermissions(array $permissions): User

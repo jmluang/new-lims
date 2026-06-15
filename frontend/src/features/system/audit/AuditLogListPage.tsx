@@ -14,7 +14,7 @@ import {
   PaginationControls,
   Panel,
 } from '../shared'
-import { type ApiCollection, formatDateTime, inputClass, paginationParams } from '../utils'
+import { type ApiCollection, formatDateTime, inputClass, localDateInputValue, paginationParams } from '../utils'
 
 type AuditLog = {
   id: number
@@ -81,7 +81,7 @@ export function AuditLogListPage() {
     const link = document.createElement('a')
 
     link.href = url
-    link.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = `audit-logs-${localDateInputValue()}.json`
     link.click()
     URL.revokeObjectURL(url)
   }

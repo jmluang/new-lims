@@ -17,7 +17,7 @@ import {
   Panel,
   StatusBadge,
 } from '../system/shared'
-import { type ApiCollection, inputClass, paginationParams } from '../system/utils'
+import { type ApiCollection, inputClass, localDateInputValue, paginationParams } from '../system/utils'
 import { CustomerContactList } from './CustomerContactList'
 import { visibleCustomerColumns, visibleCustomerMobileFields } from './customerColumns'
 
@@ -105,7 +105,7 @@ export function CustomerListPage() {
     const link = document.createElement('a')
 
     link.href = url
-    link.download = `customers-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = `customers-${localDateInputValue()}.json`
     link.click()
     URL.revokeObjectURL(url)
   }

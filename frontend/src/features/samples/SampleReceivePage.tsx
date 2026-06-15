@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
-import { type ApiCollection, inputClass, textareaClass } from '../system/utils'
+import { type ApiCollection, inputClass, localDateInputValue, textareaClass } from '../system/utils'
 import type { TestOrder } from '../test-orders/TestOrderListPage'
 import { acceptedReceiveRowCount, buildReceiveSamplesPayload, defaultReceiveLocation, type ReceiveLocationOption, type ReceiveSampleRowValues } from './sampleSchema'
 
@@ -47,7 +47,7 @@ export function SampleReceivePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [testOrderId, setTestOrderId] = useState(0)
-  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().slice(0, 10))
+  const [receivedDate, setReceivedDate] = useState(localDateInputValue())
   const [storageCondition, setStorageCondition] = useState('常温')
   const [currentLocation, setCurrentLocation] = useState(defaultReceiveLocation([]))
   const [batchNo, setBatchNo] = useState('')

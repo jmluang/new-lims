@@ -251,8 +251,8 @@ class EquipmentCalibrationController extends Controller
             'remark' => $record->remark,
             'attachment_files' => $record->attachment_files ?? [],
             'photo_files' => $record->photo_files ?? [],
-            'created_at' => $record->created_at?->toISOString(),
-            'updated_at' => $record->updated_at?->toISOString(),
+            'created_at' => $record->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $record->updated_at?->format('Y-m-d H:i:s'),
             'devices' => $record->devices->map(fn ($device): array => [
                 'id' => $device->id,
                 'equipment_id' => $device->equipment_id,

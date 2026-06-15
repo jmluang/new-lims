@@ -6,7 +6,7 @@ import { QrScannerPanel } from '../../components/app/QrScannerPanel'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
-import { type ApiResource, inputClass, textareaClass } from '../system/utils'
+import { type ApiResource, inputClass, localDateTimeInputValue, textareaClass } from '../system/utils'
 import { buildEquipmentCalibrationPayload, EquipmentCalibrationValidationError } from './equipmentCalibrationSchema'
 
 type RowState = {
@@ -232,7 +232,7 @@ function initialBasic(detail: CalibrationDetail | null) {
     return {
       calibration_project_id: '',
       calibration_name: '',
-      calibration_time: new Date().toISOString().slice(0, 16),
+      calibration_time: localDateTimeInputValue(),
       result: 'qualified',
       remark: '',
     }

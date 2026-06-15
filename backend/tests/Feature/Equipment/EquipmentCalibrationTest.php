@@ -5,6 +5,7 @@ namespace Tests\Feature\Equipment;
 use App\Models\Equipment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -24,6 +25,7 @@ class EquipmentCalibrationTest extends TestCase
 
     public function test_manager_can_create_update_view_and_delete_equipment_calibration(): void
     {
+        Carbon::setTestNow('2026-06-15 12:17:08');
         $manager = $this->userWithPermissions([
             'equipment_calibrations.read',
             'equipment_calibrations.create',
@@ -43,6 +45,8 @@ class EquipmentCalibrationTest extends TestCase
 
         $this->getJsonAs($manager, "/api/equipment-calibrations/{$id}")
             ->assertOk()
+            ->assertJsonPath('data.created_at', '2026-06-15 12:17:08')
+            ->assertJsonPath('data.updated_at', '2026-06-15 12:17:08')
             ->assertJsonPath('data.devices.0.equipment_no', 'EQ-CAL-001')
             ->assertJsonPath('data.devices.0.equipment_model', 'A1')
             ->assertJsonPath('data.standards.0.standard_no', 'STD-CAL-001');
