@@ -1,4 +1,20 @@
+import { visibleNavGroups } from '../../components/app/navigation'
+import { useEffectivePermissions } from '../auth/useCurrentUser'
+import { EmptyState } from '../system/shared'
+
 export function DashboardPage() {
+  const permissions = useEffectivePermissions()
+  const hasVisibleNavigation = visibleNavGroups(permissions.data).length > 0
+
+  if (!hasVisibleNavigation) {
+    return (
+      <EmptyState
+        title="No available modules"
+        description="This account has no permissions yet. Contact an administrator to assign a role group."
+      />
+    )
+  }
+
   return (
     <>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

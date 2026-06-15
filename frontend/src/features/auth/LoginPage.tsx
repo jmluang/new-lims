@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, FlaskConical, LogIn } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { useLogin } from './useCurrentUser'
@@ -101,6 +101,13 @@ export function LoginPage() {
               <LogIn className="size-4" aria-hidden="true" />
               {login.isPending ? '登录中' : '登录'}
             </button>
+
+            <div className="mt-4 text-center text-sm text-slate-500">
+              没有账号？{' '}
+              <Link className="font-medium text-emerald-700 hover:text-emerald-800" to="/register">
+                注册
+              </Link>
+            </div>
           </form>
         </section>
       </div>

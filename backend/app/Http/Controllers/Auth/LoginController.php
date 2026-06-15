@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Department;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
@@ -14,6 +15,65 @@ use Illuminate\Validation\ValidationException;
 class LoginController extends Controller
 {
     private const MAX_FAILED_ATTEMPTS = 5;
+
+    public function register(Request $request, AuditLogger $auditLogger): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8'],
+            'phone' => ['nullable', 'string', 'max:32'],
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
+        ]);
+
+        $user = User::query()->create([
+            ...$data,
+            'status' => 'active',
+            'must_change_password' => false,
+            'password_changed_at' => Carbon::now(),
+        ]);
+
+        $auditLogger->record(
+            actor: null,
+            action: 'auth.register',
+            module: 'auth',
+            subject: $user,
+            after: [
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'department_id' => $user->department_id,
+                'status' => $user->status,
+                'must_change_password' => $user->must_change_password,
+                'group_ids' => [],
+            ],
+        );
+
+        return response()->json([
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'department_id' => $user->department_id,
+                'status' => $user->status,
+                'must_change_password' => $user->must_change_password,
+            ],
+        ], 201);
+    }
+
+    public function registerOptions(): JsonResponse
+    {
+        $departments = Department::query()
+            ->whereNull('parent_id')
+            ->where('status', 'active')
+            ->with(['children' => fn ($query) => $query->where('status', 'active')->orderBy('sort_order')->orderBy('id')])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        return response()->json(['data' => ['departments' => $departments]]);
+    }
 
     public function login(Request $request, AuditLogger $auditLogger): JsonResponse
     {

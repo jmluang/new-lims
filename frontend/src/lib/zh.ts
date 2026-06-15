@@ -80,6 +80,8 @@ export const textMap: Record<string, string> = {
   'Select a customer before managing contacts.': '请先选择客户再管理联系人。',
   'Loading customers': '正在加载客户',
   'No customers found': '未找到客户',
+  'No available modules': '暂无可访问模块',
+  'This account has no permissions yet. Contact an administrator to assign a role group.': '当前账号还没有任何权限，请联系管理员分配角色组。',
   'Adjust filters or create a new customer.': '调整筛选条件或新建客户。',
   'No standards found': '未找到标准',
   'Adjust filters or create a new standard.': '调整筛选条件或新建标准。',

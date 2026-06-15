@@ -89,10 +89,20 @@ export function visibleNavGroups(permissions?: NavPermissions): NavGroup[] {
     return navGroups
   }
 
+  const hasAnyGrantedAction = Object.values(permissions.resources).some((resource) =>
+    Object.values(resource.actions).some(Boolean),
+  )
+
   return navGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !item.resource || Boolean(permissions.resources[item.resource]?.actions[item.action ?? 'read'])),
+      items: group.items.filter((item) => {
+        if (!item.resource) {
+          return hasAnyGrantedAction
+        }
+
+        return Boolean(permissions.resources[item.resource]?.actions[item.action ?? 'read'])
+      }),
     }))
     .filter((group) => group.items.length > 0)
 }

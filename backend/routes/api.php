@@ -34,6 +34,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [LoginController::class, 'login']);
+Route::post('/register', [LoginController::class, 'register']);
+Route::get('/register/options', [LoginController::class, 'registerOptions']);
 
 // Public device ingest: temperature/humidity sensors push readings here
 // (ported from the legacy example/post.php). Accepts GET or POST.

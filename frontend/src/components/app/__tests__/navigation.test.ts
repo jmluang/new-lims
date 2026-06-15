@@ -49,6 +49,12 @@ describe('navigation active path matching', () => {
     expect(labels).not.toContain('审计日志')
   })
 
+  it('hides the dashboard when the user has no effective permissions', () => {
+    const groups = visibleNavGroups({ resources: {} })
+
+    expect(groups).toEqual([])
+  })
+
   it('shows department management inside the system management navigation group', () => {
     const groups = visibleNavGroups({
       resources: {
