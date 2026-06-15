@@ -3,7 +3,11 @@ import { createPortal } from 'react-dom'
 import { sampleLabelSpec } from './sampleLabelSpec'
 
 export type SampleLabelPreview = {
+  client_company?: string | null
+  sample_name?: string | null
+  model?: string | null
   sample_no: string
+  status?: string | null
   qr_text: string
 }
 
@@ -80,9 +84,35 @@ export function SampleLabelPrintArea({ labels, screenHidden = false }: { labels:
 
 function renderLabels(labels: SampleLabelPreview[]) {
   return labels.map((label) => (
-    <article className="sample-label flex flex-col items-center justify-center gap-3 border border-slate-300 bg-white p-3 text-center shadow-sm" key={label.sample_no}>
-      <div className="max-w-full break-all text-sm font-semibold leading-tight text-slate-950">{label.sample_no}</div>
-      <QRCodeSVG value={label.qr_text} size={104} />
+    <article
+      className="sample-label flex flex-col items-center justify-center border border-slate-300 bg-white px-[2.5mm] py-[2mm] text-center text-slate-950 shadow-sm"
+      key={label.sample_no}
+    >
+      <div className="flex max-w-full flex-col items-center gap-[1.13mm] text-[9px] leading-tight">
+        <div className="max-w-full truncate">{label.client_company || '-'}</div>
+        <div className="max-w-full truncate">{label.sample_name || '-'}</div>
+        <div className="max-w-full truncate">{label.model || '-'}</div>
+      </div>
+
+      <div className="sample-label-qr my-[1mm] flex shrink-0 items-center justify-center">
+        <QRCodeSVG value={label.qr_text} size={92} />
+      </div>
+
+      <div className="max-w-full break-all text-[9px] leading-tight">{label.sample_no}</div>
+      <div className="mt-[0.8mm] flex max-w-full items-center justify-center gap-[1.6mm] whitespace-nowrap text-[9px] leading-none">
+        {sampleStatusChecks(label.status).map((item) => (
+          <span key={item.label}>{item.checked ? '☑' : '□'}{item.label}</span>
+        ))}
+      </div>
+      <div className="mt-[1mm] max-w-full truncate text-[9px] leading-none">中山市鑫普达检测有限公司</div>
     </article>
   ))
+}
+
+function sampleStatusChecks(status?: string | null) {
+  return [
+    { label: '待检', checked: status === 'pending' },
+    { label: '在检', checked: status === 'testing' },
+    { label: '检毕', checked: status === 'completed' },
+  ]
 }

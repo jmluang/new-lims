@@ -23,7 +23,7 @@ class SampleLabelTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
-    public function test_sample_label_preview_returns_sample_number_qr_labels(): void
+    public function test_sample_label_preview_returns_company_name_model_number_status_and_qr_labels(): void
     {
         $printer = $this->userWithPermissions(['sample_labels.print']);
         $sample = $this->sample('SAMPLE-001');
@@ -33,7 +33,11 @@ class SampleLabelTest extends TestCase
             'label_width_mm' => 40,
             'label_height_mm' => 60,
         ])->assertOk()
+            ->assertJsonPath('data.0.client_company', '中山市样品客户')
+            ->assertJsonPath('data.0.sample_name', '控制器')
+            ->assertJsonPath('data.0.model', 'CTRL-1')
             ->assertJsonPath('data.0.sample_no', 'SAMPLE-001')
+            ->assertJsonPath('data.0.status', 'pending')
             ->assertJsonPath('data.0.qr_text', 'SAMPLE-001')
             ->assertJsonPath('meta.label_width_mm', 40)
             ->assertJsonPath('meta.label_height_mm', 60);

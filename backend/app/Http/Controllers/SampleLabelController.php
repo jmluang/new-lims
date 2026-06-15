@@ -20,13 +20,18 @@ class SampleLabelController extends Controller
         ]);
 
         $samples = Sample::query()
+            ->with('testOrder')
             ->whereIn('id', $data['sample_ids'])
             ->orderBy('sample_no')
             ->get();
 
         return response()->json([
             'data' => $samples->map(fn (Sample $sample): array => [
+                'client_company' => $sample->testOrder?->client_company,
+                'sample_name' => $sample->sample_name,
+                'model' => $sample->model,
                 'sample_no' => $sample->sample_no,
+                'status' => $sample->status,
                 'qr_text' => $sample->sample_no,
             ])->values(),
             'meta' => [
