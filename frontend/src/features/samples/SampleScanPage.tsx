@@ -6,8 +6,9 @@ import { api, isUnauthorizedError } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, type ApiResource, inputClass, textareaClass } from '../system/utils'
-import { useCurrentUser } from '../auth/useCurrentUser'
+import { useCurrentUser, useEffectivePermissions } from '../auth/useCurrentUser'
 import type { EquipmentLocation } from '../equipment/EquipmentListPage'
+import { visibleSampleFlowActions } from './sampleFlowPermissions'
 import { buildLocationSelection, changeLocationSelection, findLocationSelectionIdsByLabel, type LocationSelection } from './sampleScanLocations'
 import {
   buildSampleScanFlowPayload,
@@ -52,6 +53,7 @@ export function SampleScanPage() {
   const [validationError, setValidationError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const currentUser = useCurrentUser()
+  const permissions = useEffectivePermissions()
 
   const locationsQuery = useQuery({
     queryKey: ['equipment-locations'],
@@ -126,7 +128,8 @@ export function SampleScanPage() {
 
   const sample = lookup?.sample
   const locations = locationsQuery.data ?? []
-  const actionSelectionDisabled = locationsQuery.isPending || locationsQuery.isError || currentUser.isPending
+  const visibleActions = visibleSampleFlowActions(lookup?.available_actions ?? [], permissions.data)
+  const actionSelectionDisabled = locationsQuery.isPending || locationsQuery.isError || currentUser.isPending || permissions.isPending
 
   return (
     <PageShell title="Scan sample flow" description="Scan or type a sample number, then record an allowed flow action.">
@@ -165,11 +168,11 @@ export function SampleScanPage() {
 
             <div className="mt-4">
               <div className="text-xs font-medium uppercase text-slate-500">{zhText('Action type')}</div>
-              {lookup.available_actions.length === 0 ? (
+              {visibleActions.length === 0 ? (
                 <p className="mt-2 text-sm text-slate-500">{zhText('No actions available for current state')}</p>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {lookup.available_actions.map((action) => (
+                  {visibleActions.map((action) => (
                     <Button
                       key={action}
                       variant={form.action_type === action ? 'primary' : 'secondary'}

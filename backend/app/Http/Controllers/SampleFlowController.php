@@ -63,6 +63,10 @@ class SampleFlowController extends Controller
             'remark' => ['nullable', 'string'],
         ]);
 
+        if ($data['action_type'] === 'return_room') {
+            $this->authorizePermission($request, 'sample_flows.return_room', 'sample_flows', $sample);
+        }
+
         $flow = $sampleFlowService->record($request->user(), $sample, $data);
 
         return response()->json(['data' => $this->serializeFlow($flow)], 201);

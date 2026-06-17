@@ -58,6 +58,7 @@ class CanonicalAcceptanceSeederTest extends TestCase
         $sampleManager = Role::query()->where('name', 'sample_manager')->firstOrFail();
         $this->assertTrue($sampleManager->hasPermissionTo('samples.receive'));
         $this->assertTrue($sampleManager->hasPermissionTo('sample_flows.create'));
+        $this->assertTrue($sampleManager->hasPermissionTo('sample_flows.return_room'));
         $this->assertTrue($sampleManager->hasPermissionTo('equipment_locations.read'));
         $this->assertFalse($sampleManager->hasPermissionTo('test_orders.create'));
     }

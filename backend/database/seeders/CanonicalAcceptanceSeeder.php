@@ -134,6 +134,7 @@ class CanonicalAcceptanceSeeder extends Seeder
             'sample_labels.print',
             'sample_flows.read',
             'sample_flows.create',
+            'sample_flows.return_room',
             'equipment_locations.read',
             'equipment_usage_records.read',
             'equipment_usage_records.create',

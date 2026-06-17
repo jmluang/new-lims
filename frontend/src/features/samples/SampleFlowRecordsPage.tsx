@@ -4,7 +4,7 @@ import { Eye, RotateCcw, Search } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
 import { buildSampleFlowRecordParams, emptySampleFlowRecordFilters, type SampleFlowRecordFilters } from './sampleFlowRecordPageState'
 
@@ -105,15 +105,13 @@ export function SampleFlowRecordsPage() {
             <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-3 py-2 font-medium">时间</th>
+                <th className="px-3 py-2 font-medium">委托单位</th>
                 <th className="px-3 py-2 font-medium">样品编号</th>
-                <th className="px-3 py-2 font-medium">样品名称</th>
-                <th className="px-3 py-2 font-medium">委托单号</th>
-                <th className="px-3 py-2 font-medium">样品状态</th>
                 <th className="px-3 py-2 font-medium">流转类型</th>
-                <th className="px-3 py-2 font-medium">原持有人</th>
-                <th className="px-3 py-2 font-medium">持有人</th>
                 <th className="px-3 py-2 font-medium">原位置</th>
+                <th className="px-3 py-2 font-medium">原持有人</th>
                 <th className="px-3 py-2 font-medium">现位置</th>
+                <th className="px-3 py-2 font-medium">现持有人</th>
                 <th className="px-3 py-2 font-medium">操作人</th>
                 <th className="px-3 py-2 font-medium">操作</th>
               </tr>
@@ -122,17 +120,13 @@ export function SampleFlowRecordsPage() {
               {records.map((record) => (
                 <tr key={record.id}>
                   <td className="px-3 py-3 text-sm text-slate-700">{record.action_time ?? '-'}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700">{record.sample?.client_company ?? '-'}</td>
                   <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.sample?.sample_no ?? '-'}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{record.sample?.sample_name ?? '-'}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{record.sample?.order_no ?? '-'}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">
-                    <StatusBadge status={record.sample?.status} />
-                  </td>
                   <td className="px-3 py-3 text-sm text-slate-700">{zhText(record.action_type)}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{record.holder_from ?? '-'}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{record.holder_to ?? '-'}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{record.location_from ?? '-'}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700">{record.holder_from ?? '-'}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{record.location_to ?? '-'}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700">{record.holder_to ?? '-'}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{record.action_by_name ?? '-'}</td>
                   <td className="px-3 py-3">
                     <SampleDetailLink sampleId={record.sample_id} />
@@ -144,20 +138,20 @@ export function SampleFlowRecordsPage() {
           <div className="space-y-3 md:hidden">
             {records.map((record) => (
               <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" key={record.id}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-sm font-semibold text-slate-950">{record.sample?.sample_no ?? '-'}</h2>
-                    <p className="truncate text-xs text-slate-500">{record.sample?.sample_name ?? '-'}</p>
-                  </div>
-                  <StatusBadge status={record.sample?.status} />
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-semibold text-slate-950">{record.sample?.sample_no ?? '-'}</h2>
+                  <p className="truncate text-xs text-slate-500">{record.sample?.client_company ?? '-'}</p>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
                   <MobileDetail label="时间" value={record.action_time} />
+                  <MobileDetail label="委托单位" value={record.sample?.client_company} />
+                  <MobileDetail label="样品编号" value={record.sample?.sample_no} />
                   <MobileDetail label="流转类型" value={zhText(record.action_type)} />
-                  <MobileDetail label="原持有人" value={record.holder_from} />
-                  <MobileDetail label="持有人" value={record.holder_to} />
                   <MobileDetail label="原位置" value={record.location_from} />
+                  <MobileDetail label="原持有人" value={record.holder_from} />
                   <MobileDetail label="现位置" value={record.location_to} />
+                  <MobileDetail label="现持有人" value={record.holder_to} />
+                  <MobileDetail label="操作人" value={record.action_by_name} />
                 </div>
                 <div className="mt-3">
                   <SampleDetailLink sampleId={record.sample_id} />

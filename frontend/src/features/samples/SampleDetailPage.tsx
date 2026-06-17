@@ -5,9 +5,11 @@ import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
+import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, type ApiResource, inputClass, textareaClass } from '../system/utils'
 import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, SampleFlowLedgerTable, type SampleFlowCardData } from './SampleFlowCardPrintArea'
+import { visibleSampleFlowActions } from './sampleFlowPermissions'
 import { sampleFlowSchema, type SampleFlowValues } from './sampleSchema'
 import type { Sample } from './SampleListPage'
 
@@ -31,10 +33,13 @@ const emptyFlow: SampleFlowValues = {
   remark: '',
 }
 
+const sampleFlowActions: SampleFlowValues['action_type'][] = ['lend', 'transfer', 'return_room', 'send_out', 'receive_back', 'return_client', 'scrap', 'position_change']
+
 export function SampleDetailPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const sampleId = sampleIdFromPath(pathname)
   const queryClient = useQueryClient()
+  const permissions = useEffectivePermissions()
   const [flowForm, setFlowForm] = useState<SampleFlowValues>(emptyFlow)
   const [validationError, setValidationError] = useState<string | null>(null)
   const sampleQuery = useQuery({
@@ -84,6 +89,7 @@ export function SampleDetailPage() {
   })
   const sample = sampleQuery.data
   const flows = flowsQuery.data ?? []
+  const visibleFlowActions = visibleSampleFlowActions(sampleFlowActions, permissions.data)
   const printFlowCardAction = flowCardQuery.data ? (
     <PermissionGate resource="sample_flows" action="read">
       <Button variant="secondary" onClick={() => window.print()}>
@@ -146,7 +152,7 @@ export function SampleDetailPage() {
               <div className="grid gap-3 md:grid-cols-4">
                 <Field label="Action type">
                   <select className={inputClass} value={flowForm.action_type} onChange={(event) => setFlowForm({ ...flowForm, action_type: event.target.value as SampleFlowValues['action_type'] })}>
-                    {['lend', 'transfer', 'return_room', 'send_out', 'receive_back', 'return_client', 'scrap', 'position_change'].map((action) => (
+                    {visibleFlowActions.map((action) => (
                       <option value={action} key={action}>
                         {zhText(action)}
                       </option>

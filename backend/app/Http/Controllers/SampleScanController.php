@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Sample;
 use App\Models\SampleFlow;
+use App\Services\Authorization\PermissionAccess;
 use App\Services\Samples\SampleFlowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class SampleScanController extends Controller
         return response()->json([
             'data' => [
                 'sample' => $this->serializeSample($sample),
-                'available_actions' => $this->availableActions($sample),
+                'available_actions' => $this->availableActions($sample, $request),
             ],
         ]);
     }
@@ -38,7 +39,11 @@ class SampleScanController extends Controller
             'remark' => ['nullable', 'string'],
         ]);
 
-        if (! in_array($data['action_type'], $this->availableActions($sample), true)) {
+        if ($data['action_type'] === 'return_room') {
+            $this->authorizePermission($request, 'sample_flows.return_room', 'sample_flows', $sample);
+        }
+
+        if (! in_array($data['action_type'], $this->availableActions($sample, $request), true)) {
             throw ValidationException::withMessages(['action_type' => ['sample_flow_action_not_available']]);
         }
 
@@ -50,14 +55,14 @@ class SampleScanController extends Controller
     /**
      * @return array<int, string>
      */
-    private function availableActions(Sample $sample): array
+    private function availableActions(Sample $sample, Request $request): array
     {
         if ($sample->status === 'pending' && $sample->current_holder === '样品室') {
             return ['lend'];
         }
 
         if ($sample->status === 'testing' && $sample->current_holder !== '样品室') {
-            return ['transfer', 'return_room'];
+            return $this->filterAuthorizedActions(['transfer', 'return_room'], $request);
         }
 
         if ($sample->status === 'outsourced') {
@@ -65,6 +70,21 @@ class SampleScanController extends Controller
         }
 
         return [];
+    }
+
+    /**
+     * @param  array<int, string>  $actions
+     * @return array<int, string>
+     */
+    private function filterAuthorizedActions(array $actions, Request $request): array
+    {
+        return array_values(array_filter($actions, function (string $action) use ($request): bool {
+            if ($action !== 'return_room') {
+                return true;
+            }
+
+            return app(PermissionAccess::class)->userCan($request->user(), 'sample_flows.return_room');
+        }));
     }
 
     /**

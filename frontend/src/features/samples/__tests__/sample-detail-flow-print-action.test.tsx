@@ -12,6 +12,21 @@ vi.mock('../../../components/app/PermissionGate', () => ({
   PermissionGate: ({ children }: { children: React.ReactNode }) => children,
 }))
 
+vi.mock('../../auth/useCurrentUser', () => ({
+  useEffectivePermissions: () => ({
+    data: {
+      resources: {
+        sample_flows: {
+          actions: {
+            return_room: true,
+          },
+          fields: {},
+        },
+      },
+    },
+  }),
+}))
+
 describe('SampleDetailPage flow print action', () => {
   it('renders the print flow card action in the flow records panel header', () => {
     const queryClient = new QueryClient({

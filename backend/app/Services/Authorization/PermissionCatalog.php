@@ -25,7 +25,7 @@ class PermissionCatalog
             'test_order_samples' => ['read', 'create', 'update', 'delete'],
             'samples' => ['read', 'receive', 'update', 'export'],
             'sample_labels' => ['read', 'print'],
-            'sample_flows' => ['read', 'create'],
+            'sample_flows' => ['read', 'create', 'return_room'],
             'equipment' => ['read', 'create', 'update', 'delete', 'export'],
             'equipment_locations' => ['read', 'create', 'update', 'delete'],
             'equipment_systems' => ['read', 'create', 'update', 'delete'],

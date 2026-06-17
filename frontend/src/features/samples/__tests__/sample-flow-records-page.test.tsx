@@ -53,6 +53,7 @@ describe('SampleFlowRecordsPage', () => {
             sample_no: 'SAMPLE-LAMP-001',
             sample_name: '路灯',
             order_no: 'FLOW',
+            client_company: '中山市客户公司',
             status: 'pending',
           },
         },
@@ -71,9 +72,11 @@ describe('SampleFlowRecordsPage', () => {
     expect(html).toContain('流转动作')
     expect(html).toContain('开始日期')
     expect(html).toContain('结束日期')
-    expect(html).toContain('样品编号')
-    expect(html).toContain('流转类型')
-    expect(html).toContain('原持有人')
-    expect(html).toContain('现位置')
+    expect(html).toMatch(
+      /时间[\s\S]*委托单位[\s\S]*样品编号[\s\S]*流转类型[\s\S]*原位置[\s\S]*原持有人[\s\S]*现位置[\s\S]*现持有人[\s\S]*操作人[\s\S]*操作/,
+    )
+    expect(html).not.toContain('样品名称')
+    expect(html).not.toContain('委托单号')
+    expect(html).not.toContain('样品状态')
   })
 })

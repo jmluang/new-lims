@@ -48,6 +48,36 @@ class SampleScanTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_scan_lookup_hides_return_room_without_return_room_permission(): void
+    {
+        $operator = $this->userWithPermissions(['samples.read', 'sample_flows.create']);
+        $this->receivedSample([
+            'sample_no' => 'S-SCAN-RETURN',
+            'status' => 'testing',
+            'current_holder' => 'Alice',
+            'current_location' => '实验区A',
+        ]);
+
+        $this->getJsonAs($operator, '/api/samples/scan-lookup?sample_no=S-SCAN-RETURN')
+            ->assertOk()
+            ->assertJsonPath('data.available_actions', ['transfer']);
+    }
+
+    public function test_scan_lookup_shows_return_room_with_return_room_permission(): void
+    {
+        $operator = $this->userWithPermissions(['samples.read', 'sample_flows.create', 'sample_flows.return_room']);
+        $this->receivedSample([
+            'sample_no' => 'S-SCAN-RETURN',
+            'status' => 'testing',
+            'current_holder' => 'Alice',
+            'current_location' => '实验区A',
+        ]);
+
+        $this->getJsonAs($operator, '/api/samples/scan-lookup?sample_no=S-SCAN-RETURN')
+            ->assertOk()
+            ->assertJsonPath('data.available_actions', ['transfer', 'return_room']);
+    }
+
     public function test_scan_flow_records_an_available_action(): void
     {
         Carbon::setTestNow('2026-06-15 12:17:08');
@@ -75,7 +105,7 @@ class SampleScanTest extends TestCase
 
     public function test_scan_flow_rejects_action_not_available_for_current_state(): void
     {
-        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.create']);
+        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.create', 'sample_flows.return_room']);
         $sample = $this->receivedSample([
             'status' => 'pending',
             'current_holder' => '样品室',
@@ -87,6 +117,24 @@ class SampleScanTest extends TestCase
             'action_type' => 'return_room',
             'location_to' => '样品室',
         ])->assertStatus(422);
+
+        $this->assertDatabaseCount('sample_flows', 0);
+    }
+
+    public function test_scan_flow_rejects_return_room_without_return_room_permission(): void
+    {
+        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.create']);
+        $sample = $this->receivedSample([
+            'status' => 'testing',
+            'current_holder' => 'Alice',
+            'current_location' => '实验区A',
+        ]);
+
+        $this->postJsonAs($operator, "/api/samples/{$sample->id}/scan-flow", [
+            'action_type' => 'return_room',
+            'location_to' => '样品室',
+        ])->assertForbidden()
+            ->assertJsonPath('permission', 'sample_flows.return_room');
 
         $this->assertDatabaseCount('sample_flows', 0);
     }

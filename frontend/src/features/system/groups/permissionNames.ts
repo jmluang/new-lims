@@ -37,6 +37,7 @@ const actionLabels: Record<string, string> = {
   restore: '恢复',
   receive: '接收',
   print: '打印',
+  return_room: '归还样品室',
 }
 
 const fieldLabels: Record<string, string> = {

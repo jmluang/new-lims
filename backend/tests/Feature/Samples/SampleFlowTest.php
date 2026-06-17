@@ -27,7 +27,7 @@ class SampleFlowTest extends TestCase
     public function test_sample_flow_actions_update_sample_and_append_flow_rows(): void
     {
         Carbon::setTestNow('2026-06-15 12:17:08');
-        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.read', 'sample_flows.create']);
+        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.read', 'sample_flows.create', 'sample_flows.return_room']);
         $sample = $this->sample();
 
         $this->postJsonAs($operator, "/api/samples/{$sample->id}/flows", [
@@ -66,7 +66,7 @@ class SampleFlowTest extends TestCase
 
     public function test_lend_transfer_and_return_room_update_sample_and_append_flows(): void
     {
-        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.read', 'sample_flows.create']);
+        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.read', 'sample_flows.create', 'sample_flows.return_room']);
         $sample = $this->receivedSample([
             'status' => 'pending',
             'current_holder' => '样品室',
@@ -105,6 +105,24 @@ class SampleFlowTest extends TestCase
             'current_holder' => '样品室',
             'current_location' => '样品室',
         ]);
+    }
+
+    public function test_sample_flow_rejects_return_room_without_return_room_permission(): void
+    {
+        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.create']);
+        $sample = $this->receivedSample([
+            'status' => 'testing',
+            'current_holder' => 'Alice',
+            'current_location' => '实验区A',
+        ]);
+
+        $this->postJsonAs($operator, "/api/samples/{$sample->id}/flows", [
+            'action_type' => 'return_room',
+            'location_to' => '样品室',
+        ])->assertForbidden()
+            ->assertJsonPath('permission', 'sample_flows.return_room');
+
+        $this->assertDatabaseCount('sample_flows', 0);
     }
 
     public function test_global_sample_flow_index_filters_and_returns_sample_snapshots(): void
