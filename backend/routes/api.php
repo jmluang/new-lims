@@ -114,6 +114,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/samples/{sample}/flow-card', [SampleFlowCardController::class, 'show']);
         Route::post('/samples/{sample}/scan-flow', [SampleScanController::class, 'store']);
         Route::post('/sample-labels/preview', [SampleLabelController::class, 'preview']);
+        Route::get('/sample-flows', [SampleFlowController::class, 'globalIndex']);
 
         Route::apiResource('/equipment-locations', EquipmentLocationController::class)->parameters(['equipment-locations' => 'equipmentLocation'])->only(['index', 'store', 'update', 'destroy']);
         Route::apiResource('/equipment-systems', EquipmentSystemController::class)->parameters(['equipment-systems' => 'equipmentSystem'])->only(['index', 'store', 'update', 'destroy']);

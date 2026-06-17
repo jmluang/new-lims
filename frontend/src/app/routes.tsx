@@ -14,6 +14,7 @@ import { EquipmentCalibrationFormPage } from '../features/equipment/EquipmentCal
 import { EquipmentCalibrationDetailPage } from '../features/equipment/EquipmentCalibrationDetailPage'
 import { TempHumidityListPage } from '../features/equipment/TempHumidityListPage'
 import { SampleDetailPage } from '../features/samples/SampleDetailPage'
+import { SampleFlowRecordsPage } from '../features/samples/SampleFlowRecordsPage'
 import { SampleListPage } from '../features/samples/SampleListPage'
 import { SampleReceivePage } from '../features/samples/SampleReceivePage'
 import { SampleScanPage } from '../features/samples/SampleScanPage'
@@ -201,6 +202,13 @@ const sampleScanRoute = createRoute({
   component: SampleScanPage,
 })
 
+const sampleFlowRecordsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/samples/flow-records',
+  beforeLoad: () => requireRoutePermission('sample_flows'),
+  component: SampleFlowRecordsPage,
+})
+
 const sampleDetailRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/samples/$sampleId',
@@ -337,6 +345,7 @@ export const routeTree = rootRoute.addChildren([
     samplesRoute,
     sampleReceiveRoute,
     sampleScanRoute,
+    sampleFlowRecordsRoute,
     sampleDetailRoute,
     calibrationProjectsRoute,
     equipmentRoute,

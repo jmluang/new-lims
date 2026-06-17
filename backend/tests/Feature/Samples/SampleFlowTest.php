@@ -107,6 +107,90 @@ class SampleFlowTest extends TestCase
         ]);
     }
 
+    public function test_global_sample_flow_index_filters_and_returns_sample_snapshots(): void
+    {
+        $operator = $this->userWithPermissions(['sample_flows.read']);
+        $order = TestOrder::query()->create([
+            'order_no' => 'FLOW',
+            'contract_no' => 'FLOW-GLOBAL',
+            'order_date' => '2026-05-29',
+            'urgency' => 'normal',
+            'client_company' => '中山市XXX有限公司',
+            'sample_status' => 'received',
+        ]);
+        $lamp = Sample::query()->create([
+            'test_order_id' => $order->id,
+            'delivery_sequence' => 1,
+            'sample_no' => 'SAMPLE-LAMP-001',
+            'sample_name' => '路灯',
+            'specification' => 'LD',
+            'model' => 'LD-100',
+            'quantity' => 1,
+            'status' => 'pending',
+            'current_holder' => '样品室',
+            'current_location' => '样品室',
+            'received_date' => '2026-05-29',
+            'sort_order' => 1,
+            'delivery_received_count' => 1,
+        ]);
+        $cable = Sample::query()->create([
+            'test_order_id' => $order->id,
+            'delivery_sequence' => 2,
+            'sample_no' => 'SAMPLE-CABLE-002',
+            'sample_name' => '电缆',
+            'specification' => 'CB',
+            'model' => 'CB-200',
+            'quantity' => 1,
+            'status' => 'pending',
+            'current_holder' => '样品室',
+            'current_location' => '样品室',
+            'received_date' => '2026-05-29',
+            'sort_order' => 2,
+            'delivery_received_count' => 1,
+        ]);
+
+        $lamp->flows()->create([
+            'action_type' => 'lend',
+            'action_time' => '2026-06-14 10:00:00',
+            'holder_from' => '样品室',
+            'holder_to' => 'Alice',
+            'location_from' => '样品室',
+            'location_to' => '实验区A',
+        ]);
+        $lamp->flows()->create([
+            'action_type' => 'return_room',
+            'action_time' => '2026-06-16 09:30:00',
+            'holder_from' => 'Alice',
+            'holder_to' => '样品室',
+            'location_from' => '实验区A',
+            'location_to' => '样品室',
+        ]);
+        $cable->flows()->create([
+            'action_type' => 'transfer',
+            'action_time' => '2026-06-15 08:00:00',
+            'holder_from' => 'Bob',
+            'holder_to' => 'Carol',
+            'location_from' => '实验区B',
+            'location_to' => '实验区C',
+        ]);
+
+        $this->getJsonAs($operator, '/api/sample-flows?search=lamp&action_type=return_room&action_time_from=2026-06-15&per_page=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.action_type', 'return_room')
+            ->assertJsonPath('data.0.sample.sample_no', 'SAMPLE-LAMP-001')
+            ->assertJsonPath('data.0.sample.sample_name', '路灯')
+            ->assertJsonPath('data.0.sample.order_no', 'FLOW')
+            ->assertJsonPath('meta.total', 1);
+
+        $this->getJsonAs($operator, '/api/sample-flows?per_page=10')
+            ->assertOk()
+            ->assertJsonPath('data.0.action_time', '2026-06-16 09:30:00')
+            ->assertJsonPath('data.1.action_time', '2026-06-15 08:00:00')
+            ->assertJsonPath('data.2.action_time', '2026-06-14 10:00:00')
+            ->assertJsonPath('meta.total', 3);
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      */

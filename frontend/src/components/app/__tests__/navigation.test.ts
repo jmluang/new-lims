@@ -11,6 +11,9 @@ const routes = [
   '/equipment/systems',
   '/equipment/labels',
   '/equipment/temp-humidity',
+  '/samples',
+  '/samples/flow-records',
+  '/samples/scan',
 ]
 
 describe('navigation active path matching', () => {
@@ -87,5 +90,19 @@ describe('navigation active path matching', () => {
     }).flatMap((group) => group.items.map((item) => item.label))
 
     expect(labels).not.toContain('数据字典')
+  })
+
+  it('shows sample flow records in the business navigation when flow read is granted', () => {
+    const groups = visibleNavGroups({
+      resources: {
+        sample_flows: { actions: { read: true } },
+      },
+    })
+
+    const businessGroup = groups.find((group) => group.label === '业务管理')
+
+    expect(businessGroup?.items).toEqual([expect.objectContaining({ label: '样品流转记录', to: '/samples/flow-records' })])
+    expect(isActivePath('/samples/flow-records', '/samples', routes)).toBe(false)
+    expect(isActivePath('/samples/flow-records', '/samples/flow-records', routes)).toBe(true)
   })
 })
