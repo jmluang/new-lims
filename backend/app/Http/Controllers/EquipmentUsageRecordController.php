@@ -24,7 +24,7 @@ class EquipmentUsageRecordController extends Controller
 
         $records = $this->filteredQuery($request)
             ->orderByDesc('start_time')
-            ->orderByDesc('id')
+            ->orderBy('sample_no')
             ->paginate((int) $request->integer('per_page', 15));
 
         return response()->json([

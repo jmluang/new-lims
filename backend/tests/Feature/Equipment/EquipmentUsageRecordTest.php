@@ -156,6 +156,29 @@ class EquipmentUsageRecordTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_usage_records_sort_by_start_time_desc_then_sample_no_asc(): void
+    {
+        $operator = $this->userWithPermissions(['equipment_usage_records.read']);
+        $equipment = Equipment::query()->create([
+            'equipment_no' => 'EQ-SORT',
+            'name' => '排序设备',
+            'status' => 'active',
+        ]);
+        $sampleA = $this->sample('SAMPLE-A');
+        $sampleB = $this->sample('SAMPLE-B');
+        $sampleC = $this->sample('SAMPLE-C');
+
+        $this->usageRecord($equipment, $sampleC, '2026-06-11 09:30:00');
+        $this->usageRecord($equipment, $sampleA, '2026-06-12 09:30:00');
+        $this->usageRecord($equipment, $sampleB, '2026-06-12 09:30:00');
+
+        $this->getJsonAs($operator, '/api/equipment-usage-records?per_page=10')
+            ->assertOk()
+            ->assertJsonPath('data.0.sample_no', 'SAMPLE-A')
+            ->assertJsonPath('data.1.sample_no', 'SAMPLE-B')
+            ->assertJsonPath('data.2.sample_no', 'SAMPLE-C');
+    }
+
     private function sample(string $sampleNo): Sample
     {
         $order = TestOrder::query()->first()
@@ -176,6 +199,20 @@ class EquipmentUsageRecordTest extends TestCase
             'quantity' => 1,
             'status' => 'pending',
             'current_holder' => '样品室',
+        ]);
+    }
+
+    private function usageRecord(Equipment $equipment, Sample $sample, string $startTime): EquipmentUsageRecord
+    {
+        return EquipmentUsageRecord::query()->create([
+            'equipment_id' => $equipment->id,
+            'sample_id' => $sample->id,
+            'equipment_no' => $equipment->equipment_no,
+            'equipment_name' => $equipment->name,
+            'sample_no' => $sample->sample_no,
+            'sample_name' => $sample->sample_name,
+            'sample_model' => $sample->model,
+            'start_time' => $startTime,
         ]);
     }
 
