@@ -15,6 +15,8 @@ class SampleFlowService
      */
     public function record(User $user, Sample $sample, array $data): SampleFlow
     {
+        $this->ensureActionAvailable($sample, $data['action_type']);
+
         return DB::transaction(function () use ($user, $sample, $data): SampleFlow {
             $beforeHolder = $sample->current_holder;
             $beforeLocation = $sample->current_location;
@@ -82,6 +84,43 @@ class SampleFlowService
             ],
             default => throw ValidationException::withMessages(['action_type' => ['invalid_sample_flow_action']]),
         };
+    }
+
+    private function ensureActionAvailable(Sample $sample, string $actionType): void
+    {
+        if (! in_array($actionType, $this->availableActions($sample), true)) {
+            throw ValidationException::withMessages(['action_type' => ['sample_flow_action_not_available']]);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function availableActions(Sample $sample): array
+    {
+        $actions = [];
+
+        if ($sample->status === 'pending' && $sample->current_holder === '样品室') {
+            $actions[] = 'lend';
+        }
+
+        if ($sample->status === 'testing' && $sample->current_holder !== '样品室') {
+            $actions[] = 'transfer';
+            $actions[] = 'return_room';
+        }
+
+        if ($sample->status === 'outsourced') {
+            $actions[] = 'receive_back';
+        }
+
+        if (! in_array($sample->status, ['returned', 'scrapped'], true)) {
+            $actions[] = 'send_out';
+            $actions[] = 'return_client';
+            $actions[] = 'scrap';
+            $actions[] = 'position_change';
+        }
+
+        return $actions;
     }
 
     private function requiredText(?string $value, string $field): string

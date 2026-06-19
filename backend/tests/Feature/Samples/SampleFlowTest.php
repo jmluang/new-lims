@@ -51,12 +51,12 @@ class SampleFlowTest extends TestCase
         $this->assertDatabaseHas('samples', ['id' => $sample->id, 'status' => 'outsourced', 'current_holder' => '分包实验室']);
 
         $this->postJsonAs($operator, "/api/samples/{$sample->id}/flows", [
-            'action_type' => 'return_room',
+            'action_type' => 'receive_back',
             'location_to' => '样品室 A1',
-            'remark' => '测试完成归还',
+            'remark' => '外发退回',
         ])->assertCreated();
 
-        $this->assertDatabaseHas('samples', ['id' => $sample->id, 'status' => 'pending', 'current_holder' => '样品室', 'current_location' => '样品室 A1']);
+        $this->assertDatabaseHas('samples', ['id' => $sample->id, 'status' => 'outsource_returned', 'current_holder' => '样品室', 'current_location' => '样品室 A1']);
 
         $this->getJsonAs($operator, "/api/samples/{$sample->id}/flows")
             ->assertOk()
@@ -107,6 +107,46 @@ class SampleFlowTest extends TestCase
         ]);
     }
 
+    public function test_return_client_marks_sample_returned_to_customer_and_appends_flow(): void
+    {
+        Carbon::setTestNow('2026-06-19 10:20:30');
+        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.read', 'sample_flows.create']);
+        $sample = $this->receivedSample([
+            'status' => 'completed',
+            'current_holder' => '样品室',
+            'current_location' => '样品室 A1',
+        ]);
+
+        $this->postJsonAs($operator, "/api/samples/{$sample->id}/flows", [
+            'action_type' => 'return_client',
+            'remark' => '客户已签收',
+        ])->assertCreated()
+            ->assertJsonPath('data.action_type', 'return_client')
+            ->assertJsonPath('data.holder_from', '样品室')
+            ->assertJsonPath('data.holder_to', '客户')
+            ->assertJsonPath('data.location_from', '样品室 A1')
+            ->assertJsonPath('data.location_to', '样品室 A1')
+            ->assertJsonPath('data.remark', '客户已签收')
+            ->assertJsonPath('data.action_time', '2026-06-19 10:20:30');
+
+        $this->assertDatabaseHas('samples', [
+            'id' => $sample->id,
+            'status' => 'returned',
+            'current_holder' => '客户',
+            'current_location' => '样品室 A1',
+        ]);
+
+        $this->assertDatabaseHas('sample_flows', [
+            'sample_id' => $sample->id,
+            'action_type' => 'return_client',
+            'holder_from' => '样品室',
+            'holder_to' => '客户',
+            'location_from' => '样品室 A1',
+            'location_to' => '样品室 A1',
+            'remark' => '客户已签收',
+        ]);
+    }
+
     public function test_sample_flow_rejects_return_room_without_return_room_permission(): void
     {
         $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.create']);
@@ -121,6 +161,38 @@ class SampleFlowTest extends TestCase
             'location_to' => '样品室',
         ])->assertForbidden()
             ->assertJsonPath('permission', 'sample_flows.return_room');
+
+        $this->assertDatabaseCount('sample_flows', 0);
+    }
+
+    public function test_sample_flow_rejects_actions_not_available_for_current_sample_state(): void
+    {
+        $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.create', 'sample_flows.return_room']);
+
+        $returned = $this->receivedSample([
+            'status' => 'returned',
+            'current_holder' => '客户',
+        ]);
+
+        $this->postJsonAs($operator, "/api/samples/{$returned->id}/flows", [
+            'action_type' => 'return_client',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('action_type');
+
+        $returned->update([
+            'status' => 'pending',
+            'current_holder' => '样品室',
+        ]);
+
+        $this->postJsonAs($operator, "/api/samples/{$returned->id}/flows", [
+            'action_type' => 'return_room',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('action_type');
+
+        $this->postJsonAs($operator, "/api/samples/{$returned->id}/flows", [
+            'action_type' => 'receive_back',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('action_type');
 
         $this->assertDatabaseCount('sample_flows', 0);
     }
