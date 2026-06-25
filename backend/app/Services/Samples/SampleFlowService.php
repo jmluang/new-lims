@@ -16,6 +16,7 @@ class SampleFlowService
     public function record(User $user, Sample $sample, array $data): SampleFlow
     {
         $this->ensureActionAvailable($sample, $data['action_type']);
+        $data = $this->normalizeActionData($user, $data);
 
         return DB::transaction(function () use ($user, $sample, $data): SampleFlow {
             $beforeHolder = $sample->current_holder;
@@ -37,6 +38,19 @@ class SampleFlowService
                 'remark' => $data['remark'] ?? null,
             ]);
         });
+    }
+
+    /**
+     * @param  array{action_type:string, holder_to?:?string, location_to?:?string}  $data
+     * @return array<string, string|null>
+     */
+    private function normalizeActionData(User $user, array $data): array
+    {
+        if (in_array($data['action_type'], ['lend', 'transfer'], true)) {
+            $data['holder_to'] = $user->name;
+        }
+
+        return $data;
     }
 
     /**

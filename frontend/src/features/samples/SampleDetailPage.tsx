@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { useEffectivePermissions } from '../auth/useCurrentUser'
+import { useCurrentUser, useEffectivePermissions } from '../auth/useCurrentUser'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, type ApiResource, inputClass, textareaClass } from '../system/utils'
 import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, SampleFlowLedgerTable, type SampleFlowCardData } from './SampleFlowCardPrintArea'
@@ -39,6 +39,7 @@ export function SampleDetailPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const sampleId = sampleIdFromPath(pathname)
   const queryClient = useQueryClient()
+  const currentUser = useCurrentUser()
   const permissions = useEffectivePermissions()
   const [flowForm, setFlowForm] = useState<SampleFlowValues>(emptyFlow)
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -90,6 +91,7 @@ export function SampleDetailPage() {
   const sample = sampleQuery.data
   const flows = flowsQuery.data ?? []
   const visibleFlowActions = visibleSampleFlowActions(sampleFlowActions, permissions.data)
+  const flowUsesOperatorHolder = flowForm.action_type === 'lend' || flowForm.action_type === 'transfer'
   const printFlowCardAction = flowCardQuery.data ? (
     <PermissionGate resource="sample_flows" action="read">
       <Button variant="secondary" onClick={() => window.print()}>
@@ -159,9 +161,16 @@ export function SampleDetailPage() {
                     ))}
                   </select>
                 </Field>
-                <Field label="Holder to">
-                  <input className={inputClass} value={flowForm.holder_to ?? ''} onChange={(event) => setFlowForm({ ...flowForm, holder_to: event.target.value })} />
-                </Field>
+                {flowUsesOperatorHolder ? (
+                  <div>
+                    <div className="text-xs font-medium uppercase text-slate-500">{zhText('Holder to')}</div>
+                    <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">{currentUser.data?.name ?? '-'}</div>
+                  </div>
+                ) : (
+                  <Field label="Holder to">
+                    <input className={inputClass} value={flowForm.holder_to ?? ''} onChange={(event) => setFlowForm({ ...flowForm, holder_to: event.target.value })} />
+                  </Field>
+                )}
                 <Field label="Location to">
                   <input className={inputClass} value={flowForm.location_to ?? ''} onChange={(event) => setFlowForm({ ...flowForm, location_to: event.target.value })} />
                 </Field>
