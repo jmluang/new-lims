@@ -72,6 +72,8 @@ class ReceiveSamples
                     'sample_name' => $row['sample_name'],
                     'specification' => $row['specification'] ?? null,
                     'model' => $row['model'] ?? null,
+                    'input_voltage' => $row['input_voltage'] ?? null,
+                    'power' => $row['power'] ?? null,
                     'quantity' => 1,
                     'status' => 'pending',
                     'current_holder' => '样品室',

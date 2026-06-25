@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'sample_name',
     'specification',
     'model',
+    'input_voltage',
+    'power',
     'quantity',
     'status',
     'current_holder',

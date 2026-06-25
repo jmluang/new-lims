@@ -14,6 +14,8 @@ type SampleOption = {
   sample_name: string
   specification?: string | null
   model?: string | null
+  input_voltage?: string | null
+  power?: string | null
   quantity: number
 }
 
@@ -39,6 +41,8 @@ const emptyRow: ReceiveSampleRowValues = {
   sample_name: '',
   specification: '',
   model: '',
+  input_voltage: '',
+  power: '',
   appearance_check: '',
   reject_reason: '',
 }
@@ -106,6 +110,8 @@ export function SampleReceivePage() {
             sample_name: row.sample_name,
             specification: row.specification ?? '',
             model: row.model ?? '',
+            input_voltage: row.input_voltage ?? '',
+            power: row.power ?? '',
             appearance_check: '外观完整',
             reject_reason: '',
           }))
@@ -204,6 +210,8 @@ export function SampleReceivePage() {
                         sample_name: option?.sample_name ?? row.sample_name,
                         specification: option?.specification ?? row.specification,
                         model: option?.model ?? row.model,
+                        input_voltage: option?.input_voltage ?? row.input_voltage,
+                        power: option?.power ?? row.power,
                       })
                     }}
                   >
@@ -223,6 +231,12 @@ export function SampleReceivePage() {
                 </Field>
                 <Field label="Model">
                   <input className={inputClass} value={row.model ?? ''} onChange={(event) => updateRow(index, { model: event.target.value })} />
+                </Field>
+                <Field label="Input voltage">
+                  <input className={inputClass} value={row.input_voltage ?? ''} onChange={(event) => updateRow(index, { input_voltage: event.target.value })} />
+                </Field>
+                <Field label="Power">
+                  <input className={inputClass} value={row.power ?? ''} onChange={(event) => updateRow(index, { power: event.target.value })} />
                 </Field>
                 <Field label="Appearance check" className="md:col-span-2">
                   <textarea className={textareaClass} value={row.appearance_check ?? ''} onChange={(event) => updateRow(index, { appearance_check: event.target.value })} />

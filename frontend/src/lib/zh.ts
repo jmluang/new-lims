@@ -14,6 +14,8 @@ export const textMap: Record<string, string> = {
   'User Management': '用户管理',
   'Group Permissions': '角色组权限',
   'Customer Management': '客户管理',
+  'Input voltage': '输入电压',
+  Power: '功率',
   'Equipment Ledger': '设备台账',
   'Standard Library': '检测标准库',
   'Edit standard': '编辑标准',

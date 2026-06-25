@@ -285,6 +285,12 @@ export function TestOrderForm({
                 <Field label="Model">
                   <input className={inputClass} {...form.register(`samples.${index}.model`)} />
                 </Field>
+                <Field label="Input voltage">
+                  <input className={inputClass} placeholder="220V" {...form.register(`samples.${index}.input_voltage`)} />
+                </Field>
+                <Field label="Power">
+                  <input className={inputClass} placeholder="60W" {...form.register(`samples.${index}.power`)} />
+                </Field>
                 <Field label="Quantity">
                   <input className={inputClass} type="number" min={1} {...form.register(`samples.${index}.quantity`, { valueAsNumber: true })} />
                 </Field>
@@ -558,6 +564,8 @@ function defaultValues(order?: TestOrder | null): TestOrderFormValues {
           sample_name: row.sample_name,
           specification: row.specification ?? '',
           model: row.model ?? '',
+          input_voltage: row.input_voltage ?? '',
+          power: row.power ?? '',
           status: row.status,
           quantity: row.quantity,
           detail_content: row.detail_content ?? '',
@@ -583,6 +591,8 @@ function emptySampleRow() {
     sample_name: '',
     specification: '',
     model: '',
+    input_voltage: '',
+    power: '',
     status: 'pending' as const,
     quantity: 1,
     detail_content: '',

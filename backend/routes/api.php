@@ -12,6 +12,7 @@ use App\Http\Controllers\EquipmentLabelController;
 use App\Http\Controllers\EquipmentLocationController;
 use App\Http\Controllers\EquipmentSystemController;
 use App\Http\Controllers\EquipmentUsageRecordController;
+use App\Http\Controllers\PublicTestOrderSubmissionController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SampleFlowCardController;
 use App\Http\Controllers\SampleFlowController;
@@ -40,6 +41,8 @@ Route::get('/register/options', [LoginController::class, 'registerOptions']);
 // Public device ingest: temperature/humidity sensors push readings here
 // (ported from the legacy example/post.php). Accepts GET or POST.
 Route::match(['get', 'post'], '/device/temp-humidity', [TempHumidityRecordController::class, 'ingest']);
+Route::post('/public/test-order-submissions/customer-lookup', [PublicTestOrderSubmissionController::class, 'lookupCustomer']);
+Route::post('/public/test-order-submissions', [PublicTestOrderSubmissionController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', function (Request $request) {

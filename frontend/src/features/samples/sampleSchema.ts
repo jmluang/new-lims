@@ -7,6 +7,8 @@ export const receiveSampleRowSchema = z.object({
   sample_name: z.string().min(1, '请填写样品名称'),
   specification: z.string().optional(),
   model: z.string().optional(),
+  input_voltage: z.string().optional(),
+  power: z.string().optional(),
   appearance_check: z.string().optional(),
   reject_reason: z.string().optional(),
 })

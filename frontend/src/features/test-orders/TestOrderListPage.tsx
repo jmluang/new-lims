@@ -24,6 +24,8 @@ export type TestOrderSample = {
   sample_name: string
   specification?: string | null
   model?: string | null
+  input_voltage?: string | null
+  power?: string | null
   status: 'pending' | 'partially_received' | 'received' | 'rejected' | 'cancelled'
   quantity: number
   detail_content?: string | null

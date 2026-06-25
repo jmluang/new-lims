@@ -81,6 +81,8 @@ class SyncTestOrderChildren
                 'sample_name' => $row['sample_name'],
                 'specification' => $row['specification'] ?? null,
                 'model' => $row['model'] ?? null,
+                'input_voltage' => $row['input_voltage'] ?? null,
+                'power' => $row['power'] ?? null,
                 'status' => $row['status'] ?? 'pending',
                 'quantity' => $row['quantity'] ?? 1,
                 'detail_content' => $row['detail_content'] ?? null,

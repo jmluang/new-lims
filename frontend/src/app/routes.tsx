@@ -21,6 +21,7 @@ import { SampleScanPage } from '../features/samples/SampleScanPage'
 import { getAuthToken } from '../lib/api'
 import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
+import { PublicTestOrderSubmissionPage } from '../features/public/PublicTestOrderSubmissionPage'
 import { StandardDetailPage } from '../features/standards/StandardDetailPage'
 import { StandardFormPage } from '../features/standards/StandardFormPage'
 import { StandardListPage } from '../features/standards/StandardListPage'
@@ -67,6 +68,12 @@ export const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/register',
   component: RegisterPage,
+})
+
+export const publicTestOrderSubmissionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/public/test-order-submission',
+  component: PublicTestOrderSubmissionPage,
 })
 
 const systemRoute = createRoute({
@@ -324,6 +331,7 @@ const backupsRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
+  publicTestOrderSubmissionRoute,
   protectedRoute.addChildren([
     indexRoute,
     systemRoute,

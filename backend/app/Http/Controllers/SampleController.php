@@ -77,6 +77,8 @@ class SampleController extends Controller
             'samples.*.sample_name' => ['required', 'string', 'max:255'],
             'samples.*.specification' => ['nullable', 'string', 'max:255'],
             'samples.*.model' => ['nullable', 'string', 'max:255'],
+            'samples.*.input_voltage' => ['nullable', 'string', 'max:255'],
+            'samples.*.power' => ['nullable', 'string', 'max:255'],
             'samples.*.appearance_check' => ['nullable', 'string'],
             'samples.*.reject_reason' => ['nullable', 'string'],
         ]);
@@ -122,6 +124,8 @@ class SampleController extends Controller
             'sample_name' => $sample->sample_name,
             'specification' => $sample->specification,
             'model' => $sample->model,
+            'input_voltage' => $sample->input_voltage,
+            'power' => $sample->power,
             'quantity' => $sample->quantity,
             'status' => $sample->status,
             'current_holder' => $sample->current_holder,

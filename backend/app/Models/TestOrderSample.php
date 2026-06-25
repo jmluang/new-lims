@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'sample_name',
     'specification',
     'model',
+    'input_voltage',
+    'power',
     'status',
     'quantity',
     'detail_content',
