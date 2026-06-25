@@ -41,16 +41,14 @@ describe('buildSampleScanFlowPayload', () => {
     })
   })
 
-  it('keeps the holder when an action targets a person', () => {
+  it('omits the holder for operator-bound actions because the server owns that value', () => {
     expect(
       buildSampleScanFlowPayload({
         action_type: 'lend',
-        holder_to: 'Alice',
         location_to: '实验区A',
       }),
     ).toEqual({
       action_type: 'lend',
-      holder_to: 'Alice',
       location_to: '实验区A',
     })
   })
@@ -59,12 +57,12 @@ describe('buildSampleScanFlowPayload', () => {
     expect(() => buildSampleScanFlowPayload({ action_type: 'return_room', location_to: '' })).toThrow(SampleScanFlowValidationError)
   })
 
-  it('requires a holder for lend and transfer but not for room returns', () => {
+  it('does not require a holder for operator-bound actions', () => {
     expect(sampleScanActionRequiresHolder('lend')).toBe(true)
     expect(sampleScanActionRequiresHolder('transfer')).toBe(true)
     expect(sampleScanActionRequiresHolder('return_room')).toBe(false)
     expect(sampleScanActionRequiresHolder('receive_back')).toBe(false)
-    expect(() => buildSampleScanFlowPayload({ action_type: 'lend', location_to: '实验区A' })).toThrow(SampleScanFlowValidationError)
+    expect(() => buildSampleScanFlowPayload({ action_type: 'lend', location_to: '实验区A' })).not.toThrow()
   })
 
   it('defaults the target holder to the current user when the action targets a person', () => {

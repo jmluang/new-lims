@@ -54,16 +54,12 @@ export function buildSampleScanFlowPayload(values: unknown): Record<string, stri
     throw new SampleScanFlowValidationError(parsed.error.issues[0]?.message ?? 'Invalid scan flow payload')
   }
 
-  if (sampleScanActionRequiresHolder(parsed.data.action_type) && (parsed.data.holder_to ?? '').trim() === '') {
-    throw new SampleScanFlowValidationError('请填写目标持有人')
-  }
-
   const payload: Record<string, string> = {
     action_type: parsed.data.action_type,
     location_to: parsed.data.location_to,
   }
 
-  if ((parsed.data.holder_to ?? '').trim() !== '') {
+  if (!sampleScanActionRequiresHolder(parsed.data.action_type) && (parsed.data.holder_to ?? '').trim() !== '') {
     payload.holder_to = parsed.data.holder_to!.trim()
   }
 

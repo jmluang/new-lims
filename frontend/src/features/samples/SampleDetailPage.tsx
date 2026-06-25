@@ -9,6 +9,7 @@ import { useCurrentUser, useEffectivePermissions } from '../auth/useCurrentUser'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, type ApiResource, inputClass, textareaClass } from '../system/utils'
 import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, SampleFlowLedgerTable, type SampleFlowCardData } from './SampleFlowCardPrintArea'
+import { availableSampleFlowActions } from './sampleFlowAvailability'
 import { visibleSampleFlowActions } from './sampleFlowPermissions'
 import { sampleFlowSchema, type SampleFlowValues } from './sampleSchema'
 import type { Sample } from './SampleListPage'
@@ -70,7 +71,12 @@ export function SampleDetailPage() {
   })
   const createFlow = useMutation({
     mutationFn: async () => {
-      const parsed = sampleFlowSchema.safeParse(flowForm)
+      if (!selectedFlowAction) {
+        setValidationError('当前状态没有可用流转操作')
+        return
+      }
+
+      const parsed = sampleFlowSchema.safeParse({ ...flowForm, action_type: selectedFlowAction })
 
       if (!parsed.success) {
         setValidationError(parsed.error.issues[0]?.message ?? 'Invalid flow payload')
@@ -90,8 +96,10 @@ export function SampleDetailPage() {
   })
   const sample = sampleQuery.data
   const flows = flowsQuery.data ?? []
-  const visibleFlowActions = visibleSampleFlowActions(sampleFlowActions, permissions.data)
-  const flowUsesOperatorHolder = flowForm.action_type === 'lend' || flowForm.action_type === 'transfer'
+  const visibleFlowActions = visibleSampleFlowActions(sample ? availableSampleFlowActions(sample) : sampleFlowActions, permissions.data)
+  const selectedFlowAction = visibleFlowActions.includes(flowForm.action_type) ? flowForm.action_type : visibleFlowActions[0]
+  const flowFormAction = selectedFlowAction ?? flowForm.action_type
+  const flowUsesOperatorHolder = flowFormAction === 'lend' || flowFormAction === 'transfer'
   const printFlowCardAction = flowCardQuery.data ? (
     <PermissionGate resource="sample_flows" action="read">
       <Button variant="secondary" onClick={() => window.print()}>
@@ -151,39 +159,45 @@ export function SampleDetailPage() {
 
           <PermissionGate resource="sample_flows" action="create">
             <Panel title="New flow">
-              <div className="grid gap-3 md:grid-cols-4">
-                <Field label="Action type">
-                  <select className={inputClass} value={flowForm.action_type} onChange={(event) => setFlowForm({ ...flowForm, action_type: event.target.value as SampleFlowValues['action_type'] })}>
-                    {visibleFlowActions.map((action) => (
-                      <option value={action} key={action}>
-                        {zhText(action)}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                {flowUsesOperatorHolder ? (
-                  <div>
-                    <div className="text-xs font-medium uppercase text-slate-500">{zhText('Holder to')}</div>
-                    <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">{currentUser.data?.name ?? '-'}</div>
+              {visibleFlowActions.length === 0 ? (
+                <p className="text-sm text-slate-500">{zhText('No actions available for current state')}</p>
+              ) : (
+                <>
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <Field label="Action type">
+                      <select className={inputClass} value={flowFormAction} onChange={(event) => setFlowForm({ ...flowForm, action_type: event.target.value as SampleFlowValues['action_type'] })}>
+                        {visibleFlowActions.map((action) => (
+                          <option value={action} key={action}>
+                            {zhText(action)}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    {flowUsesOperatorHolder ? (
+                      <div>
+                        <div className="text-xs font-medium uppercase text-slate-500">{zhText('Holder to')}</div>
+                        <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">{currentUser.data?.name ?? '-'}</div>
+                      </div>
+                    ) : (
+                      <Field label="Holder to">
+                        <input className={inputClass} value={flowForm.holder_to ?? ''} onChange={(event) => setFlowForm({ ...flowForm, holder_to: event.target.value })} />
+                      </Field>
+                    )}
+                    <Field label="Location to">
+                      <input className={inputClass} value={flowForm.location_to ?? ''} onChange={(event) => setFlowForm({ ...flowForm, location_to: event.target.value })} />
+                    </Field>
+                    <Field label="Remark">
+                      <textarea className={textareaClass} value={flowForm.remark ?? ''} onChange={(event) => setFlowForm({ ...flowForm, remark: event.target.value })} />
+                    </Field>
                   </div>
-                ) : (
-                  <Field label="Holder to">
-                    <input className={inputClass} value={flowForm.holder_to ?? ''} onChange={(event) => setFlowForm({ ...flowForm, holder_to: event.target.value })} />
-                  </Field>
-                )}
-                <Field label="Location to">
-                  <input className={inputClass} value={flowForm.location_to ?? ''} onChange={(event) => setFlowForm({ ...flowForm, location_to: event.target.value })} />
-                </Field>
-                <Field label="Remark">
-                  <textarea className={textareaClass} value={flowForm.remark ?? ''} onChange={(event) => setFlowForm({ ...flowForm, remark: event.target.value })} />
-                </Field>
-              </div>
-              <div className="mt-3 flex justify-end">
-                <Button variant="primary" onClick={() => createFlow.mutate()} disabled={createFlow.isPending}>
-                  <Plus className="size-4" aria-hidden="true" />
-                  Add flow
-                </Button>
-              </div>
+                  <div className="mt-3 flex justify-end">
+                    <Button variant="primary" onClick={() => createFlow.mutate()} disabled={createFlow.isPending}>
+                      <Plus className="size-4" aria-hidden="true" />
+                      Add flow
+                    </Button>
+                  </div>
+                </>
+              )}
             </Panel>
           </PermissionGate>
 

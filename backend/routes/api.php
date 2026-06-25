@@ -13,6 +13,7 @@ use App\Http\Controllers\EquipmentLocationController;
 use App\Http\Controllers\EquipmentSystemController;
 use App\Http\Controllers\EquipmentUsageRecordController;
 use App\Http\Controllers\PublicTestOrderSubmissionController;
+use App\Http\Controllers\PublicTestOrderSubmissionReviewController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SampleFlowCardController;
 use App\Http\Controllers\SampleFlowController;
@@ -41,8 +42,10 @@ Route::get('/register/options', [LoginController::class, 'registerOptions']);
 // Public device ingest: temperature/humidity sensors push readings here
 // (ported from the legacy example/post.php). Accepts GET or POST.
 Route::match(['get', 'post'], '/device/temp-humidity', [TempHumidityRecordController::class, 'ingest']);
-Route::post('/public/test-order-submissions/customer-lookup', [PublicTestOrderSubmissionController::class, 'lookupCustomer']);
-Route::post('/public/test-order-submissions', [PublicTestOrderSubmissionController::class, 'store']);
+Route::post('/public/test-order-submissions/customer-lookup', [PublicTestOrderSubmissionController::class, 'lookupCustomer'])
+    ->middleware('throttle:20,1');
+Route::post('/public/test-order-submissions', [PublicTestOrderSubmissionController::class, 'store'])
+    ->middleware('throttle:5,1');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', function (Request $request) {
@@ -105,6 +108,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/test-orders/form-options', [TestOrderController::class, 'formOptions']);
         Route::get('/test-orders/{testOrder}/sample-options', [TestOrderController::class, 'sampleOptions']);
         Route::apiResource('/test-orders', TestOrderController::class);
+        Route::get('/public-test-order-submissions', [PublicTestOrderSubmissionReviewController::class, 'index']);
+        Route::post('/public-test-order-submissions/{publicTestOrderSubmission}/accept', [PublicTestOrderSubmissionReviewController::class, 'accept']);
+        Route::post('/public-test-order-submissions/{publicTestOrderSubmission}/reject', [PublicTestOrderSubmissionReviewController::class, 'reject']);
 
         Route::get('/samples', [SampleController::class, 'index']);
         Route::get('/samples/receive-options', [SampleController::class, 'receiveOptions']);

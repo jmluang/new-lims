@@ -13,6 +13,11 @@ vi.mock('../../../components/app/PermissionGate', () => ({
 }))
 
 vi.mock('../../auth/useCurrentUser', () => ({
+  useCurrentUser: () => ({
+    data: {
+      name: '流转操作员',
+    },
+  }),
   useEffectivePermissions: () => ({
     data: {
       resources: {

@@ -1,20 +1,9 @@
 import { useMutation } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, Plus, Search, Send, Trash2 } from 'lucide-react'
+import { CheckCircle2, Loader2, Plus, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../../lib/api'
 import { Button, ErrorNotice, Field } from '../system/shared'
 import { inputClass } from '../system/utils'
-
-type CustomerLookup = {
-  id: number
-  name: string
-  address?: string | null
-  phone?: string | null
-  contact?: {
-    name?: string | null
-    phone?: string | null
-  } | null
-}
 
 type SampleRow = {
   sample_name: string
@@ -26,9 +15,10 @@ type SampleRow = {
 
 type SubmissionResult = {
   id: number
-  order_no: string
+  submission_no: string
   client_company: string
   samples_count: number
+  status: string
 }
 
 const emptySample: SampleRow = {
@@ -46,29 +36,8 @@ export function PublicTestOrderSubmissionPage() {
   const [clientAddress, setClientAddress] = useState('')
   const [clientPhone, setClientPhone] = useState('')
   const [clientContact, setClientContact] = useState('')
-  const [matchedCustomer, setMatchedCustomer] = useState<CustomerLookup | null>(null)
   const [samples, setSamples] = useState<SampleRow[]>([{ ...emptySample }])
   const [result, setResult] = useState<SubmissionResult | null>(null)
-
-  const lookupCustomer = useMutation({
-    mutationFn: async () => {
-      const response = await api.post<{ data: CustomerLookup | null }>('/api/public/test-order-submissions/customer-lookup', { phone: clientPhone })
-
-      return response.data.data
-    },
-    onSuccess: (customer) => {
-      setMatchedCustomer(customer)
-
-      if (!customer) {
-        return
-      }
-
-      setClientCompany((current) => current || customer.name)
-      setClientAddress((current) => current || customer.address || '')
-      setClientContact((current) => current || customer.contact?.name || '')
-      setClientPhone((current) => customer.contact?.phone || current || customer.phone || '')
-    },
-  })
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -100,8 +69,8 @@ export function PublicTestOrderSubmissionPage() {
           <p className="mt-2 text-sm leading-6 text-slate-600">我们已收到您的委托资料，工作人员会尽快处理。</p>
           <div className="mt-5 rounded-xl bg-slate-50 p-4 text-left text-sm">
             <div className="flex justify-between gap-4">
-              <span className="text-slate-500">委托单号</span>
-              <span className="font-medium text-slate-900">{result.order_no}</span>
+              <span className="text-slate-500">提交编号</span>
+              <span className="font-medium text-slate-900">{result.submission_no}</span>
             </div>
             <div className="mt-2 flex justify-between gap-4">
               <span className="text-slate-500">委托方</span>
@@ -134,34 +103,12 @@ export function PublicTestOrderSubmissionPage() {
           <h1 className="mt-1 text-xl font-semibold sm:text-2xl">客户资料填写</h1>
         </header>
 
-        {lookupCustomer.error ? <ErrorNotice error={lookupCustomer.error} fallback="信息查询失败，请手动填写" /> : null}
         {submit.error ? <ErrorNotice error={submit.error} fallback="资料提交失败" /> : null}
 
         <section className="relative rounded-xl border border-emerald-100 bg-white p-3 shadow-sm sm:p-4">
-          {matchedCustomer ? <span className="absolute right-3 top-3 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">信息已补全</span> : null}
           <div className="grid grid-cols-1 gap-2 sm:gap-3">
             <Field label="联系电话">
-              <div className="flex gap-2">
-                <input
-                  className={compactInputClass}
-                  inputMode="tel"
-                  value={clientPhone}
-                  onBlur={() => {
-                    if (clientPhone.trim()) {
-                      lookupCustomer.mutate()
-                    }
-                  }}
-                  onChange={(event) => {
-                    setClientPhone(event.target.value)
-                    setMatchedCustomer(null)
-                  }}
-                  placeholder="请优先填写"
-                  required
-                />
-                <Button className="h-8 px-2.5" variant="secondary" onClick={() => lookupCustomer.mutate()} disabled={!clientPhone.trim() || lookupCustomer.isPending} aria-label="查询信息">
-                  {lookupCustomer.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Search className="size-4" aria-hidden="true" />}
-                </Button>
-              </div>
+              <input className={compactInputClass} inputMode="tel" value={clientPhone} onChange={(event) => setClientPhone(event.target.value)} placeholder="请优先填写" required />
             </Field>
             <Field label="联系人">
               <input className={compactInputClass} value={clientContact} onChange={(event) => setClientContact(event.target.value)} placeholder="联系人姓名" />
@@ -180,7 +127,7 @@ export function PublicTestOrderSubmissionPage() {
             <div>
               <h2 className="text-base font-semibold">样品信息</h2>
             </div>
-            <Button className="h-8 px-2.5" variant="secondary" onClick={() => setSamples((current) => [...current, { ...emptySample }])}>
+            <Button className="h-8 px-2.5" variant="secondary" onClick={() => setSamples((current) => (current.length >= 20 ? current : [...current, { ...emptySample }]))} disabled={samples.length >= 20}>
               <Plus className="size-4" aria-hidden="true" />
               添加
             </Button>

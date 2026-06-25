@@ -3,14 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
-use App\Models\TestOrder;
-use App\Services\TestOrders\OrderNumberService;
-use App\Services\TestOrders\SyncTestOrderChildren;
+use App\Models\PublicTestOrderSubmission;
+use App\Services\Audit\AuditLogger;
 use App\Services\TestOrders\TestOrderPayloadNormalizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PublicTestOrderSubmissionController extends Controller
 {
@@ -26,77 +25,41 @@ class PublicTestOrderSubmissionController extends Controller
             return response()->json(['data' => null]);
         }
 
-        $customer = Customer::query()
-            ->with('contacts')
-            ->where('status', 'active')
-            ->where(function (Builder $query) use ($phone): void {
-                $query->where('phone', $phone)
-                    ->orWhereHas('contacts', fn (Builder $contactQuery): Builder => $contactQuery
-                        ->where('status', 'active')
-                        ->where('phone', $phone));
-            })
-            ->orderBy('id')
-            ->first();
-
-        if (! $customer instanceof Customer) {
-            return response()->json(['data' => null]);
-        }
-
-        $matchedContact = $customer->contacts->first(fn ($contact): bool => $contact->status === 'active' && $this->normalizePhone($contact->phone) === $phone);
-        $defaultContact = $customer->contacts->first(fn ($contact): bool => $contact->status === 'active' && $contact->is_default);
-        $contact = $matchedContact ?? $defaultContact;
-
-        return response()->json([
-            'data' => [
-                'id' => $customer->id,
-                'name' => $customer->name,
-                'address' => $customer->address,
-                'phone' => $customer->phone,
-                'contact' => $contact === null ? null : [
-                    'name' => $contact->name,
-                    'phone' => $contact->phone,
-                ],
-            ],
-        ]);
+        return response()->json(['data' => null]);
     }
 
     public function store(
         Request $request,
-        OrderNumberService $orderNumberService,
         TestOrderPayloadNormalizer $normalizer,
-        SyncTestOrderChildren $syncChildren,
+        AuditLogger $auditLogger,
     ): JsonResponse {
         $payload = $normalizer->normalize($request->validate($this->rules()));
-        $payload = $this->applyMatchedCustomer($payload);
-        $samples = $payload['samples'];
-        unset($payload['samples']);
+        $customer = $this->findMatchedCustomer($this->normalizePhone($payload['client_phone'] ?? null));
 
-        $testOrder = DB::transaction(function () use ($payload, $samples, $orderNumberService, $syncChildren): TestOrder {
-            $orderNo = $orderNumberService->generate();
-            $testOrder = TestOrder::query()->create([
-                ...$payload,
-                'order_no' => $orderNo,
-                'contract_no' => $orderNo,
-                'order_date' => now()->toDateString(),
-                'urgency' => 'normal',
-                'sample_status' => 'not_received',
-                'report_forms' => ['formal_report', 'electronic_report'],
-                'delivery_method' => 'self_pick',
-                'outsourcing_option' => 'allowed',
-            ]);
+        $submission = PublicTestOrderSubmission::query()->create([
+            'submission_no' => $this->generateSubmissionNo(),
+            'matched_customer_id' => $customer?->id,
+            'client_company' => $payload['client_company'],
+            'client_address' => $payload['client_address'] ?? null,
+            'client_contact' => $payload['client_contact'] ?? null,
+            'client_phone' => $payload['client_phone'],
+            'samples' => $payload['samples'],
+            'status' => 'pending',
+            'submitted_ip' => $request->ip(),
+            'submitted_user_agent' => $request->userAgent(),
+            'submitted_at' => now(),
+        ]);
 
-            $syncChildren->sync($testOrder, [], $samples);
-
-            return $testOrder->fresh(['samples']);
-        });
+        $auditLogger->record(
+            actor: null,
+            action: 'public_test_order_submissions.create',
+            module: 'public_test_order_submissions',
+            subject: $submission,
+            after: $this->serializeSubmission($submission),
+        );
 
         return response()->json([
-            'data' => [
-                'id' => $testOrder->id,
-                'order_no' => $testOrder->order_no,
-                'client_company' => $testOrder->client_company,
-                'samples_count' => $testOrder->samples->count(),
-            ],
+            'data' => $this->serializeSubmission($submission),
         ], 201);
     }
 
@@ -110,7 +73,7 @@ class PublicTestOrderSubmissionController extends Controller
             'client_address' => ['nullable', 'string', 'max:255'],
             'client_contact' => ['nullable', 'string', 'max:255'],
             'client_phone' => ['required', 'string', 'max:64'],
-            'samples' => ['required', 'array', 'min:1'],
+            'samples' => ['required', 'array', 'min:1', 'max:20'],
             'samples.*.sample_name' => ['required', 'string', 'max:255'],
             'samples.*.specification' => ['nullable', 'string', 'max:255'],
             'samples.*.model' => ['nullable', 'string', 'max:255'],
@@ -119,19 +82,13 @@ class PublicTestOrderSubmissionController extends Controller
         ];
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     * @return array<string, mixed>
-     */
-    private function applyMatchedCustomer(array $payload): array
+    private function findMatchedCustomer(string $phone): ?Customer
     {
-        $phone = $this->normalizePhone($payload['client_phone'] ?? null);
-
         if ($phone === '') {
-            return $payload;
+            return null;
         }
 
-        $customer = Customer::query()
+        return Customer::query()
             ->where('status', 'active')
             ->where(function (Builder $query) use ($phone): void {
                 $query->where('phone', $phone)
@@ -141,17 +98,31 @@ class PublicTestOrderSubmissionController extends Controller
             })
             ->orderBy('id')
             ->first();
+    }
 
-        if (! $customer instanceof Customer) {
-            return $payload;
-        }
-
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeSubmission(PublicTestOrderSubmission $submission): array
+    {
         return [
-            ...$payload,
-            'client_customer_id' => $customer->id,
-            'client_company' => $payload['client_company'] ?: $customer->name,
-            'client_address' => $payload['client_address'] ?: $customer->address,
+            'id' => $submission->id,
+            'submission_no' => $submission->submission_no,
+            'client_company' => $submission->client_company,
+            'client_phone' => $submission->client_phone,
+            'samples_count' => count($submission->samples ?? []),
+            'status' => $submission->status,
+            'submitted_at' => $submission->submitted_at?->format('Y-m-d H:i:s'),
         ];
+    }
+
+    private function generateSubmissionNo(): string
+    {
+        do {
+            $submissionNo = 'PUB'.now()->format('YmdHis').Str::upper(Str::random(6));
+        } while (PublicTestOrderSubmission::query()->where('submission_no', $submissionNo)->exists());
+
+        return $submissionNo;
     }
 
     private function normalizePhone(mixed $phone): string
