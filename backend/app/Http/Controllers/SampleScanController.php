@@ -39,6 +39,10 @@ class SampleScanController extends Controller
             'remark' => ['nullable', 'string'],
         ]);
 
+        if (in_array($data['action_type'], ['lend', 'transfer'], true)) {
+            $data['holder_to'] = $request->user()->name;
+        }
+
         if ($data['action_type'] === 'return_room') {
             $this->authorizePermission($request, 'sample_flows.return_room', 'sample_flows', $sample);
         }

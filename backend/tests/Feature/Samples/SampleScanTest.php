@@ -82,6 +82,7 @@ class SampleScanTest extends TestCase
     {
         Carbon::setTestNow('2026-06-15 12:17:08');
         $operator = $this->userWithPermissions(['samples.read', 'samples.update', 'sample_flows.create']);
+        $operator->update(['name' => '扫码操作员']);
         $sample = $this->receivedSample([
             'status' => 'pending',
             'current_holder' => '样品室',
@@ -94,12 +95,13 @@ class SampleScanTest extends TestCase
             'location_to' => '实验区A',
         ])->assertCreated()
             ->assertJsonPath('data.action_type', 'lend')
+            ->assertJsonPath('data.holder_to', '扫码操作员')
             ->assertJsonPath('data.action_time', '2026-06-15 12:17:08');
 
         $this->assertDatabaseHas('samples', [
             'id' => $sample->id,
             'status' => 'testing',
-            'current_holder' => 'Alice',
+            'current_holder' => '扫码操作员',
         ]);
     }
 

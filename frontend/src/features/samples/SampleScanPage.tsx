@@ -197,9 +197,10 @@ export function SampleScanPage() {
                   />
                 </Field>
                 {sampleScanActionRequiresHolder(form.action_type) ? (
-                  <Field label="Holder to">
-                    <input className={inputClass} value={form.holder_to} onChange={(event) => setForm({ ...form, holder_to: event.target.value })} />
-                  </Field>
+                  <div>
+                    <div className="text-xs font-medium uppercase text-slate-500">{zhText('Holder to')}</div>
+                    <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900">{form.holder_to || currentUser.data?.name || '-'}</div>
+                  </div>
                 ) : null}
                 <Field label="Remark">
                   <textarea className={textareaClass} value={form.remark} onChange={(event) => setForm({ ...form, remark: event.target.value })} />
