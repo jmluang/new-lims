@@ -10,4 +10,9 @@ describe('Chinese text helpers', () => {
     expect(zh.zhText('Create standard')).toBe('新建标准')
     expect(zh.zhText('Edit standard')).toBe('编辑标准')
   })
+
+  it('translates equipment usage record statuses', () => {
+    expect(zh.zhText('using')).toBe('使用中')
+    expect(zh.zhText('finished')).toBe('已结束')
+  })
 })

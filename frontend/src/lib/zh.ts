@@ -406,6 +406,8 @@ export const textMap: Record<string, string> = {
   urgent: '加急',
   critical: '紧急',
   running: '运行中',
+  using: '使用中',
+  finished: '已结束',
   failed: '失败',
   completed: '已完成',
   success: '成功',
