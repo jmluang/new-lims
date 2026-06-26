@@ -324,66 +324,113 @@ export function EquipmentUsageRecordPage() {
       {recordsQuery.isPending ? <LoadingState label="正在加载设备使用记录" /> : null}
       {!recordsQuery.isPending && records.length === 0 ? <EmptyState title="暂无设备使用记录" description="开始测试后会生成设备和样品的使用记录。" /> : null}
       {records.length > 0 ? (
-        <DataTable>
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-            <tr>
-              <th className="px-3 py-2 font-medium">选择</th>
-              <th className="px-3 py-2 font-medium">设备</th>
-              <th className="px-3 py-2 font-medium">样品</th>
-              <th className="px-3 py-2 font-medium">开始时间</th>
-              <th className="px-3 py-2 font-medium">结束时间</th>
-              <th className="px-3 py-2 font-medium">状态</th>
-              <th className="px-3 py-2 font-medium">操作人</th>
-              <th className="px-3 py-2 font-medium">备注</th>
-              <th className="px-3 py-2 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
+        <>
+          <DataTable>
+            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-3 py-2 font-medium">选择</th>
+                <th className="px-3 py-2 font-medium">设备</th>
+                <th className="px-3 py-2 font-medium">样品</th>
+                <th className="px-3 py-2 font-medium">开始时间</th>
+                <th className="px-3 py-2 font-medium">结束时间</th>
+                <th className="px-3 py-2 font-medium">状态</th>
+                <th className="px-3 py-2 font-medium">操作人</th>
+                <th className="px-3 py-2 font-medium">备注</th>
+                <th className="px-3 py-2 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {records.map((record) => (
+                <tr className="align-top" key={record.id}>
+                  <td className="px-3 py-3">
+                    <input className="size-4 rounded border-slate-300 text-emerald-600" type="checkbox" checked={selectedIds.includes(record.id)} onChange={() => toggleSelected(record.id)} />
+                  </td>
+                  <td className="px-3 py-3 text-sm">
+                    <div className="font-medium text-slate-900">{record.equipment_no}</div>
+                    <div className="text-xs text-slate-500">{record.equipment_name}</div>
+                  </td>
+                  <td className="px-3 py-3 text-sm">
+                    <div className="font-medium text-slate-900">{record.sample_no}</div>
+                    <div className="text-xs text-slate-500">
+                      {record.sample_name} {record.sample_model ? `(${record.sample_model})` : ''}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-sm text-slate-700">{record.start_time}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700">{record.end_time ?? '-'}</td>
+                  <td className="px-3 py-3 text-sm">
+                    <StatusBadge status={record.status} />
+                  </td>
+                  <td className="px-3 py-3 text-sm text-slate-700">{record.operator_name ?? '-'}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700">{record.remark ?? '-'}</td>
+                  <td className="px-3 py-3">
+                    <EquipmentUsageActions
+                      record={record}
+                      ending={endUsage.isPending}
+                      onEnd={(target) => endUsage.mutate(target)}
+                      onEdit={startEdit}
+                      onDelete={(target) => deleteUsage.mutate(target)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DataTable>
+
+          <div className="space-y-3 md:hidden" data-mobile-equipment-usage-records>
             {records.map((record) => (
-              <tr className="align-top" key={record.id}>
-                <td className="px-3 py-3">
-                  <input className="size-4 rounded border-slate-300 text-emerald-600" type="checkbox" checked={selectedIds.includes(record.id)} onChange={() => toggleSelected(record.id)} />
-                </td>
-                <td className="px-3 py-3 text-sm">
-                  <div className="font-medium text-slate-900">{record.equipment_no}</div>
-                  <div className="text-xs text-slate-500">{record.equipment_name}</div>
-                </td>
-                <td className="px-3 py-3 text-sm">
+              <article className="rounded-lg border border-emerald-900/10 bg-white p-4 shadow-sm" key={record.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <label className="flex min-w-0 items-start gap-3">
+                    <input
+                      className="mt-0.5 size-4 rounded border-slate-300 text-emerald-600"
+                      type="checkbox"
+                      checked={selectedIds.includes(record.id)}
+                      onChange={() => toggleSelected(record.id)}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-slate-950">{record.equipment_no}</span>
+                      <span className="block truncate text-xs text-slate-500">{record.equipment_name}</span>
+                    </span>
+                  </label>
+                  <StatusBadge status={record.status} />
+                </div>
+                <div className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
                   <div className="font-medium text-slate-900">{record.sample_no}</div>
-                  <div className="text-xs text-slate-500">
+                  <div className="mt-0.5">
                     {record.sample_name} {record.sample_model ? `(${record.sample_model})` : ''}
                   </div>
-                </td>
-                <td className="px-3 py-3 text-sm text-slate-700">{record.start_time}</td>
-                <td className="px-3 py-3 text-sm text-slate-700">{record.end_time ?? '-'}</td>
-                <td className="px-3 py-3 text-sm">
-                  <StatusBadge status={record.status} />
-                </td>
-                <td className="px-3 py-3 text-sm text-slate-700">{record.operator_name ?? '-'}</td>
-                <td className="px-3 py-3 text-sm text-slate-700">{record.remark ?? '-'}</td>
-                <td className="px-3 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    <PermissionGate resource="equipment_usage_records" action="update">
-                      <Button variant="secondary" disabled={record.status === 'finished' || endUsage.isPending} onClick={() => endUsage.mutate(record)}>
-                        结束
-                      </Button>
-                      <Button variant="secondary" onClick={() => startEdit(record)}>
-                        <Edit3 className="size-4" aria-hidden="true" />
-                        编辑
-                      </Button>
-                    </PermissionGate>
-                    <PermissionGate resource="equipment_usage_records" action="delete">
-                      <Button variant="danger" onClick={() => deleteUsage.mutate(record)}>
-                        <Trash2 className="size-4" aria-hidden="true" />
-                        删除
-                      </Button>
-                    </PermissionGate>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <dt className="text-slate-500">开始时间</dt>
+                    <dd className="font-medium text-slate-800">{record.start_time}</dd>
                   </div>
-                </td>
-              </tr>
+                  <div>
+                    <dt className="text-slate-500">结束时间</dt>
+                    <dd className="font-medium text-slate-800">{record.end_time ?? '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">操作人</dt>
+                    <dd className="font-medium text-slate-800">{record.operator_name ?? '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-slate-500">备注</dt>
+                    <dd className="font-medium text-slate-800">{record.remark ?? '-'}</dd>
+                  </div>
+                </dl>
+                <div className="mt-3">
+                  <EquipmentUsageActions
+                    record={record}
+                    ending={endUsage.isPending}
+                    onEnd={(target) => endUsage.mutate(target)}
+                    onEdit={startEdit}
+                    onDelete={(target) => deleteUsage.mutate(target)}
+                  />
+                </div>
+              </article>
             ))}
-          </tbody>
-        </DataTable>
+          </div>
+        </>
       ) : null}
       <PaginationControls
         meta={recordsQuery.data?.meta}
@@ -396,6 +443,40 @@ export function EquipmentUsageRecordPage() {
         }}
       />
     </PageShell>
+  )
+}
+
+function EquipmentUsageActions({
+  record,
+  ending,
+  onEnd,
+  onEdit,
+  onDelete,
+}: {
+  record: EquipmentUsageRecord
+  ending: boolean
+  onEnd: (record: EquipmentUsageRecord) => void
+  onEdit: (record: EquipmentUsageRecord) => void
+  onDelete: (record: EquipmentUsageRecord) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <PermissionGate resource="equipment_usage_records" action="update">
+        <Button variant="secondary" disabled={record.status === 'finished' || ending} onClick={() => onEnd(record)}>
+          结束
+        </Button>
+        <Button variant="secondary" onClick={() => onEdit(record)}>
+          <Edit3 className="size-4" aria-hidden="true" />
+          编辑
+        </Button>
+      </PermissionGate>
+      <PermissionGate resource="equipment_usage_records" action="delete">
+        <Button variant="danger" onClick={() => onDelete(record)}>
+          <Trash2 className="size-4" aria-hidden="true" />
+          删除
+        </Button>
+      </PermissionGate>
+    </div>
   )
 }
 
