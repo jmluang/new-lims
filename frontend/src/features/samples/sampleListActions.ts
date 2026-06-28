@@ -7,12 +7,13 @@ export type SampleListActionSubject = {
 
 export function visibleSampleListActions(sample: SampleListActionSubject): SampleListAction[] {
   const actions: SampleListAction[] = []
+  const needsReturnRoom = sample.status === 'testing' && sample.current_holder !== '样品室'
 
   if (sample.status === 'pending' && sample.current_holder === '样品室') {
     actions.push('lend')
   }
 
-  if (sample.status === 'testing' && sample.current_holder !== '样品室') {
+  if (needsReturnRoom) {
     actions.push('transfer', 'return_room')
   }
 
@@ -20,7 +21,7 @@ export function visibleSampleListActions(sample: SampleListActionSubject): Sampl
     actions.push('receive_back')
   }
 
-  if (!['returned', 'scrapped'].includes(sample.status)) {
+  if (!needsReturnRoom && !['returned', 'scrapped'].includes(sample.status)) {
     actions.push('return_client')
   }
 

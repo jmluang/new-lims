@@ -113,12 +113,13 @@ class SampleFlowService
     private function availableActions(Sample $sample): array
     {
         $actions = [];
+        $needsReturnRoom = $sample->status === 'testing' && $sample->current_holder !== '样品室';
 
         if ($sample->status === 'pending' && $sample->current_holder === '样品室') {
             $actions[] = 'lend';
         }
 
-        if ($sample->status === 'testing' && $sample->current_holder !== '样品室') {
+        if ($needsReturnRoom) {
             $actions[] = 'transfer';
             $actions[] = 'return_room';
         }
@@ -129,9 +130,12 @@ class SampleFlowService
 
         if (! in_array($sample->status, ['returned', 'scrapped'], true)) {
             $actions[] = 'send_out';
-            $actions[] = 'return_client';
             $actions[] = 'scrap';
             $actions[] = 'position_change';
+        }
+
+        if (! $needsReturnRoom && ! in_array($sample->status, ['returned', 'scrapped'], true)) {
+            $actions[] = 'return_client';
         }
 
         return $actions;

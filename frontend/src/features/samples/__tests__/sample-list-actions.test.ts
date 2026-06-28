@@ -12,7 +12,8 @@ function sample(overrides: Partial<SampleListActionSubject> = {}): SampleListAct
 describe('visibleSampleListActions', () => {
   it('matches example sample_manage list actions for active samples', () => {
     expect(visibleSampleListActions(sample({ status: 'pending', current_holder: '样品室' }))).toEqual(['lend', 'return_client'])
-    expect(visibleSampleListActions(sample({ status: 'testing', current_holder: 'Alice' }))).toEqual(['transfer', 'return_room', 'return_client'])
+    expect(visibleSampleListActions(sample({ status: 'testing', current_holder: 'Alice' }))).toEqual(['transfer', 'return_room'])
+    expect(visibleSampleListActions(sample({ status: 'testing', current_holder: '样品室' }))).toEqual(['return_client'])
     expect(visibleSampleListActions(sample({ status: 'outsourced', current_holder: '分包实验室' }))).toEqual(['receive_back', 'return_client'])
     expect(visibleSampleListActions(sample({ status: 'completed', current_holder: '样品室' }))).toEqual(['return_client'])
     expect(visibleSampleListActions(sample({ status: 'retained', current_holder: '样品室' }))).toEqual(['return_client'])

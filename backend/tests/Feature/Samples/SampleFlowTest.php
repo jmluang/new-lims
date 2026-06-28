@@ -204,6 +204,16 @@ class SampleFlowTest extends TestCase
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('action_type');
 
+        $returned->update([
+            'status' => 'testing',
+            'current_holder' => 'Alice',
+        ]);
+
+        $this->postJsonAs($operator, "/api/samples/{$returned->id}/flows", [
+            'action_type' => 'return_client',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('action_type');
+
         $this->assertDatabaseCount('sample_flows', 0);
     }
 
