@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Download, Edit3, Eye, Plus, Search, Trash2 } from 'lucide-react'
+import { Download, Edit3, Eye, Plus, Search, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass, localDateInputValue, paginationParams } from '../system/utils'
+import { fetchMessageRecipients, pushTestOrderMessage, type MessageRecipient } from '../messages/messages'
 
 export type TestOrderStandard = {
   id: number
@@ -96,6 +97,8 @@ export function TestOrderListPage() {
   const [filters, setFilters] = useState<TestOrderFilters>(emptyFilters)
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(15)
+  const [notifyOrder, setNotifyOrder] = useState<TestOrder | null>(null)
+  const [recipientUserId, setRecipientUserId] = useState('')
   const ordersQuery = useQuery({
     queryKey: ['test-orders', filters, page, perPage],
     queryFn: async () => {
@@ -109,6 +112,21 @@ export function TestOrderListPage() {
       await api.delete(`/api/test-orders/${order.id}`)
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['test-orders'] }),
+  })
+  const recipientsQuery = useQuery({
+    queryKey: ['test-order-message-recipients'],
+    queryFn: fetchMessageRecipients,
+    enabled: notifyOrder !== null,
+  })
+  const pushMessage = useMutation({
+    mutationFn: async (input: { orderId: number; recipientUserId: number }) => {
+      await pushTestOrderMessage(input.orderId, input.recipientUserId)
+    },
+    onSuccess: async () => {
+      setNotifyOrder(null)
+      setRecipientUserId('')
+      await queryClient.invalidateQueries({ queryKey: ['messages'] })
+    },
   })
   const orders = ordersQuery.data?.data ?? []
 
@@ -210,7 +228,7 @@ export function TestOrderListPage() {
                     <StatusBadge status={order.sample_status} />
                   </td>
                   <td className="px-3 py-3">
-                    <TestOrderActions order={order} onDelete={(target) => deleteOrder.mutate(target)} />
+                    <TestOrderActions order={order} onDelete={(target) => deleteOrder.mutate(target)} onNotify={startNotify} />
                   </td>
                 </tr>
               ))}
@@ -227,7 +245,7 @@ export function TestOrderListPage() {
                   <StatusBadge status={order.sample_status} />
                 </div>
                 <div className="mt-3">
-                  <TestOrderActions order={order} onDelete={(target) => deleteOrder.mutate(target)} />
+                  <TestOrderActions order={order} onDelete={(target) => deleteOrder.mutate(target)} onNotify={startNotify} />
                 </div>
               </article>
             ))}
@@ -244,11 +262,39 @@ export function TestOrderListPage() {
           setPage(1)
         }}
       />
+      <TestOrderNotifyModal
+        error={pushMessage.error}
+        isPending={pushMessage.isPending}
+        onClose={() => {
+          setNotifyOrder(null)
+          setRecipientUserId('')
+        }}
+        onConfirm={() => confirmNotify()}
+        order={notifyOrder}
+        recipientUserId={recipientUserId}
+        recipients={recipientsQuery.data ?? []}
+        recipientsError={recipientsQuery.error}
+        recipientsLoading={recipientsQuery.isPending}
+        setRecipientUserId={setRecipientUserId}
+      />
     </PageShell>
   )
+
+  function startNotify(order: TestOrder) {
+    setNotifyOrder(order)
+    setRecipientUserId('')
+  }
+
+  function confirmNotify() {
+    if (!notifyOrder || !recipientUserId) {
+      return
+    }
+
+    pushMessage.mutate({ orderId: notifyOrder.id, recipientUserId: Number(recipientUserId) })
+  }
 }
 
-function TestOrderActions({ order, onDelete }: { order: TestOrder; onDelete: (order: TestOrder) => void }) {
+function TestOrderActions({ order, onDelete, onNotify }: { order: TestOrder; onDelete: (order: TestOrder) => void; onNotify: (order: TestOrder) => void }) {
   const navigate = useNavigate()
 
   return (
@@ -263,6 +309,12 @@ function TestOrderActions({ order, onDelete }: { order: TestOrder; onDelete: (or
           Edit
         </Button>
       </PermissionGate>
+      <PermissionGate resource="test_orders" action="notify">
+        <Button variant="secondary" onClick={() => onNotify(order)}>
+          <Send className="size-4" aria-hidden="true" />
+          推送消息
+        </Button>
+      </PermissionGate>
       <PermissionGate resource="test_orders" action="delete">
         <Button variant="danger" onClick={() => onDelete(order)}>
           <Trash2 className="size-4" aria-hidden="true" />
@@ -270,6 +322,60 @@ function TestOrderActions({ order, onDelete }: { order: TestOrder; onDelete: (or
         </Button>
       </PermissionGate>
     </div>
+  )
+}
+
+function TestOrderNotifyModal({
+  error,
+  isPending,
+  onClose,
+  onConfirm,
+  order,
+  recipientUserId,
+  recipients,
+  recipientsError,
+  recipientsLoading,
+  setRecipientUserId,
+}: {
+  error: unknown
+  isPending: boolean
+  onClose: () => void
+  onConfirm: () => void
+  order: TestOrder | null
+  recipientUserId: string
+  recipients: MessageRecipient[]
+  recipientsError: unknown
+  recipientsLoading: boolean
+  setRecipientUserId: (value: string) => void
+}) {
+  return (
+    <Modal open={order !== null} title={order ? `推送消息 - ${order.order_no}` : '推送消息'} description="提醒指定后台用户及时处理该委托试验单。" onClose={onClose}>
+      <div className="space-y-4">
+        {error ? <ErrorNotice error={error} fallback="推送消息失败" /> : null}
+        {recipientsError ? <ErrorNotice error={recipientsError} fallback="无法加载后台用户" /> : null}
+        <div className="rounded-md border border-emerald-900/10 bg-emerald-50/60 px-3 py-2 text-sm leading-6 text-emerald-900">
+          消息内容：请及时处理委托试验单 {order?.order_no ?? ''}。
+        </div>
+        <Field label="接收用户">
+          <select className={inputClass} value={recipientUserId} onChange={(event) => setRecipientUserId(event.target.value)} disabled={recipientsLoading || isPending}>
+            <option value="">{recipientsLoading ? '正在加载用户' : '请选择接收用户'}</option>
+            {recipients.map((recipient) => (
+              <option value={recipient.id} key={recipient.id}>
+                {recipient.name}（{recipient.email}）
+              </option>
+            ))}
+          </select>
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose} disabled={isPending}>
+            取消
+          </Button>
+          <Button variant="primary" onClick={onConfirm} disabled={isPending || !recipientUserId}>
+            确认推送
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

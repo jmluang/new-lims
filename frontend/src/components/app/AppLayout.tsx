@@ -4,6 +4,7 @@ import { LogOut } from 'lucide-react'
 import { MobileNav } from './MobileNav'
 import { Sidebar } from './Sidebar'
 import { useCurrentUser, useLogout } from '../../features/auth/useCurrentUser'
+import { MessageCenter } from '../../features/messages/MessageCenter'
 
 export function AppLayout({ children }: PropsWithChildren) {
   const navigate = useNavigate()
@@ -35,6 +36,7 @@ export function AppLayout({ children }: PropsWithChildren) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <MessageCenter />
               <div className="hidden rounded-md border border-emerald-900/10 bg-emerald-50/60 px-3 py-1.5 text-sm text-emerald-900 sm:block">
                 {currentUser.data?.name ?? '未登录'}
               </div>

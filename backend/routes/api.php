@@ -31,6 +31,8 @@ use App\Http\Controllers\System\PermissionCatalogController;
 use App\Http\Controllers\System\UserController;
 use App\Http\Controllers\TempHumidityRecordController;
 use App\Http\Controllers\TestOrderController;
+use App\Http\Controllers\TestOrderMessageController;
+use App\Http\Controllers\UserMessageController;
 use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -80,6 +82,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/backups/{backupRun}/restore', [BackupController::class, 'restore']);
         Route::get('/system/pdf-service/health', PdfServiceHealthController::class);
 
+        Route::get('/messages', [UserMessageController::class, 'index']);
+        Route::post('/messages/{message}/read', [UserMessageController::class, 'markRead']);
+
         Route::get('/audit-logs/export', [AuditLogController::class, 'export']);
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
         Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show']);
@@ -106,6 +111,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
         Route::get('/test-orders/export', [TestOrderController::class, 'export']);
         Route::get('/test-orders/form-options', [TestOrderController::class, 'formOptions']);
+        Route::get('/test-orders/message-recipients', [TestOrderMessageController::class, 'recipients']);
+        Route::post('/test-orders/{testOrder}/messages', [TestOrderMessageController::class, 'store']);
         Route::get('/test-orders/{testOrder}/sample-options', [TestOrderController::class, 'sampleOptions']);
         Route::apiResource('/test-orders', TestOrderController::class);
         Route::get('/public-test-order-submissions', [PublicTestOrderSubmissionReviewController::class, 'index']);
