@@ -31,6 +31,7 @@ use App\Http\Controllers\System\PermissionCatalogController;
 use App\Http\Controllers\System\UserController;
 use App\Http\Controllers\TempHumidityRecordController;
 use App\Http\Controllers\TestOrderController;
+use App\Http\Controllers\TestOrderEntrustOrderController;
 use App\Http\Controllers\TestOrderMessageController;
 use App\Http\Controllers\UserMessageController;
 use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
@@ -113,6 +114,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/test-orders/form-options', [TestOrderController::class, 'formOptions']);
         Route::get('/test-orders/message-recipients', [TestOrderMessageController::class, 'recipients']);
         Route::post('/test-orders/{testOrder}/messages', [TestOrderMessageController::class, 'store']);
+        Route::get('/test-orders/{testOrder}/entrust-order.pdf', [TestOrderEntrustOrderController::class, 'show']);
         Route::get('/test-orders/{testOrder}/sample-options', [TestOrderController::class, 'sampleOptions']);
         Route::apiResource('/test-orders', TestOrderController::class);
         Route::get('/public-test-order-submissions', [PublicTestOrderSubmissionReviewController::class, 'index']);

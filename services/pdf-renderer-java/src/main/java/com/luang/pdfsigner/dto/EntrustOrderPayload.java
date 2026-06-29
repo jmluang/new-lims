@@ -11,10 +11,18 @@ public record EntrustOrderPayload(
         Party producer,
         Requirements requirements,
         Sample sample,
+        List<Sample> samples,
         Logistics logistics,
         Signatures signatures,
         Meta meta
 ) {
+    public List<Sample> effectiveSamples() {
+        if (samples != null && !samples.isEmpty()) {
+            return samples;
+        }
+        return sample == null ? List.of() : List.of(sample);
+    }
+
     public record Base(
             @JsonProperty("entrust_date") String entrustDate,
             EnumValue urgency,

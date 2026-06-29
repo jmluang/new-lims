@@ -40,6 +40,7 @@ class TestOrderApiTest extends TestCase
             'name' => '中山市XXX有限公司',
             'address' => '中山市古镇镇古一飞虎楼8栋2层201室',
             'phone' => '1388888888',
+            'email' => 'customer@example.test',
             'status' => 'active',
         ]);
         $standard = $this->standard();
@@ -50,8 +51,17 @@ class TestOrderApiTest extends TestCase
             ->assertJsonPath('data.contract_no', '26000015738')
             ->assertJsonPath('data.client_customer_id', $customer->id)
             ->assertJsonPath('data.client_company', '中山市XXX有限公司')
+            ->assertJsonPath('data.client_email', 'client@example.test')
+            ->assertJsonPath('data.manufacturer_email', 'manufacturer@example.test')
+            ->assertJsonPath('data.maker_email', 'maker@example.test')
+            ->assertJsonPath('data.sample_return', 'return')
+            ->assertJsonPath('data.shipping_notes', 'Please keep original packaging.')
             ->assertJsonCount(1, 'data.standards')
             ->assertJsonCount(2, 'data.samples')
+            ->assertJsonPath('data.samples.0.rated_current', '1.3A')
+            ->assertJsonPath('data.samples.0.rated_frequency', '50Hz')
+            ->assertJsonPath('data.samples.0.quantity_unit', '个')
+            ->assertJsonPath('data.samples.0.sample_condition', 'good')
             ->json('data.id');
 
         $this->getJsonAs($admin, "/api/test-orders/{$orderId}")
@@ -194,14 +204,19 @@ class TestOrderApiTest extends TestCase
             'client_address' => $customer->address,
             'client_contact' => '唐僧',
             'client_phone' => '1388888888',
+            'client_email' => 'client@example.test',
             'manufacturer_company' => '中山市制造有限公司',
+            'manufacturer_email' => 'manufacturer@example.test',
             'maker_company' => '中山市制造有限公司',
+            'maker_email' => 'maker@example.test',
             'report_forms' => ['electronic', 'paper'],
+            'sample_return' => 'return',
             'outsourcing_option' => 'allowed',
             'address_lab_name' => '样品室',
             'address_contact' => '张三',
             'address_detail' => '中山实验室',
             'address_phone' => '13900000000',
+            'shipping_notes' => 'Please keep original packaging.',
             'standards' => [
                 [
                     'standard_id' => $standard->id,
@@ -217,16 +232,29 @@ class TestOrderApiTest extends TestCase
                     'sample_name' => '路灯',
                     'specification' => 'LD',
                     'model' => 'LD-100',
+                    'input_voltage' => '220V',
+                    'rated_current' => '1.3A',
+                    'power' => '300W',
+                    'rated_frequency' => '50Hz',
                     'status' => 'pending',
                     'quantity' => 3,
+                    'quantity_unit' => '个',
+                    'sample_condition' => 'good',
+                    'sample_condition_note' => null,
                     'detail_content' => "电压\n电流\n功率",
                 ],
                 [
                     'sample_name' => '控制器',
                     'specification' => 'CTRL',
                     'model' => 'C-1',
+                    'input_voltage' => '12V',
+                    'rated_current' => '0.5A',
+                    'power' => '10W',
+                    'rated_frequency' => '50Hz',
                     'status' => 'pending',
                     'quantity' => 1,
+                    'quantity_unit' => '个',
+                    'sample_condition' => 'good',
                     'detail_content' => '功能检查',
                 ],
             ],

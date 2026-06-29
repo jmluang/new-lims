@@ -15,6 +15,8 @@ import {
   outsourcingOptions,
   reportFormOptions,
   reportSubmissionOptions,
+  sampleConditionOptions,
+  sampleReturnOptions,
   testOrderSchema,
   type TestOrderFormValues,
 } from './testOrderSchema'
@@ -50,7 +52,8 @@ export function TestOrderForm({
   const clientAddress = useWatch({ control: form.control, name: 'client_address' })
   const clientContact = useWatch({ control: form.control, name: 'client_contact' })
   const clientPhone = useWatch({ control: form.control, name: 'client_phone' })
-  const clientSyncKey = [clientCustomerId ?? '', clientCompany ?? '', clientAddress ?? '', clientContact ?? '', clientPhone ?? ''].join('\u001f')
+  const clientEmail = useWatch({ control: form.control, name: 'client_email' })
+  const clientSyncKey = [clientCustomerId ?? '', clientCompany ?? '', clientAddress ?? '', clientContact ?? '', clientPhone ?? '', clientEmail ?? ''].join('\u001f')
   const copyClientToParty = useCallback(
     (prefix: 'manufacturer' | 'maker') => {
       const values = copyClientPartyValues(form.getValues(), prefix)
@@ -92,6 +95,7 @@ export function TestOrderForm({
     form.setValue(`${prefix}_company` as const, customer.name)
     form.setValue(`${prefix}_address` as const, customer.address ?? '')
     form.setValue(`${prefix}_phone` as const, customer.phone ?? '')
+    form.setValue(`${prefix}_email` as const, customer.email ?? '')
 
     const defaultContact = contactOptionsForCustomer(customer)[0]
     if (defaultContact) {
@@ -111,10 +115,13 @@ export function TestOrderForm({
     applyCustomer(prefix, String(customer.id))
   }
 
-  function applyContact(prefix: 'client' | 'manufacturer' | 'maker', contact: { name: string; phone?: string | null }) {
+  function applyContact(prefix: 'client' | 'manufacturer' | 'maker', contact: { name: string; phone?: string | null; email?: string | null }) {
     form.setValue(`${prefix}_contact` as const, contact.name, { shouldDirty: true })
     if (contact.phone) {
       form.setValue(`${prefix}_phone` as const, contact.phone, { shouldDirty: true })
+    }
+    if (contact.email) {
+      form.setValue(`${prefix}_email` as const, contact.email, { shouldDirty: true })
     }
   }
 
@@ -288,11 +295,20 @@ export function TestOrderForm({
                 <Field label="Input voltage">
                   <input className={inputClass} placeholder="220V" {...form.register(`samples.${index}.input_voltage`)} />
                 </Field>
+                <Field label="Rated current">
+                  <input className={inputClass} placeholder="1.3A" {...form.register(`samples.${index}.rated_current`)} />
+                </Field>
                 <Field label="Power">
                   <input className={inputClass} placeholder="60W" {...form.register(`samples.${index}.power`)} />
                 </Field>
+                <Field label="Rated frequency">
+                  <input className={inputClass} placeholder="50Hz" {...form.register(`samples.${index}.rated_frequency`)} />
+                </Field>
                 <Field label="Quantity">
                   <input className={inputClass} type="number" min={1} {...form.register(`samples.${index}.quantity`, { valueAsNumber: true })} />
+                </Field>
+                <Field label="Quantity unit">
+                  <input className={inputClass} placeholder="个" {...form.register(`samples.${index}.quantity_unit`)} />
                 </Field>
                 <Field label="Status">
                   <select className={inputClass} {...form.register(`samples.${index}.status`)}>
@@ -302,6 +318,19 @@ export function TestOrderForm({
                       </option>
                     ))}
                   </select>
+                </Field>
+                <Field label="Sample condition">
+                  <select className={inputClass} {...form.register(`samples.${index}.sample_condition`)}>
+                    <option value="">{zhText('Unset')}</option>
+                    {sampleConditionOptions.map((value) => (
+                      <option value={value} key={value}>
+                        {zhText(value)}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Condition note">
+                  <input className={inputClass} {...form.register(`samples.${index}.sample_condition_note`)} />
                 </Field>
                 <Field label="Detail content" className="md:col-span-2">
                   <textarea className={textareaClass} {...form.register(`samples.${index}.detail_content`)} />
@@ -351,6 +380,16 @@ export function TestOrderForm({
               ))}
             </select>
           </Field>
+          <Field label="Sample return">
+            <select className={inputClass} {...form.register('sample_return')}>
+              <option value="">{zhText('Unset')}</option>
+              {sampleReturnOptions.map((item) => (
+                <option value={item} key={item}>
+                  {zhText(item)}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Remark" className="md:col-span-4">
             <textarea className={textareaClass} {...form.register('remark')} />
           </Field>
@@ -370,6 +409,9 @@ export function TestOrderForm({
           </Field>
           <Field label="Address detail">
             <input className={inputClass} {...form.register('address_detail')} />
+          </Field>
+          <Field label="Shipping notes" className="md:col-span-4">
+            <textarea className={textareaClass} {...form.register('shipping_notes')} />
           </Field>
           <Field label="Client signature">
             <input className={inputClass} {...form.register('client_signature')} />
@@ -424,7 +466,7 @@ function PartyFields({
   customers: Customer[]
   onPick: (prefix: 'client' | 'manufacturer' | 'maker', customerId: string) => void
   onCompanySearch: (prefix: 'client' | 'manufacturer' | 'maker', value: string) => void
-  onContactPick: (prefix: 'client' | 'manufacturer' | 'maker', contact: { name: string; phone?: string | null }) => void
+  onContactPick: (prefix: 'client' | 'manufacturer' | 'maker', contact: { name: string; phone?: string | null; email?: string | null }) => void
   required?: boolean
   sameAsClient?: boolean
   onSameAsClientChange?: (checked: boolean) => void
@@ -507,6 +549,9 @@ function PartyFields({
       <Field label={`${title} phone`}>
         <input className={inputClass} readOnly={synced} {...form.register(`${prefix}_phone`)} />
       </Field>
+      <Field label={`${title} email`}>
+        <input className={inputClass} readOnly={synced} {...form.register(`${prefix}_email`)} />
+      </Field>
     </div>
   )
 }
@@ -522,25 +567,30 @@ function defaultValues(order?: TestOrder | null): TestOrderFormValues {
     client_address: order?.client_address ?? '',
     client_contact: order?.client_contact ?? '',
     client_phone: order?.client_phone ?? '',
+    client_email: order?.client_email ?? '',
     manufacturer_customer_id: order?.manufacturer_customer_id ?? null,
     manufacturer_company: order?.manufacturer_company ?? '',
     manufacturer_address: order?.manufacturer_address ?? '',
     manufacturer_contact: order?.manufacturer_contact ?? '',
     manufacturer_phone: order?.manufacturer_phone ?? '',
+    manufacturer_email: order?.manufacturer_email ?? '',
     maker_customer_id: order?.maker_customer_id ?? null,
     maker_company: order?.maker_company ?? '',
     maker_address: order?.maker_address ?? '',
     maker_contact: order?.maker_contact ?? '',
     maker_phone: order?.maker_phone ?? '',
+    maker_email: order?.maker_email ?? '',
     report_forms: order?.report_forms ?? ['formal_report', 'electronic_report'],
     delivery_method: order?.delivery_method ?? 'self_pick',
     outsourcing_option: order?.outsourcing_option ?? 'allowed',
+    sample_return: order?.sample_return ?? 'return',
     remark: order?.remark ?? '',
     sample_status: order?.sample_status ?? 'not_received',
     address_lab_name: order?.address_lab_name ?? '',
     address_contact: order?.address_contact ?? '',
     address_detail: order?.address_detail ?? '',
     address_phone: order?.address_phone ?? '',
+    shipping_notes: order?.shipping_notes ?? '',
     client_signature: order?.client_signature ?? '',
     client_sign_date: order?.client_sign_date ?? '',
     dept_confirm: order?.dept_confirm ?? '',
@@ -565,9 +615,14 @@ function defaultValues(order?: TestOrder | null): TestOrderFormValues {
           specification: row.specification ?? '',
           model: row.model ?? '',
           input_voltage: row.input_voltage ?? '',
+          rated_current: row.rated_current ?? '',
           power: row.power ?? '',
+          rated_frequency: row.rated_frequency ?? '',
           status: row.status,
           quantity: row.quantity,
+          quantity_unit: row.quantity_unit ?? '',
+          sample_condition: row.sample_condition ?? '',
+          sample_condition_note: row.sample_condition_note ?? '',
           detail_content: row.detail_content ?? '',
           remark: row.remark ?? '',
         }))
@@ -592,9 +647,14 @@ function emptySampleRow() {
     specification: '',
     model: '',
     input_voltage: '',
+    rated_current: '',
     power: '',
+    rated_frequency: '',
     status: 'pending' as const,
     quantity: 1,
+    quantity_unit: '个',
+    sample_condition: 'good' as const,
+    sample_condition_note: '',
     detail_content: '',
     remark: '',
   }

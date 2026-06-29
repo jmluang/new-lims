@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, it, vi } from 'vitest'
 import {
   contactOptionsForCustomer,
   copyClientPartyValues,
@@ -9,6 +11,11 @@ import {
   testOrderSchema,
   type TestOrderFormValues,
 } from '../testOrderSchema'
+import { TestOrderForm } from '../TestOrderForm'
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => React.createElement('a', { href: to }, children),
+}))
 
 describe('test order form', () => {
   it('requires the order date, client company, standards and samples', () => {
@@ -27,6 +34,11 @@ describe('test order form', () => {
   it('normalizes dynamic child rows without losing stable ids', () => {
     const payload = normalizeTestOrderPayload({
       ...baseValues(),
+      client_email: 'client@example.test',
+      manufacturer_email: 'manufacturer@example.test',
+      maker_email: 'maker@example.test',
+      sample_return: 'return',
+      shipping_notes: 'Please keep original packaging.',
       standards: [
         {
           id: 10,
@@ -52,8 +64,15 @@ describe('test order form', () => {
           sample_name: '控制器',
           specification: 'CTRL',
           model: 'C-1',
+          input_voltage: '220V',
+          rated_current: '1.3A',
           status: 'pending',
+          power: '300W',
+          rated_frequency: '50Hz',
           quantity: 1,
+          quantity_unit: '个',
+          sample_condition: 'good',
+          sample_condition_note: '',
           detail_content: '功能检查（更新）',
           remark: '',
         },
@@ -61,8 +80,15 @@ describe('test order form', () => {
           sample_name: '电源',
           specification: 'PSU',
           model: 'P-1',
+          input_voltage: '220V',
+          rated_current: '0.8A',
           status: 'pending',
+          power: '180W',
+          rated_frequency: '50Hz',
           quantity: 2,
+          quantity_unit: '台',
+          sample_condition: 'abnormal',
+          sample_condition_note: '外壳划痕',
           detail_content: '输入输出检查',
           remark: '',
         },
@@ -74,27 +100,72 @@ describe('test order form', () => {
       { standard_code: 'IEC 60598-1', qualifications: [], sort_order: 1 },
     ])
     expect(payload.samples).toMatchObject([
-      { id: 22, sample_name: '控制器', sort_order: 0 },
-      { sample_name: '电源', quantity: 2, sort_order: 1 },
+      {
+        id: 22,
+        sample_name: '控制器',
+        rated_current: '1.3A',
+        rated_frequency: '50Hz',
+        quantity_unit: '个',
+        sample_condition: 'good',
+        sort_order: 0,
+      },
+      {
+        sample_name: '电源',
+        quantity: 2,
+        quantity_unit: '台',
+        sample_condition: 'abnormal',
+        sample_condition_note: '外壳划痕',
+        sort_order: 1,
+      },
     ])
+    expect(payload).toMatchObject({
+      client_email: 'client@example.test',
+      manufacturer_email: 'manufacturer@example.test',
+      maker_email: 'maker@example.test',
+      sample_return: 'return',
+      shipping_notes: 'Please keep original packaging.',
+    })
   })
 
   it('aligns report requirement defaults and options with the commission form', () => {
-    expect(reportFormOptions).toEqual(['formal_report', 'simple_report', 'electronic_report', 'english_report'])
+    expect(reportFormOptions).toEqual(['formal_report', 'simple_report', 'electronic_report', 'paper_report', 'english_report'])
     expect(reportSubmissionOptions).toEqual(['self_pick', 'mail'])
 
     const payload = normalizeTestOrderPayload({
       ...baseValues(),
-      report_forms: ['formal_report', 'electronic_report'],
+      report_forms: ['formal_report', 'electronic_report', 'paper_report'],
       delivery_method: 'self_pick',
       outsourcing_option: 'allowed',
     })
 
     expect(payload).toMatchObject({
-      report_forms: ['formal_report', 'electronic_report'],
+      report_forms: ['formal_report', 'electronic_report', 'paper_report'],
       delivery_method: 'self_pick',
       outsourcing_option: 'allowed',
     })
+  })
+
+  it('renders entrust print fields in the existing form layout', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(TestOrderForm, {
+        customers: [],
+        standards: [],
+        submitting: false,
+        error: null,
+        onSubmit: async () => undefined,
+        onCancel: () => undefined,
+      }),
+    )
+
+    expect(html).toContain('委托方邮箱')
+    expect(html).toContain('制造商邮箱')
+    expect(html).toContain('生产商邮箱')
+    expect(html).toContain('样品是否返还')
+    expect(html).toContain('额定电流')
+    expect(html).toContain('额定频率')
+    expect(html).toContain('数量单位')
+    expect(html).toContain('样品状态')
+    expect(html).toContain('特别说明')
   })
 
   it('builds searchable company labels from customer registry records', () => {
@@ -129,7 +200,7 @@ describe('test order form', () => {
           { id: 13, customer_id: 7, name: '停用联系人', phone: '13700000000', is_default: false, status: 'disabled' },
         ],
       ),
-    ).toEqual([{ id: 12, name: '客户管理人A', phone: '13900000000' }])
+    ).toEqual([{ id: 12, name: '客户管理人A', phone: '13900000000', email: null }])
 
     expect(
       contactOptionsForCustomer({
@@ -144,7 +215,7 @@ describe('test order form', () => {
           status: 'active',
         },
       }),
-    ).toEqual([{ id: 21, name: '默认联系人', phone: '13800000000' }])
+    ).toEqual([{ id: 21, name: '默认联系人', phone: '13800000000', email: null }])
   })
 
   it('copies manufacturer and maker snapshots from the client party when same-as-client is enabled', () => {
@@ -171,25 +242,30 @@ function baseValues(): TestOrderFormValues {
     client_address: '',
     client_contact: '',
     client_phone: '',
+    client_email: '',
     manufacturer_customer_id: null,
     manufacturer_company: '',
     manufacturer_address: '',
     manufacturer_contact: '',
     manufacturer_phone: '',
+    manufacturer_email: '',
     maker_customer_id: null,
     maker_company: '',
     maker_address: '',
     maker_contact: '',
     maker_phone: '',
+    maker_email: '',
     report_forms: ['formal_report', 'electronic_report'],
     delivery_method: 'self_pick',
     outsourcing_option: 'allowed',
+    sample_return: 'return',
     remark: '',
     sample_status: 'not_received',
     address_lab_name: '',
     address_contact: '',
     address_detail: '',
     address_phone: '',
+    shipping_notes: '',
     client_signature: '',
     client_sign_date: '',
     dept_confirm: '',

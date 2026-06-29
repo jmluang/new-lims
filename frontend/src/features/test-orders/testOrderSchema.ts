@@ -1,8 +1,10 @@
 import { z } from 'zod'
 
-export const reportFormOptions = ['formal_report', 'simple_report', 'electronic_report', 'english_report'] as const
+export const reportFormOptions = ['formal_report', 'simple_report', 'electronic_report', 'paper_report', 'english_report'] as const
 export const reportSubmissionOptions = ['self_pick', 'mail'] as const
 export const outsourcingOptions = ['allowed', 'not_allowed'] as const
+export const sampleReturnOptions = ['return', 'destroy'] as const
+export const sampleConditionOptions = ['good', 'abnormal'] as const
 
 export const testOrderStandardSchema = z.object({
   id: z.number().optional(),
@@ -20,8 +22,13 @@ export const testOrderSampleSchema = z.object({
   specification: z.string().optional(),
   model: z.string().optional(),
   input_voltage: z.string().optional(),
+  rated_current: z.string().optional(),
   power: z.string().optional(),
+  rated_frequency: z.string().optional(),
+  quantity_unit: z.string().optional(),
   status: z.enum(['pending', 'partially_received', 'received', 'rejected', 'cancelled']),
+  sample_condition: z.enum(sampleConditionOptions).optional().or(z.literal('')),
+  sample_condition_note: z.string().optional(),
   quantity: z.number().int().min(1, '数量至少为 1'),
   detail_content: z.string().optional(),
   remark: z.string().optional(),
@@ -37,25 +44,30 @@ export const testOrderSchema = z.object({
   client_address: z.string().optional(),
   client_contact: z.string().optional(),
   client_phone: z.string().optional(),
+  client_email: z.string().email('请输入有效邮箱').or(z.literal('')).optional(),
   manufacturer_customer_id: z.number().nullable().optional(),
   manufacturer_company: z.string().optional(),
   manufacturer_address: z.string().optional(),
   manufacturer_contact: z.string().optional(),
   manufacturer_phone: z.string().optional(),
+  manufacturer_email: z.string().email('请输入有效邮箱').or(z.literal('')).optional(),
   maker_customer_id: z.number().nullable().optional(),
   maker_company: z.string().optional(),
   maker_address: z.string().optional(),
   maker_contact: z.string().optional(),
   maker_phone: z.string().optional(),
+  maker_email: z.string().email('请输入有效邮箱').or(z.literal('')).optional(),
   report_forms: z.array(z.string()).optional(),
   delivery_method: z.string().optional(),
   outsourcing_option: z.string().optional(),
+  sample_return: z.enum(sampleReturnOptions).optional().or(z.literal('')),
   remark: z.string().optional(),
   sample_status: z.enum(['not_received', 'partially_received', 'received', 'testing', 'completed']),
   address_lab_name: z.string().optional(),
   address_contact: z.string().optional(),
   address_detail: z.string().optional(),
   address_phone: z.string().optional(),
+  shipping_notes: z.string().optional(),
   client_signature: z.string().optional(),
   client_sign_date: z.string().optional(),
   dept_confirm: z.string().optional(),
@@ -86,6 +98,7 @@ type PartyContact = {
   name: string
   customer_id?: number
   phone?: string | null
+  email?: string | null
   is_default?: boolean
   status: 'active' | 'disabled'
 }
@@ -119,8 +132,13 @@ export function normalizeTestOrderPayload(values: TestOrderFormValues): ApiPaylo
           specification: row.specification,
           model: row.model,
           input_voltage: row.input_voltage,
+          rated_current: row.rated_current,
           power: row.power,
+          rated_frequency: row.rated_frequency,
+          quantity_unit: row.quantity_unit,
           status: row.status,
+          sample_condition: row.sample_condition,
+          sample_condition_note: row.sample_condition_note,
           quantity: Number(row.quantity),
           detail_content: row.detail_content,
           remark: row.remark,
@@ -137,7 +155,7 @@ export function customerSearchValue(customer: PartyCustomer) {
 export function contactOptionsForCustomer(customer?: PartyCustomer | null, contacts?: PartyContact[]) {
   const activeContacts = (contacts ?? [])
     .filter((contact) => contact.status === 'active')
-    .map((contact) => ({ id: contact.id, name: contact.name, phone: contact.phone ?? null }))
+    .map((contact) => ({ id: contact.id, name: contact.name, phone: contact.phone ?? null, email: contact.email ?? null }))
 
   if (activeContacts.length > 0) {
     return activeContacts
@@ -147,7 +165,7 @@ export function contactOptionsForCustomer(customer?: PartyCustomer | null, conta
     return []
   }
 
-  return [{ id: customer.default_contact.id, name: customer.default_contact.name, phone: customer.default_contact.phone ?? null }]
+  return [{ id: customer.default_contact.id, name: customer.default_contact.name, phone: customer.default_contact.phone ?? null, email: customer.default_contact.email ?? null }]
 }
 
 export function copyClientPartyValues(values: TestOrderFormValues, target: Exclude<PartyPrefix, 'client'>): Partial<TestOrderFormValues> {
@@ -157,6 +175,7 @@ export function copyClientPartyValues(values: TestOrderFormValues, target: Exclu
     [`${target}_address`]: values.client_address,
     [`${target}_contact`]: values.client_contact,
     [`${target}_phone`]: values.client_phone,
+    [`${target}_email`]: values.client_email,
   }
 }
 

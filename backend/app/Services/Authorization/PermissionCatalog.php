@@ -20,7 +20,7 @@ class PermissionCatalog
             'standards' => ['read', 'create', 'update', 'delete', 'export'],
             'standard_catalogs' => ['read', 'create', 'update', 'delete'],
             'standard_items' => ['read', 'create', 'update', 'delete'],
-            'test_orders' => ['read', 'create', 'update', 'delete', 'export', 'notify'],
+            'test_orders' => ['read', 'create', 'update', 'delete', 'export', 'notify', 'print'],
             'test_order_standards' => ['read', 'create', 'update', 'delete'],
             'test_order_samples' => ['read', 'create', 'update', 'delete'],
             'samples' => ['read', 'receive', 'update', 'export'],

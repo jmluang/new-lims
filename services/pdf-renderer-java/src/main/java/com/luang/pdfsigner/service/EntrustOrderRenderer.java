@@ -8,12 +8,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -44,29 +44,85 @@ public class EntrustOrderRenderer {
     private static final float NORMAL_FONT_SIZE = 10f;
     private static final float SMALL_FONT_SIZE = 9f;
 
+    private static final class PageCursor implements AutoCloseable {
+        private final PDDocument document;
+        private final PDFont font;
+        private final float margin;
+        private final float contentWidth;
+        private PDPage page;
+        private PDPageContentStream content;
+        private float y;
+
+        private PageCursor(PDDocument document, PDFont font, float margin) throws IOException {
+            this.document = document;
+            this.font = font;
+            this.margin = margin;
+            this.contentWidth = PDRectangle.A4.getWidth() - margin * 2;
+            newPage();
+        }
+
+        private PDDocument document() {
+            return document;
+        }
+
+        private PDFont font() {
+            return font;
+        }
+
+        private float margin() {
+            return margin;
+        }
+
+        private float contentWidth() {
+            return contentWidth;
+        }
+
+        private PDPageContentStream content() {
+            return content;
+        }
+
+        private float y() {
+            return y;
+        }
+
+        private void moveTo(float nextY) {
+            this.y = nextY;
+        }
+
+        private void ensureSpace(float requiredHeight) throws IOException {
+            if (y - requiredHeight < margin) {
+                newPage();
+            }
+        }
+
+        private void newPage() throws IOException {
+            if (content != null) {
+                content.close();
+            }
+            page = new PDPage(PDRectangle.A4);
+            document.addPage(page);
+            content = new PDPageContentStream(document, page, AppendMode.APPEND, true, true);
+            y = page.getMediaBox().getHeight() - margin;
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (content != null) {
+                content.close();
+                content = null;
+            }
+        }
+    }
+
     public byte[] render(EntrustOrderPayload payload) throws IOException {
         try (PDDocument document = new PDDocument()) {
-            PDPage page = new PDPage(PDRectangle.A4);
-            document.addPage(page);
-
             PDFont font = resolveFont(document);
 
-            try (PDPageContentStream content = new PDPageContentStream(document, page, AppendMode.APPEND, true, true)) {
-                float margin = mm(PAGE_MARGIN_MM);
-                float contentWidth = page.getMediaBox().getWidth() - margin * 2;
-                float cursorY = page.getMediaBox().getHeight() - margin;
-
-                // Draw header with company name and form number
-                cursorY = drawHeader(content, font, margin, cursorY, contentWidth);
-
-                // Draw title
-                cursorY = drawTitle(content, font, margin, cursorY, contentWidth);
-
-                // Draw main content in table format
-                cursorY = drawMainContent(document, content, font, margin, cursorY, contentWidth, payload);
-
-                // Draw footer
-                drawFooter(content, font, margin, cursorY, contentWidth);
+            try (PageCursor cursor = new PageCursor(document, font, mm(PAGE_MARGIN_MM))) {
+                cursor.moveTo(drawHeader(cursor.content(), font, cursor.margin(), cursor.y(), cursor.contentWidth(), payload));
+                cursor.moveTo(drawTitle(cursor.content(), font, cursor.margin(), cursor.y(), cursor.contentWidth()));
+                drawMainContent(cursor, payload);
+                drawFooter(cursor.content(), font, cursor.margin(), cursor.y(), cursor.contentWidth());
             }
 
             ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -75,7 +131,7 @@ public class EntrustOrderRenderer {
         }
     }
 
-    private float drawHeader(PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth) throws IOException {
+    private float drawHeader(PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth, EntrustOrderPayload payload) throws IOException {
         float leftX = margin;
         float rightX = margin + contentWidth;
         float headerHeight = ROW_HEIGHT * 2;
@@ -89,7 +145,7 @@ public class EntrustOrderRenderer {
         float formBoxWidth = mm(40f);
         float companyBoxWidth = contentWidth - formBoxWidth;
         drawCenteredText(content, font, HEADER_FONT_SIZE, leftX, bottomY, companyBoxWidth, headerHeight,
-                "中山市鑫达普检测服务有限公司");
+                logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryName, ""));
 
         // Form info box (right)
         float formBoxHeight = headerHeight;
@@ -123,26 +179,23 @@ public class EntrustOrderRenderer {
         return cursorY - mm(12);
     }
 
-    private float drawMainContent(PDDocument document, PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth, EntrustOrderPayload payload) throws IOException {
-        // Basic info section
-        cursorY = drawBasicInfoSection(content, font, margin, cursorY, contentWidth, payload);
+    private void drawMainContent(PageCursor cursor, EntrustOrderPayload payload) throws IOException {
+        cursor.ensureSpace(ROW_HEIGHT * 3 + mm(2));
+        cursor.moveTo(drawBasicInfoSection(cursor.content(), cursor.font(), cursor.margin(), cursor.y(), cursor.contentWidth(), payload));
 
-        // Client info section
-        cursorY = drawClientSection(content, font, margin, cursorY, contentWidth, payload);
+        cursor.ensureSpace(ROW_HEIGHT * 7 + mm(2));
+        cursor.moveTo(drawClientSection(cursor.content(), cursor.font(), cursor.margin(), cursor.y(), cursor.contentWidth(), payload));
 
-        // Standards section
-        cursorY = drawStandardsSection(content, font, margin, cursorY, contentWidth, payload);
+        cursor.ensureSpace(standardsSectionHeight(payload));
+        cursor.moveTo(drawStandardsSection(cursor.content(), cursor.font(), cursor.margin(), cursor.y(), cursor.contentWidth(), payload));
 
-        // Sample info section
-        cursorY = drawSampleSection(content, font, margin, cursorY, contentWidth, payload);
+        drawSampleSection(cursor, payload);
 
-        // Logistics section
-        cursorY = drawLogisticsSection(content, font, margin, cursorY, contentWidth, payload);
+        cursor.ensureSpace(ROW_HEIGHT * 6 + mm(2));
+        cursor.moveTo(drawLogisticsSection(cursor.content(), cursor.font(), cursor.margin(), cursor.y(), cursor.contentWidth(), payload));
 
-        // Signature section
-        cursorY = drawSignatureSection(document, content, font, margin, cursorY, contentWidth, payload);
-
-        return cursorY;
+        cursor.ensureSpace(SIGNATURE_DECLARATION_HEIGHT + ROW_HEIGHT * 3 + mm(4));
+        cursor.moveTo(drawSignatureSection(cursor, payload));
     }
 
     private float drawBasicInfoSection(PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth, EntrustOrderPayload payload) throws IOException {
@@ -237,7 +290,7 @@ public class EntrustOrderRenderer {
         y -= ROW_HEIGHT;
         String addressLabel = required ? "地址*" : "地址";
         float emailLabelWidth = fieldLabelWidth;
-        float emailValueWidth = fieldValueWidth;
+        float emailValueWidth = Math.max(fieldValueWidth, contentWidth * 0.22f);
         float addressWidth = contentWidth - labelWidth - emailLabelWidth - emailValueWidth;
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, labelWidth, ROW_HEIGHT, addressLabel, required);
         drawCell(content, font, margin + labelWidth, y - ROW_HEIGHT, addressWidth, ROW_HEIGHT,
@@ -269,36 +322,30 @@ public class EntrustOrderRenderer {
         y -= ROW_HEIGHT;
         if (payload.requirements() != null && payload.requirements().standards() != null && !payload.requirements().standards().isEmpty()) {
             for (Standard standard : payload.requirements().standards()) {
-                String standardText = standard.standardCode();
+                String standardText = standard.standardCode() != null ? standard.standardCode() : "";
                 if (standard.notes() != null && !standard.notes().isBlank()) {
-                    standardText = standardText == null ? standard.notes() : standardText + " " + standard.notes();
+                    standardText = standardText.isBlank() ? standard.notes() : standardText + " " + standard.notes();
                 }
                 drawCell(content, font, margin, y - ROW_HEIGHT, col1Width, ROW_HEIGHT, standardText, false);
                 drawCenteredCell(content, font, margin + col1Width, y - ROW_HEIGHT, col2Width, ROW_HEIGHT,
-                        standard.qualificationRequirement() != null ? standard.qualificationRequirement() : "CMA");
+                        standard.qualificationRequirement() != null ? standard.qualificationRequirement() : "");
                 drawCenteredCell(content, font, margin + col1Width + col2Width, y - ROW_HEIGHT, col3Width, ROW_HEIGHT,
-                        standard.reportLanguage() != null ? standard.reportLanguage() : "中文");
+                        standard.reportLanguage() != null ? standard.reportLanguage() : "");
                 y -= ROW_HEIGHT;
             }
         } else {
-            // Default standards
-            drawCell(content, font, margin, y - ROW_HEIGHT, col1Width, ROW_HEIGHT, "GB/T 9468-2008 灯具分布光度测量的一般要求", false);
-            drawCenteredCell(content, font, margin + col1Width, y - ROW_HEIGHT, col2Width, ROW_HEIGHT, "CMA");
-            drawCenteredCell(content, font, margin + col1Width + col2Width, y - ROW_HEIGHT, col3Width, ROW_HEIGHT, "中文");
-            y -= ROW_HEIGHT;
-
-            drawCell(content, font, margin, y - ROW_HEIGHT, col1Width, ROW_HEIGHT, "GB/T 7922-2023 照明光源颜色的测量方法", false);
-            drawCenteredCell(content, font, margin + col1Width, y - ROW_HEIGHT, col2Width, ROW_HEIGHT, "CMA");
-            drawCenteredCell(content, font, margin + col1Width + col2Width, y - ROW_HEIGHT, col3Width, ROW_HEIGHT, "中文");
+            drawCell(content, font, margin, y - ROW_HEIGHT, col1Width, ROW_HEIGHT, "", false);
+            drawCenteredCell(content, font, margin + col1Width, y - ROW_HEIGHT, col2Width, ROW_HEIGHT, "");
+            drawCenteredCell(content, font, margin + col1Width + col2Width, y - ROW_HEIGHT, col3Width, ROW_HEIGHT, "");
             y -= ROW_HEIGHT;
         }
 
         // Report form and options
         float halfWidth = contentWidth * 0.5f;
         EntrustOrderPayload.Requirements requirements = payload.requirements();
-        String reportFormsText = requirements != null ? renderSelectedLabels(requirements.reportForms()) : "";
+        String reportFormsText = requirements != null ? renderMultiSelect(requirements.reportFormOptions(), requirements.reportForms()) : "";
 
-        String sampleReturnText = requirements != null ? renderSelectedLabel(requirements.sampleReturn()) : "";
+        String sampleReturnText = requirements != null ? renderSingleSelectOrSelected(requirements.sampleReturnOptions(), requirements.sampleReturn()) : "";
 
         drawCell(content, font, margin, y - ROW_HEIGHT, labelWidth(contentWidth), ROW_HEIGHT, "报告形式", false);
         drawCell(content, font, margin + labelWidth(contentWidth), y - ROW_HEIGHT, halfWidth - labelWidth(contentWidth), ROW_HEIGHT,
@@ -309,9 +356,9 @@ public class EntrustOrderRenderer {
                 sampleReturnText, false);
         y -= ROW_HEIGHT;
 
-        String submissionText = requirements != null ? renderSelectedLabel(requirements.reportSubmission()) : "";
+        String submissionText = requirements != null ? renderSingleSelectOrSelected(requirements.reportSubmissionOptions(), requirements.reportSubmission()) : "";
 
-        String subcontractText = requirements != null ? renderSelectedLabel(requirements.allowSubcontract()) : "";
+        String subcontractText = requirements != null ? renderSingleSelectOrSelected(requirements.allowSubcontractOptions(), requirements.allowSubcontract()) : "";
 
         drawCell(content, font, margin, y - ROW_HEIGHT, labelWidth(contentWidth), ROW_HEIGHT, "报告提交", false);
         drawCell(content, font, margin + labelWidth(contentWidth), y - ROW_HEIGHT, halfWidth - labelWidth(contentWidth), ROW_HEIGHT,
@@ -331,50 +378,65 @@ public class EntrustOrderRenderer {
         return y - ROW_HEIGHT - mm(2);
     }
 
-    private float drawSampleSection(PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth, EntrustOrderPayload payload) throws IOException {
-        drawSectionHeader(content, font, margin, cursorY, contentWidth, "*样品信息");
-        cursorY -= ROW_HEIGHT;
+    private void drawSampleSection(PageCursor cursor, EntrustOrderPayload payload) throws IOException {
+        cursor.ensureSpace(ROW_HEIGHT + sampleBlockHeight());
+        drawSectionHeader(cursor.content(), cursor.font(), cursor.margin(), cursor.y(), cursor.contentWidth(), "*样品信息");
+        cursor.moveTo(cursor.y() - ROW_HEIGHT);
 
+        List<EntrustOrderPayload.Sample> samples = payload.effectiveSamples();
+        if (samples.isEmpty()) {
+            samples = List.of(new EntrustOrderPayload.Sample("", "", "", "", "", "", null, "", null, "", ""));
+        }
+
+        for (EntrustOrderPayload.Sample sample : samples) {
+            cursor.ensureSpace(sampleBlockHeight());
+            cursor.moveTo(drawSingleSampleBlock(cursor.content(), cursor.font(), cursor.margin(), cursor.y(), cursor.contentWidth(), sample));
+        }
+
+        cursor.moveTo(cursor.y() - mm(2));
+    }
+
+    private float drawSingleSampleBlock(PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth,
+                                        EntrustOrderPayload.Sample sample) throws IOException {
         float col1Width = contentWidth * 0.13f;
         float col2Width = contentWidth * 0.23f;
         float col3Width = contentWidth * 0.12f;
         float col4Width = contentWidth * 0.12f;
         float col5Width = contentWidth * 0.15f;
         float col6Width = contentWidth - (col1Width + col2Width + col3Width + col4Width + col5Width);
-
         float y = cursorY;
 
         // Sample name
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, col1Width, ROW_HEIGHT, "名称*", true);
         drawCell(content, font, margin + col1Width, y - ROW_HEIGHT, col2Width, ROW_HEIGHT,
-                sampleField(payload.sample(), EntrustOrderPayload.Sample::name, "物联网节能感应灯管"), false);
+                sampleField(sample, EntrustOrderPayload.Sample::name, ""), false);
         drawLabelCell(content, font, margin + col1Width + col2Width, y - ROW_HEIGHT, col3Width, ROW_HEIGHT, "额定电流", false);
         drawCell(content, font, margin + col1Width + col2Width + col3Width, y - ROW_HEIGHT, col4Width, ROW_HEIGHT,
-                sampleField(payload.sample(), EntrustOrderPayload.Sample::current, ""), false);
+                sampleField(sample, EntrustOrderPayload.Sample::current, ""), false);
         drawLabelCell(content, font, margin + col1Width + col2Width + col3Width + col4Width, y - ROW_HEIGHT, col5Width, ROW_HEIGHT, "状态", false);
         drawCell(content, font, margin + col1Width + col2Width + col3Width + col4Width + col5Width, y - ROW_HEIGHT, col6Width, ROW_HEIGHT,
-                renderSampleStatus(payload.sample()), false);
+                renderSampleStatus(sample), false);
 
         // Model
         y -= ROW_HEIGHT;
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, col1Width, ROW_HEIGHT, "型号*", true);
         drawCell(content, font, margin + col1Width, y - ROW_HEIGHT, col2Width, ROW_HEIGHT,
-                sampleField(payload.sample(), EntrustOrderPayload.Sample::model, "LK-ZMT8-180"), false);
+                sampleField(sample, EntrustOrderPayload.Sample::model, ""), false);
         drawLabelCell(content, font, margin + col1Width + col2Width, y - ROW_HEIGHT, col3Width, ROW_HEIGHT, "额定功率*", true);
         drawCell(content, font, margin + col1Width + col2Width + col3Width, y - ROW_HEIGHT, col4Width, ROW_HEIGHT,
-                sampleField(payload.sample(), EntrustOrderPayload.Sample::power, ""), false);
+                sampleField(sample, EntrustOrderPayload.Sample::power, ""), false);
         drawLabelCell(content, font, margin + col1Width + col2Width + col3Width + col4Width, y - ROW_HEIGHT, col5Width, ROW_HEIGHT, "样品数量", false);
         drawCell(content, font, margin + col1Width + col2Width + col3Width + col4Width + col5Width, y - ROW_HEIGHT, col6Width, ROW_HEIGHT,
-                renderSampleQuantity(payload.sample()), false);
+                renderSampleQuantity(sample), false);
 
         // Voltage
         y -= ROW_HEIGHT;
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, col1Width, ROW_HEIGHT, "额定电压*", true);
         drawCell(content, font, margin + col1Width, y - ROW_HEIGHT, col2Width, ROW_HEIGHT,
-                sampleField(payload.sample(), EntrustOrderPayload.Sample::voltage, "AC 220V"), false);
+                sampleField(sample, EntrustOrderPayload.Sample::voltage, ""), false);
         drawLabelCell(content, font, margin + col1Width + col2Width, y - ROW_HEIGHT, col3Width, ROW_HEIGHT, "额定频率", false);
         drawCell(content, font, margin + col1Width + col2Width + col3Width, y - ROW_HEIGHT, col4Width, ROW_HEIGHT,
-                sampleField(payload.sample(), EntrustOrderPayload.Sample::frequency, "50HZ"), false);
+                sampleField(sample, EntrustOrderPayload.Sample::frequency, ""), false);
         drawCell(content, font, margin + col1Width + col2Width + col3Width + col4Width, y - ROW_HEIGHT, col5Width, ROW_HEIGHT, "", false);
         drawCell(content, font, margin + col1Width + col2Width + col3Width + col4Width + col5Width, y - ROW_HEIGHT, col6Width, ROW_HEIGHT, "", false);
 
@@ -382,9 +444,9 @@ public class EntrustOrderRenderer {
         y -= ROW_HEIGHT;
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, col1Width, ROW_HEIGHT, "备注", false);
         drawCell(content, font, margin + col1Width, y - ROW_HEIGHT, contentWidth - col1Width, ROW_HEIGHT,
-                sampleField(payload.sample(), EntrustOrderPayload.Sample::remarks, ""), false);
+                sampleField(sample, EntrustOrderPayload.Sample::remarks, ""), false);
 
-        return y - ROW_HEIGHT - mm(2);
+        return y - ROW_HEIGHT;
     }
 
     private float drawLogisticsSection(PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth, EntrustOrderPayload payload) throws IOException {
@@ -399,8 +461,7 @@ public class EntrustOrderRenderer {
         float remarksX = margin + labelWidth + infoWidth;
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, labelWidth, ROW_HEIGHT, "实验室名称", false);
         drawCell(content, font, margin + labelWidth, y - ROW_HEIGHT, infoWidth, ROW_HEIGHT,
-                logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryName,
-                        "中山市鑫达普检测服务有限公司"), false);
+                logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryName, ""), false);
 
         content.setNonStrokingColor(0.9f, 0.9f, 0.9f);
         content.addRect(remarksX, y - ROW_HEIGHT, remarksWidth, ROW_HEIGHT);
@@ -440,8 +501,7 @@ public class EntrustOrderRenderer {
         content.showText("实验室地址");
         content.endText();
 
-        String address = sanitizeText(logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryAddress,
-                "广东省中山市横栏镇环镇北路52号第1栋201房和301房"));
+        String address = sanitizeText(logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryAddress, ""));
         content.beginText();
         content.setFont(font, SMALL_FONT_SIZE);
         content.newLineAtOffset(margin + labelWidth + CELL_PADDING, y - SMALL_FONT_SIZE - CELL_PADDING);
@@ -451,17 +511,24 @@ public class EntrustOrderRenderer {
         y -= ROW_HEIGHT * 2;
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, labelWidth, ROW_HEIGHT, "联系人", false);
         drawCell(content, font, margin + labelWidth, y - ROW_HEIGHT, infoWidth, ROW_HEIGHT,
-                logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryContact, "张丁浪"), false);
+                logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryContact, ""), false);
 
         y -= ROW_HEIGHT;
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, labelWidth, ROW_HEIGHT, "联系电话", false);
         drawCell(content, font, margin + labelWidth, y - ROW_HEIGHT, infoWidth, ROW_HEIGHT,
-                logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryPhone, "17713852981"), false);
+                logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryPhone, ""), false);
 
         return y - ROW_HEIGHT - mm(2);
     }
 
-    private float drawSignatureSection(PDDocument document, PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth, EntrustOrderPayload payload) throws IOException {
+    private float drawSignatureSection(PageCursor cursor, EntrustOrderPayload payload) throws IOException {
+        PDDocument document = cursor.document();
+        PDPageContentStream content = cursor.content();
+        PDFont font = cursor.font();
+        float margin = cursor.margin();
+        float cursorY = cursor.y();
+        float contentWidth = cursor.contentWidth();
+
         // Highlight row
         float highlightY = cursorY;
         float declarationHeight = SIGNATURE_DECLARATION_HEIGHT;
@@ -484,69 +551,25 @@ public class EntrustOrderRenderer {
         content.showText("委托人（客户）签字");
         content.endText();
 
-        if (payload.signatures() != null && payload.signatures().clientSignatureName() != null && !payload.signatures().clientSignatureName().isBlank()) {
-            try {
-                URI imageUri = URI.create(payload.signatures().clientSignatureName());
-                URL imageUrl = imageUri.toURL();
-                log.info("Requesting URL: " + imageUrl.toString());
-                
-                HttpURLConnection connection = (HttpURLConnection) imageUrl.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setConnectTimeout(5000);
-                connection.setReadTimeout(10000);
-                
-                int responseCode = connection.getResponseCode();
-                log.info("Response Code: " + responseCode);
+        String clientSignedAt = payload.signatures() != null ? formatDate(payload.signatures().clientSignedAt()) : "";
+        if (!clientSignedAt.isBlank()) {
+            content.beginText();
+            content.setFont(font, NORMAL_FONT_SIZE);
+            content.newLineAtOffset(margin + contentWidth * 0.6f, declarationBottom + mm(4f));
+            content.showText("日期 " + clientSignedAt);
+            content.endText();
+        }
 
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    try (InputStream in = connection.getInputStream()) {
-                        PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, in.readAllBytes(), imageUrl.toString());
-
-                        float signatureAreaX = margin + contentWidth * 0.8f;
-                        float signatureAreaWidth = contentWidth * 0.2f;
-                        float signatureAreaY = declarationBottom + mm(2);
-                        float signatureAreaHeight = declarationHeight - mm(4);
-
-                        float imageAspectRatio = (float) pdImage.getWidth() / (float) pdImage.getHeight();
-                        float areaAspectRatio = signatureAreaWidth / signatureAreaHeight;
-
-                        float drawWidth, drawHeight;
-                        if (imageAspectRatio > areaAspectRatio) {
-                            drawWidth = signatureAreaWidth;
-                            drawHeight = drawWidth / imageAspectRatio;
-                        } else {
-                            drawHeight = signatureAreaHeight;
-                            drawWidth = drawHeight * imageAspectRatio;
-                        }
-
-                        float drawX = signatureAreaX + (signatureAreaWidth - drawWidth) / 2;
-                        float drawY = signatureAreaY + (signatureAreaHeight - drawHeight) / 2;
-
-                        content.drawImage(pdImage, drawX, drawY, drawWidth, drawHeight);
-                    }
-                } else {
-                    log.warn("Failed to load client signature. Server returned non-OK response code: {}", responseCode);
-                    content.beginText();
-                    content.setFont(font, SMALL_FONT_SIZE);
-                    content.newLineAtOffset(margin + contentWidth * 0.8f, declarationBaseline);
-                    content.showText("[签名加载失败]");
-                    content.endText();
-                }
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid client signature URL: {}", e.getMessage(), e);
-                content.beginText();
-                content.setFont(font, SMALL_FONT_SIZE);
-                content.newLineAtOffset(margin + contentWidth * 0.8f, declarationBaseline);
-                content.showText("[签名地址无效]");
-                content.endText();
-            } catch (IOException e) {
-                log.warn("Failed to load client signature image: {}", e.getMessage(), e);
-                // Draw a placeholder or text if image fails to load
-                content.beginText();
-                content.setFont(font, SMALL_FONT_SIZE);
-                content.newLineAtOffset(margin + contentWidth * 0.8f, declarationBaseline);
-                content.showText("[签名加载失败]");
-                content.endText();
+        String signature = payload.signatures() != null ? payload.signatures().clientSignatureName() : null;
+        if (signature != null && !signature.isBlank()) {
+            float signatureAreaX = margin + contentWidth * 0.8f;
+            float signatureAreaWidth = contentWidth * 0.2f;
+            float signatureAreaY = declarationBottom + mm(2);
+            float signatureAreaHeight = declarationHeight - mm(4);
+            if (isHttpUrl(signature)) {
+                drawSignatureImage(document, content, signature, signatureAreaX, signatureAreaY, signatureAreaWidth, signatureAreaHeight);
+            } else {
+                drawCenteredText(content, font, NORMAL_FONT_SIZE, signatureAreaX, signatureAreaY, signatureAreaWidth, signatureAreaHeight, signature);
             }
         }
 
@@ -556,25 +579,95 @@ public class EntrustOrderRenderer {
         float y = cursorY;
         float colWidth = contentWidth / 5f;
         float rowHeight = ROW_HEIGHT * 1.5f;
+        EntrustOrderPayload.Signatures signatures = payload.signatures();
 
-        drawHeaderCell(content, font, margin, y - rowHeight, colWidth, "实验室资源满足", rowHeight);
+        drawHeaderCell(content, font, margin, y - rowHeight, colWidth, "实验室资源满足*", rowHeight);
         drawHeaderCell(content, font, margin + colWidth, y - rowHeight, colWidth, "综合部确认", rowHeight);
-        drawCenteredCell(content, font, margin + colWidth * 2, y - rowHeight, colWidth, rowHeight, "");
+        drawCenteredCell(content, font, margin + colWidth * 2, y - rowHeight, colWidth, rowHeight,
+                signatures != null ? nullSafe(signatures.labResourceConfirmedBy()) : "");
         drawHeaderCell(content, font, margin + colWidth * 3, y - rowHeight, colWidth, "日期", rowHeight);
-        drawRectangle(content, margin + colWidth * 4, y - rowHeight, colWidth, rowHeight);
+        drawCenteredCell(content, font, margin + colWidth * 4, y - rowHeight, colWidth, rowHeight,
+                signatures != null ? formatDate(signatures.labResourceConfirmedAt()) : "");
 
         y -= rowHeight;
-        drawHeaderCell(content, font, margin, y - rowHeight, colWidth, "客户要求的评审", rowHeight);
+        drawHeaderCell(content, font, margin, y - rowHeight, colWidth, "客户要求的评审*", rowHeight);
         drawHeaderCell(content, font, margin + colWidth, y - rowHeight, colWidth, "检测部确认", rowHeight);
-        drawCenteredCell(content, font, margin + colWidth * 2, y - rowHeight, colWidth, rowHeight, "");
+        drawCenteredCell(content, font, margin + colWidth * 2, y - rowHeight, colWidth, rowHeight,
+                signatures != null ? nullSafe(signatures.labReviewedBy()) : "");
         drawHeaderCell(content, font, margin + colWidth * 3, y - rowHeight, colWidth, "日期", rowHeight);
-        drawRectangle(content, margin + colWidth * 4, y - rowHeight, colWidth, rowHeight);
+        drawCenteredCell(content, font, margin + colWidth * 4, y - rowHeight, colWidth, rowHeight,
+                signatures != null ? formatDate(signatures.labReviewedAt()) : "");
 
         return y - rowHeight - mm(2);
     }
 
+    private void drawSignatureImage(PDDocument document, PDPageContentStream content, String signatureUrl,
+                                    float x, float y, float width, float height) throws IOException {
+        try {
+            URL imageUrl = URI.create(signatureUrl).toURL();
+            log.info("Requesting URL: {}", imageUrl);
+
+            HttpURLConnection connection = (HttpURLConnection) imageUrl.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(10000);
+
+            int responseCode = connection.getResponseCode();
+            log.info("Response Code: {}", responseCode);
+
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                log.warn("Failed to load client signature. Server returned non-OK response code: {}", responseCode);
+                return;
+            }
+
+            try (InputStream in = connection.getInputStream()) {
+                PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, in.readAllBytes(), imageUrl.toString());
+
+                float imageAspectRatio = (float) pdImage.getWidth() / (float) pdImage.getHeight();
+                float areaAspectRatio = width / height;
+
+                float drawWidth;
+                float drawHeight;
+                if (imageAspectRatio > areaAspectRatio) {
+                    drawWidth = width;
+                    drawHeight = drawWidth / imageAspectRatio;
+                } else {
+                    drawHeight = height;
+                    drawWidth = drawHeight * imageAspectRatio;
+                }
+
+                float drawX = x + (width - drawWidth) / 2;
+                float drawY = y + (height - drawHeight) / 2;
+
+                content.drawImage(pdImage, drawX, drawY, drawWidth, drawHeight);
+            }
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid client signature URL: {}", e.getMessage(), e);
+        } catch (IOException e) {
+            log.warn("Failed to load client signature image: {}", e.getMessage(), e);
+        }
+    }
+
+    private boolean isHttpUrl(String value) {
+        return value.startsWith("http://") || value.startsWith("https://");
+    }
+
     private void drawFooter(PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth) throws IOException {
         // Footer would be at bottom of page if needed
+    }
+
+    private float standardsSectionHeight(EntrustOrderPayload payload) {
+        int standardRows = 1;
+        if (payload.requirements() != null
+                && payload.requirements().standards() != null
+                && !payload.requirements().standards().isEmpty()) {
+            standardRows = payload.requirements().standards().size();
+        }
+        return ROW_HEIGHT * (1 + 1 + standardRows + 3) + mm(2);
+    }
+
+    private float sampleBlockHeight() {
+        return ROW_HEIGHT * 4;
     }
 
     private void drawSectionHeader(PDPageContentStream content, PDFont font, float x, float y, float width, String title) throws IOException {
@@ -766,7 +859,8 @@ public class EntrustOrderRenderer {
 
     private String renderSampleStatus(EntrustOrderPayload.Sample sample) {
         String goodLabel = "完好";
-        String abnormalLabel = "异常（____）";
+        String conditionNote = sampleField(sample, EntrustOrderPayload.Sample::conditionNote, "");
+        String abnormalLabel = conditionNote.isBlank() ? "异常（____）" : "异常（" + conditionNote + "）";
 
         boolean isGood = false;
         boolean isAbnormal = false;
@@ -826,6 +920,35 @@ public class EntrustOrderRenderer {
 
             boolean checked = selectedKey != null && selectedKey.equals(checkboxKey(option));
             builder.append(renderCheckbox(checked, displayLabel(option)));
+        }
+        return builder.toString();
+    }
+
+    private String renderSingleSelectOrSelected(List<EnumValue> options, EnumValue selected) {
+        String checkboxText = renderSingleSelect(options, selected);
+        return checkboxText.isBlank() ? renderSelectedLabel(selected) : checkboxText;
+    }
+
+    private String renderMultiSelect(List<EnumValue> options, List<EnumValue> selectedValues) {
+        if (options == null || options.isEmpty()) {
+            return renderSelectedLabels(selectedValues);
+        }
+
+        Set<String> selectedKeys = selectedValues == null
+                ? Set.of()
+                : selectedValues.stream()
+                        .map(this::checkboxKey)
+                        .filter(key -> key != null && !key.isBlank())
+                        .collect(Collectors.toSet());
+
+        StringBuilder builder = new StringBuilder();
+        for (EnumValue option : options) {
+            if (option == null) {
+                continue;
+            }
+
+            String optionKey = checkboxKey(option);
+            builder.append(renderCheckbox(optionKey != null && selectedKeys.contains(optionKey), displayLabel(option)));
         }
         return builder.toString();
     }

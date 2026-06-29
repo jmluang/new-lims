@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Download, Edit3, Eye, Plus, Search, Send, Trash2 } from 'lucide-react'
+import { Download, Edit3, Eye, Plus, Printer, Search, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
@@ -8,6 +8,7 @@ import { zhText } from '../../lib/zh'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass, localDateInputValue, paginationParams } from '../system/utils'
 import { fetchMessageRecipients, pushTestOrderMessage, type MessageRecipient } from '../messages/messages'
+import { downloadEntrustOrderPdf } from './testOrderPrint'
 
 export type TestOrderStandard = {
   id: number
@@ -26,8 +27,13 @@ export type TestOrderSample = {
   specification?: string | null
   model?: string | null
   input_voltage?: string | null
+  rated_current?: string | null
   power?: string | null
+  rated_frequency?: string | null
+  quantity_unit?: string | null
   status: 'pending' | 'partially_received' | 'received' | 'rejected' | 'cancelled'
+  sample_condition?: 'good' | 'abnormal' | null
+  sample_condition_note?: string | null
   quantity: number
   detail_content?: string | null
   remark?: string | null
@@ -46,25 +52,30 @@ export type TestOrder = {
   client_address?: string | null
   client_contact?: string | null
   client_phone?: string | null
+  client_email?: string | null
   manufacturer_customer_id?: number | null
   manufacturer_company?: string | null
   manufacturer_address?: string | null
   manufacturer_contact?: string | null
   manufacturer_phone?: string | null
+  manufacturer_email?: string | null
   maker_customer_id?: number | null
   maker_company?: string | null
   maker_address?: string | null
   maker_contact?: string | null
   maker_phone?: string | null
+  maker_email?: string | null
   report_forms?: string[]
   delivery_method?: string | null
   outsourcing_option?: string | null
+  sample_return?: 'return' | 'destroy' | null
   remark?: string | null
   sample_status: 'not_received' | 'partially_received' | 'received' | 'testing' | 'completed'
   address_lab_name?: string | null
   address_contact?: string | null
   address_detail?: string | null
   address_phone?: string | null
+  shipping_notes?: string | null
   client_signature?: string | null
   client_sign_date?: string | null
   dept_confirm?: string | null
@@ -313,6 +324,12 @@ function TestOrderActions({ order, onDelete, onNotify }: { order: TestOrder; onD
         <Button variant="secondary" onClick={() => onNotify(order)}>
           <Send className="size-4" aria-hidden="true" />
           推送消息
+        </Button>
+      </PermissionGate>
+      <PermissionGate resource="test_orders" action="print">
+        <Button variant="secondary" onClick={() => void downloadEntrustOrderPdf(order)}>
+          <Printer className="size-4" aria-hidden="true" />
+          打印委托单
         </Button>
       </PermissionGate>
       <PermissionGate resource="test_orders" action="delete">

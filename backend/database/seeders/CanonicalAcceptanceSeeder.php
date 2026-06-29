@@ -114,6 +114,7 @@ class CanonicalAcceptanceSeeder extends Seeder
             'test_orders.delete',
             'test_orders.export',
             'test_orders.notify',
+            'test_orders.print',
             'test_order_standards.read',
             'test_order_standards.create',
             'test_order_standards.update',
