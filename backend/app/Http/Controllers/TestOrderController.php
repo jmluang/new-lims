@@ -205,6 +205,7 @@ class TestOrderController extends Controller
                         'input_voltage' => $sample->input_voltage,
                         'power' => $sample->power,
                         'quantity' => $sample->quantity,
+                        'remark' => $sample->remark,
                     ])
                     ->values(),
             ],

@@ -33,6 +33,7 @@ describe('sample receive form', () => {
           specification: 'LD',
           model: 'LD-100',
           appearance_check: '外观完整',
+          remark: '客户备注：需保留原包装',
           reject_reason: '',
         },
         {
@@ -47,7 +48,7 @@ describe('sample receive form', () => {
     })
 
     expect(acceptedReceiveRowCount(payload.samples)).toBe(1)
-    expect(payload.samples).toMatchObject([{ reject_reason: null }, { reject_reason: '外观破损' }])
+    expect(payload.samples).toMatchObject([{ remark: '客户备注：需保留原包装', reject_reason: null }, { reject_reason: '外观破损' }])
   })
 
   it('throws validation errors instead of returning a successful empty submit result', () => {

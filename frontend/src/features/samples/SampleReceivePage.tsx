@@ -17,6 +17,7 @@ type SampleOption = {
   input_voltage?: string | null
   power?: string | null
   quantity: number
+  remark?: string | null
 }
 
 type SampleOptionsResponse = {
@@ -44,6 +45,7 @@ const emptyRow: ReceiveSampleRowValues = {
   input_voltage: '',
   power: '',
   appearance_check: '',
+  remark: '',
   reject_reason: '',
 }
 
@@ -113,6 +115,7 @@ export function SampleReceivePage() {
             input_voltage: row.input_voltage ?? '',
             power: row.power ?? '',
             appearance_check: '外观完整',
+            remark: row.remark ?? '',
             reject_reason: '',
           }))
         : [{ ...emptyRow }],
@@ -212,6 +215,7 @@ export function SampleReceivePage() {
                         model: option?.model ?? row.model,
                         input_voltage: option?.input_voltage ?? row.input_voltage,
                         power: option?.power ?? row.power,
+                        remark: option?.remark ?? row.remark,
                       })
                     }}
                   >
@@ -240,6 +244,9 @@ export function SampleReceivePage() {
                 </Field>
                 <Field label="Appearance check" className="md:col-span-2">
                   <textarea className={textareaClass} value={row.appearance_check ?? ''} onChange={(event) => updateRow(index, { appearance_check: event.target.value })} />
+                </Field>
+                <Field label="Sample remark" className="md:col-span-2">
+                  <textarea className={textareaClass} value={row.remark ?? ''} onChange={(event) => updateRow(index, { remark: event.target.value })} />
                 </Field>
                 <Field label="Reject reason" className="md:col-span-2">
                   <textarea className={textareaClass} value={row.reject_reason ?? ''} onChange={(event) => updateRow(index, { reject_reason: event.target.value })} />

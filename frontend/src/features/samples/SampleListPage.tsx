@@ -31,6 +31,7 @@ export type Sample = {
   storage_condition?: string | null
   received_date?: string | null
   appearance_check?: string | null
+  remark?: string | null
   batch_no?: string | null
   sort_order: number
   delivery_received_count: number
@@ -272,6 +273,7 @@ export function SampleListPage() {
                 <th className="px-3 py-2 font-medium">样品名称</th>
                 <th className="px-3 py-2 font-medium">委托单号</th>
                 <th className="px-3 py-2 font-medium">状态</th>
+                <th className="px-3 py-2 font-medium">备注</th>
                 <th className="px-3 py-2 font-medium">持有人</th>
                 <th className="px-3 py-2 font-medium">位置</th>
                 <th className="px-3 py-2 font-medium">操作</th>
@@ -297,6 +299,7 @@ export function SampleListPage() {
                     <td className="px-3 py-3 text-sm text-slate-700">
                       <StatusBadge status={sample.status} />
                     </td>
+                    <td className="max-w-48 truncate px-3 py-3 text-sm text-slate-700" title={sample.remark ?? undefined}>{sample.remark ?? '-'}</td>
                     <td className="px-3 py-3 text-sm text-slate-700">{sample.current_holder ?? '-'}</td>
                     <td className="px-3 py-3 text-sm text-slate-700">{sample.current_location ?? '-'}</td>
                     <td className="px-3 py-3">
@@ -340,6 +343,7 @@ export function SampleListPage() {
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
                     <MobileDetail label="委托单号" value={sample.order_no} />
+                    <MobileDetail label="备注" value={sample.remark} />
                     <MobileDetail label="持有人" value={sample.current_holder} />
                     <MobileDetail label="位置" value={sample.current_location} />
                   </div>

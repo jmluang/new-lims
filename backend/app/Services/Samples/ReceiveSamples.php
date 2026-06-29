@@ -39,6 +39,7 @@ class ReceiveSamples
         return DB::transaction(function () use ($actor, $testOrder, $payload, $acceptedRows, $rejectedRows): array {
             $deliverySequence = $this->sampleNumberService->nextDeliverySequence($testOrder);
             $deliveryReceivedCount = $acceptedRows->count();
+            $orderSamplesById = $testOrder->samples()->get()->keyBy('id');
             $createdSamples = [];
 
             foreach ($rejectedRows as $row) {
@@ -64,6 +65,7 @@ class ReceiveSamples
 
             foreach ($acceptedRows as $index => $row) {
                 $sampleIndex = $index + 1;
+                $orderSample = $orderSamplesById->get($row['test_order_sample_id'] ?? null);
                 $sample = Sample::query()->create([
                     'test_order_id' => $testOrder->id,
                     'test_order_sample_id' => $row['test_order_sample_id'] ?? null,
@@ -81,6 +83,7 @@ class ReceiveSamples
                     'storage_condition' => $payload['storage_condition'] ?? null,
                     'received_date' => $payload['received_date'] ?? now()->toDateString(),
                     'appearance_check' => $row['appearance_check'] ?? null,
+                    'remark' => array_key_exists('remark', $row) ? $row['remark'] : $orderSample?->remark,
                     'batch_no' => $payload['batch_no'] ?? null,
                     'sort_order' => $sampleIndex,
                     'delivery_received_count' => $deliveryReceivedCount,

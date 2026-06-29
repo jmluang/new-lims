@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'storage_condition',
     'received_date',
     'appearance_check',
+    'remark',
     'batch_no',
     'sort_order',
     'delivery_received_count',

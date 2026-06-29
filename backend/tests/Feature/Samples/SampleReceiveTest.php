@@ -88,6 +88,33 @@ class SampleReceiveTest extends TestCase
         $this->assertDatabaseCount('sample_flows', 2);
     }
 
+    public function test_receive_samples_preserves_order_sample_remark(): void
+    {
+        $receiver = $this->userWithPermissions(['samples.receive', 'samples.read']);
+        [$order, $orderSamples] = $this->orderWithSamples('REMARK');
+
+        $orderSamples[0]->update(['remark' => '客户备注：需保留原包装']);
+
+        $this->getJsonAs($receiver, "/api/test-orders/{$order->id}/sample-options")
+            ->assertOk()
+            ->assertJsonPath('data.samples.0.remark', '客户备注：需保留原包装');
+
+        $this->postJsonAs($receiver, '/api/samples/receive', [
+            'test_order_id' => $order->id,
+            'received_date' => '2026-05-29',
+            'current_location' => '样品室 A1',
+            'samples' => [
+                $this->receiveRow($orderSamples[0]),
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.0.remark', '客户备注：需保留原包装');
+
+        $this->assertDatabaseHas('samples', [
+            'test_order_sample_id' => $orderSamples[0]->id,
+            'remark' => '客户备注：需保留原包装',
+        ]);
+    }
+
     public function test_sample_receive_order_list_denial_names_missing_permission(): void
     {
         $receiver = $this->userWithPermissions(['samples.receive']);
@@ -152,9 +179,9 @@ class SampleReceiveTest extends TestCase
         ];
     }
 
-    private function receiveRow(TestOrderSample $orderSample, ?string $sampleName = null, ?string $rejectReason = null): array
+    private function receiveRow(TestOrderSample $orderSample, ?string $sampleName = null, ?string $rejectReason = null, ?string $remark = null): array
     {
-        return [
+        $row = [
             'test_order_sample_id' => $orderSample->id,
             'sample_name' => $sampleName ?? $orderSample->sample_name,
             'specification' => $orderSample->specification,
@@ -162,6 +189,12 @@ class SampleReceiveTest extends TestCase
             'appearance_check' => '外观完整',
             'reject_reason' => $rejectReason,
         ];
+
+        if ($remark !== null) {
+            $row['remark'] = $remark;
+        }
+
+        return $row;
     }
 
     private function userWithPermissions(array $permissions): User

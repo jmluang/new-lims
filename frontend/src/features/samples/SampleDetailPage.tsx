@@ -154,6 +154,7 @@ export function SampleDetailPage() {
               <Detail label="Received date" value={sample.received_date} />
               <Detail label="Batch no" value={sample.batch_no} />
               <Detail label="Appearance check" value={sample.appearance_check} />
+              <Detail label="Remark" value={sample.remark} />
             </div>
           </Panel>
 

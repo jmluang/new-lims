@@ -80,6 +80,7 @@ class SampleController extends Controller
             'samples.*.input_voltage' => ['nullable', 'string', 'max:255'],
             'samples.*.power' => ['nullable', 'string', 'max:255'],
             'samples.*.appearance_check' => ['nullable', 'string'],
+            'samples.*.remark' => ['nullable', 'string'],
             'samples.*.reject_reason' => ['nullable', 'string'],
         ]);
         $testOrder = TestOrder::query()->findOrFail($payload['test_order_id']);
@@ -133,6 +134,7 @@ class SampleController extends Controller
             'storage_condition' => $sample->storage_condition,
             'received_date' => $sample->received_date?->toDateString(),
             'appearance_check' => $sample->appearance_check,
+            'remark' => $sample->remark,
             'batch_no' => $sample->batch_no,
             'sort_order' => $sample->sort_order,
             'delivery_received_count' => $sample->delivery_received_count,
