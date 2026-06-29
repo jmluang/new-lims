@@ -290,8 +290,8 @@ public class EntrustOrderRenderer {
         y -= ROW_HEIGHT;
         String addressLabel = required ? "地址*" : "地址";
         float emailLabelWidth = fieldLabelWidth;
-        float emailValueWidth = Math.max(fieldValueWidth, contentWidth * 0.22f);
-        float addressWidth = contentWidth - labelWidth - emailLabelWidth - emailValueWidth;
+        float addressWidth = companyWidth + fieldValueWidth;
+        float emailValueWidth = contentWidth - labelWidth - addressWidth - emailLabelWidth;
         drawLabelCell(content, font, margin, y - ROW_HEIGHT, labelWidth, ROW_HEIGHT, addressLabel, required);
         drawCell(content, font, margin + labelWidth, y - ROW_HEIGHT, addressWidth, ROW_HEIGHT,
                 partyField(party, EntrustOrderPayload.Party::address), false);
