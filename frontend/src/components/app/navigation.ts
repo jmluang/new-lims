@@ -54,6 +54,7 @@ export const navGroups: NavGroup[] = [
       { label: '客户管理', to: '/customers', icon: Users, resource: 'customers', action: 'read' },
       { label: '检测标准库', to: '/standards', icon: BookOpen, resource: 'standards', action: 'read' },
       { label: '委托试验单', to: '/test-orders', icon: ClipboardList, resource: 'test_orders', action: 'read' },
+      { label: '公开委托提交', to: '/public-test-order-submissions', icon: ClipboardCheck, resource: 'test_orders', action: 'read' },
       { label: '样品信息', to: '/samples', icon: PackageCheck, resource: 'samples', action: 'read' },
       { label: '样品流转记录', to: '/samples/flow-records', icon: Workflow, resource: 'sample_flows', action: 'read' },
       { label: '扫码流转', to: '/samples/scan', icon: ScanLine, resource: 'sample_flows', action: 'create' },

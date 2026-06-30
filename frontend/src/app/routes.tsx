@@ -28,6 +28,7 @@ import { StandardListPage } from '../features/standards/StandardListPage'
 import { TestOrderDetailPage } from '../features/test-orders/TestOrderDetailPage'
 import { TestOrderFormPage } from '../features/test-orders/TestOrderFormPage'
 import { TestOrderListPage } from '../features/test-orders/TestOrderListPage'
+import { PublicTestOrderSubmissionReviewPage } from '../features/test-orders/PublicTestOrderSubmissionReviewPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
 import { BackupListPage } from '../features/system/backups/BackupListPage'
 import { DepartmentListPage } from '../features/system/departments/DepartmentListPage'
@@ -165,6 +166,13 @@ const testOrdersRoute = createRoute({
   path: '/test-orders',
   beforeLoad: () => requireRoutePermission('test_orders'),
   component: TestOrderListPage,
+})
+
+const publicTestOrderSubmissionsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/public-test-order-submissions',
+  beforeLoad: () => requireRoutePermission('test_orders'),
+  component: PublicTestOrderSubmissionReviewPage,
 })
 
 const testOrderCreateRoute = createRoute({
@@ -347,6 +355,7 @@ export const routeTree = rootRoute.addChildren([
     customerCreateRoute,
     customerEditRoute,
     testOrdersRoute,
+    publicTestOrderSubmissionsRoute,
     testOrderCreateRoute,
     testOrderEditRoute,
     testOrderDetailRoute,
