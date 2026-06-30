@@ -198,6 +198,10 @@ SANCTUM_STATEFUL_DOMAINS=lims.example.com
 CORS_ALLOWED_ORIGINS=https://lims.example.com
 
 QUEUE_CONNECTION=database
+BACKUP_QUEUE_CONNECTION=backups
+BACKUP_QUEUE=backups
+BACKUP_QUEUE_RETRY_AFTER=1920
+BACKUP_JOB_TIMEOUT=1800
 FILESYSTEM_DISK=local
 ```
 
@@ -215,6 +219,14 @@ Start the queue worker:
 
 ```bash
 php artisan queue:work --tries=3 --timeout=120
+php artisan queue:work backups --queue=backups --tries=1 --timeout=1800
+```
+
+If the server does not run Laravel queue workers, set synchronous backup execution instead:
+
+```dotenv
+QUEUE_CONNECTION=sync
+BACKUP_QUEUE_CONNECTION=sync
 ```
 
 Configure the scheduler with cron:

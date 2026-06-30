@@ -94,6 +94,31 @@ return [
             ],
 
             'database_connection' => env('BACKUP_SOURCE_DB_CONNECTION', env('DB_CONNECTION', 'mysql')),
+
+            'exclude_tables' => [
+                'telescope_entries',
+                'telescope_entries_tags',
+                'telescope_monitoring',
+            ],
+
+            'database_dump' => [
+                'mysql_binary' => env('BACKUP_MYSQLDUMP_BINARY', 'mysqldump'),
+                'timeout' => (int) env('BACKUP_DATABASE_DUMP_TIMEOUT', 900),
+            ],
+        ],
+
+        'lock' => [
+            'key' => env('BACKUP_LOCK_KEY', 'system-backup'),
+            'seconds' => (int) env('BACKUP_LOCK_SECONDS', 1800),
+        ],
+
+        'job' => [
+            'connection' => env('QUEUE_CONNECTION') === 'sync'
+                ? 'sync'
+                : env('BACKUP_QUEUE_CONNECTION', 'backups'),
+            'queue' => env('BACKUP_QUEUE', 'backups'),
+            'timeout' => (int) env('BACKUP_JOB_TIMEOUT', 1800),
+            'tries' => (int) env('BACKUP_JOB_TRIES', 1),
         ],
 
         /*

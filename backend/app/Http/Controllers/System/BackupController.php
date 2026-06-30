@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\System;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RunSystemBackupJob;
 use App\Models\BackupRun;
 use App\Services\Audit\AuditLogger;
 use App\Services\System\BackupService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Queue;
 use RuntimeException;
+use Throwable;
 
 class BackupController extends Controller
 {
@@ -36,11 +39,29 @@ class BackupController extends Controller
             'type' => ['nullable', 'string', 'max:32'],
         ]);
 
-        Artisan::call('lims:backup', ['--type' => $data['type'] ?? 'manual']);
+        $backupRun = BackupRun::query()->create([
+            'type' => $data['type'] ?? 'manual',
+            'status' => 'pending',
+        ]);
+
+        try {
+            Queue::connection((string) config('backup.backup.job.connection', 'backups'))->pushOn(
+                (string) config('backup.backup.job.queue', 'backups'),
+                new RunSystemBackupJob($backupRun->id),
+            );
+        } catch (Throwable $throwable) {
+            $backupRun->update([
+                'status' => 'failed',
+                'error_message' => $throwable->getMessage(),
+                'finished_at' => Carbon::now(),
+            ]);
+
+            throw $throwable;
+        }
 
         return response()->json([
-            'data' => BackupRun::query()->latest('id')->first(),
-        ], 201);
+            'data' => $backupRun->fresh(),
+        ], 202);
     }
 
     public function restore(Request $request, BackupRun $backupRun, BackupService $backupService, AuditLogger $auditLogger): JsonResponse

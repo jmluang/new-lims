@@ -44,6 +44,15 @@ return [
             'after_commit' => false,
         ],
 
+        'backups' => [
+            'driver' => 'database',
+            'connection' => env('BACKUP_QUEUE_DB_CONNECTION', env('DB_QUEUE_CONNECTION')),
+            'table' => env('BACKUP_QUEUE_TABLE', env('DB_QUEUE_TABLE', 'jobs')),
+            'queue' => env('BACKUP_QUEUE', 'backups'),
+            'retry_after' => (int) env('BACKUP_QUEUE_RETRY_AFTER', 1920),
+            'after_commit' => false,
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),
