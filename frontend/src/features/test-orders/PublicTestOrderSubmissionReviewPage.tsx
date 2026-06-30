@@ -21,7 +21,7 @@ type PublicSubmissionTestOrder = {
   sample_status: string
 }
 
-type PublicSubmission = {
+export type PublicSubmission = {
   id: number
   submission_no: string
   client_company: string
@@ -189,13 +189,6 @@ export function PublicTestOrderSubmissionReviewPage() {
                   <td className="px-3 py-3 text-sm text-slate-700">{formatDateTime(submission.submitted_at)}</td>
                   <td className="px-3 py-3">
                     <SubmissionActions
-                      isAccepting={acceptSubmission.isPending}
-                      isRejecting={rejectSubmission.isPending}
-                      onAccept={(target) => acceptSubmission.mutate(target)}
-                      onReject={(target) => {
-                        setRejectTarget(target)
-                        setReviewRemark('')
-                      }}
                       onView={setSelectedSubmission}
                       submission={submission}
                     />
@@ -230,13 +223,6 @@ export function PublicTestOrderSubmissionReviewPage() {
                 </dl>
                 <div className="mt-3">
                   <SubmissionActions
-                    isAccepting={acceptSubmission.isPending}
-                    isRejecting={rejectSubmission.isPending}
-                    onAccept={(target) => acceptSubmission.mutate(target)}
-                    onReject={(target) => {
-                      setRejectTarget(target)
-                      setReviewRemark('')
-                    }}
                     onView={setSelectedSubmission}
                     submission={submission}
                   />
@@ -296,51 +282,24 @@ export function PublicTestOrderSubmissionReviewPage() {
   )
 }
 
-function SubmissionActions({
-  isAccepting,
-  isRejecting,
-  onAccept,
-  onReject,
+export function SubmissionActions({
   onView,
   submission,
 }: {
-  isAccepting: boolean
-  isRejecting: boolean
-  onAccept: (submission: PublicSubmission) => void
-  onReject: (submission: PublicSubmission) => void
   onView: (submission: PublicSubmission) => void
   submission: PublicSubmission
 }) {
-  const disabled = isAccepting || isRejecting
-  const isPending = submission.status === 'pending'
-
   return (
     <div className="flex flex-wrap gap-2">
       <Button variant="secondary" onClick={() => onView(submission)}>
         <Eye className="size-4" aria-hidden="true" />
         查看
       </Button>
-      {isPending ? (
-        <PermissionGate resource="test_orders" action="create">
-          <Button variant="primary" onClick={() => onAccept(submission)} disabled={disabled}>
-            <CheckCircle2 className="size-4" aria-hidden="true" />
-            通过
-          </Button>
-        </PermissionGate>
-      ) : null}
-      {isPending ? (
-        <PermissionGate resource="test_orders" action="create">
-          <Button variant="danger" onClick={() => onReject(submission)} disabled={disabled}>
-            <XCircle className="size-4" aria-hidden="true" />
-            拒绝
-          </Button>
-        </PermissionGate>
-      ) : null}
     </div>
   )
 }
 
-function SubmissionDetailModal({
+export function SubmissionDetailModal({
   isAccepting,
   onAccept,
   onClose,
@@ -360,16 +319,6 @@ function SubmissionDetailModal({
       description="核对客户提交资料，通过后将生成正式委托试验单。"
       size="wide"
       onClose={onClose}
-      actions={
-        submission?.status === 'pending' ? (
-          <PermissionGate resource="test_orders" action="create">
-            <Button variant="primary" onClick={() => onAccept(submission)} disabled={isAccepting}>
-              <CheckCircle2 className="size-4" aria-hidden="true" />
-              通过并生成委托单
-            </Button>
-          </PermissionGate>
-        ) : null
-      }
     >
       {submission ? (
         <div className="space-y-4">
@@ -401,14 +350,18 @@ function SubmissionDetailModal({
           </section>
 
           {submission.status === 'pending' ? (
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => onReject(submission)}>
-                拒绝
-              </Button>
-              <Button variant="primary" onClick={() => onAccept(submission)} disabled={isAccepting}>
-                通过并生成委托单
-              </Button>
-            </div>
+            <PermissionGate resource="test_orders" action="create">
+              <div className="flex justify-end gap-2">
+                <Button variant="danger" onClick={() => onReject(submission)} disabled={isAccepting}>
+                  <XCircle className="size-4" aria-hidden="true" />
+                  拒绝
+                </Button>
+                <Button variant="primary" onClick={() => onAccept(submission)} disabled={isAccepting}>
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                  通过并生成委托单
+                </Button>
+              </div>
+            </PermissionGate>
           ) : null}
         </div>
       ) : null}
