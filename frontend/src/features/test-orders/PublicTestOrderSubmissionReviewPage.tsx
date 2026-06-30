@@ -45,8 +45,22 @@ type Filters = {
 }
 
 const emptyFilters: Filters = {
-  status: 'pending',
+  status: '',
   search: '',
+}
+
+const publicSubmissionStatusLabels: Record<PublicSubmission['status'], string> = {
+  pending: '待审核',
+  accepted: '已同意',
+  rejected: '已拒绝',
+}
+
+function publicSubmissionStatusLabel(status: PublicSubmission['status']) {
+  return publicSubmissionStatusLabels[status]
+}
+
+function publicSubmissionStatusBadgeStatus(status: PublicSubmission['status']) {
+  return `public_submission_${status}`
 }
 
 export function PublicTestOrderSubmissionReviewPage() {
@@ -100,7 +114,8 @@ export function PublicTestOrderSubmissionReviewPage() {
 
       return response.data.data
     },
-    onSuccess: async () => {
+    onSuccess: async (submission) => {
+      setSelectedSubmission(submission)
       setRejectTarget(null)
       setReviewRemark('')
       await queryClient.invalidateQueries({ queryKey: ['public-test-order-submissions'] })
@@ -133,10 +148,10 @@ export function PublicTestOrderSubmissionReviewPage() {
                 setPage(1)
               }}
             >
-              <option value="pending">待审核</option>
-              <option value="accepted">已通过</option>
-              <option value="rejected">已拒绝</option>
               <option value="">全部</option>
+              <option value="pending">待审核</option>
+              <option value="accepted">已同意</option>
+              <option value="rejected">已拒绝</option>
             </select>
           </Field>
           <Field label="页面内搜索">
@@ -184,7 +199,7 @@ export function PublicTestOrderSubmissionReviewPage() {
                   </td>
                   <td className="px-3 py-3 text-sm text-slate-700">{submission.samples_count}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">
-                    <StatusBadge status={submission.status} />
+                    <StatusBadge status={publicSubmissionStatusBadgeStatus(submission.status)} />
                   </td>
                   <td className="px-3 py-3 text-sm text-slate-700">{formatDateTime(submission.submitted_at)}</td>
                   <td className="px-3 py-3">
@@ -205,7 +220,7 @@ export function PublicTestOrderSubmissionReviewPage() {
                     <h2 className="truncate text-sm font-semibold text-slate-950">{submission.client_company}</h2>
                     <p className="truncate text-xs text-slate-500">{submission.submission_no}</p>
                   </div>
-                  <StatusBadge status={submission.status} />
+                  <StatusBadge status={publicSubmissionStatusBadgeStatus(submission.status)} />
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
                   <div>
@@ -327,7 +342,7 @@ export function SubmissionDetailModal({
             <InfoItem label="联系人" value={submission.client_contact || '-'} />
             <InfoItem label="联系电话" value={submission.client_phone} />
             <InfoItem label="公司地址" value={submission.client_address || '-'} />
-            <InfoItem label="状态" value={submission.status} />
+            <InfoItem label="状态" value={publicSubmissionStatusLabel(submission.status)} />
             <InfoItem label="提交时间" value={formatDateTime(submission.submitted_at)} />
             {submission.test_order ? <InfoItem label="生成委托单" value={submission.test_order.order_no} /> : null}
             {submission.review_remark ? <InfoItem label="拒绝备注" value={submission.review_remark} /> : null}

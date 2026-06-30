@@ -1,7 +1,8 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import type { PublicSubmission } from '../PublicTestOrderSubmissionReviewPage'
-import { SubmissionActions, SubmissionDetailModal } from '../PublicTestOrderSubmissionReviewPage'
+import { PublicTestOrderSubmissionReviewPage, SubmissionActions, SubmissionDetailModal } from '../PublicTestOrderSubmissionReviewPage'
 
 const permissionState = vi.hoisted(() => ({
   data: {
@@ -41,7 +42,44 @@ const pendingSubmission: PublicSubmission = {
   submitted_at: '2026-06-30 10:00:00',
 }
 
+const acceptedSubmission: PublicSubmission = {
+  ...pendingSubmission,
+  id: 2,
+  submission_no: 'PUB-20260630-002',
+  status: 'accepted',
+}
+
+const rejectedSubmission: PublicSubmission = {
+  ...pendingSubmission,
+  id: 3,
+  submission_no: 'PUB-20260630-003',
+  status: 'rejected',
+}
+
 describe('PublicTestOrderSubmissionReviewPage review actions', () => {
+  it('loads all review statuses by default and labels accepted or rejected submissions', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    })
+    queryClient.setQueryData(['public-test-order-submissions', { page: 1, per_page: 15 }], {
+      data: [acceptedSubmission, rejectedSubmission],
+      meta: { current_page: 1, per_page: 15, total: 2 },
+    })
+
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={queryClient}>
+        <PublicTestOrderSubmissionReviewPage />
+      </QueryClientProvider>,
+    )
+
+    expect(html).toContain('PUB-20260630-002')
+    expect(html).toContain('PUB-20260630-003')
+    expect(html).toContain('已同意')
+    expect(html).toContain('已拒绝')
+  })
+
   it('keeps accept and reject actions out of list rows', () => {
     const html = renderToStaticMarkup(
       <SubmissionActions

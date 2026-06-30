@@ -134,12 +134,12 @@ export function StatusBadge({ status }: { status?: string | null }) {
     <span
       className={cn(
         'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
-        ['active', 'success', 'completed', 'received'].includes(normalized) && 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        ['active', 'success', 'completed', 'received', 'public_submission_accepted'].includes(normalized) && 'border-emerald-200 bg-emerald-50 text-emerald-700',
         ['locked', 'failed', 'error'].includes(normalized) && 'border-red-200 bg-red-50 text-red-700',
-        ['disabled', 'pending', 'running', 'not_received', 'partially_received'].includes(normalized) && 'border-amber-200 bg-amber-50 text-amber-700',
+        ['disabled', 'pending', 'running', 'not_received', 'partially_received', 'public_submission_pending'].includes(normalized) && 'border-amber-200 bg-amber-50 text-amber-700',
         ['testing', 'outsourced', 'outsource_returned'].includes(normalized) && 'border-sky-200 bg-sky-50 text-sky-700',
-        ['returned', 'retained', 'scrapped', 'rejected', 'cancelled', 'abnormal'].includes(normalized) && 'border-slate-200 bg-slate-100 text-slate-700',
-        !['active', 'success', 'completed', 'received', 'locked', 'failed', 'error', 'disabled', 'pending', 'running', 'not_received', 'partially_received', 'testing', 'outsourced', 'outsource_returned', 'returned', 'retained', 'scrapped', 'rejected', 'cancelled', 'abnormal'].includes(
+        ['returned', 'retained', 'scrapped', 'rejected', 'cancelled', 'abnormal', 'public_submission_rejected'].includes(normalized) && 'border-slate-200 bg-slate-100 text-slate-700',
+        !['active', 'success', 'completed', 'received', 'public_submission_accepted', 'locked', 'failed', 'error', 'disabled', 'pending', 'running', 'not_received', 'partially_received', 'public_submission_pending', 'testing', 'outsourced', 'outsource_returned', 'returned', 'retained', 'scrapped', 'rejected', 'cancelled', 'abnormal', 'public_submission_rejected'].includes(
           normalized,
         ) && 'border-slate-200 bg-slate-50 text-slate-600',
       )}
