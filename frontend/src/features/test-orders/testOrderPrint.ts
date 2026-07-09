@@ -10,7 +10,7 @@ export async function downloadEntrustOrderPdf(order: Pick<TestOrder, 'id' | 'ord
   const link = document.createElement('a')
 
   link.href = url
-  link.download = `entrust-order-${order.order_no}.pdf`
+  link.download = `${order.order_no}.pdf`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)

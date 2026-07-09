@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TestOrderDetailPage } from '../TestOrderDetailPage'
 import { TestOrderListPage, type TestOrder } from '../TestOrderListPage'
+import { TestOrderPrintButtonView } from '../TestOrderPrintButton'
 import { downloadEntrustOrderPdf } from '../testOrderPrint'
 
 type TestPermissions = {
@@ -73,9 +74,19 @@ describe('test order entrust print', () => {
     expect(apiGetMock).toHaveBeenCalledWith('/api/test-orders/7/entrust-order.pdf', { responseType: 'blob' })
     expect(createObjectURL).toHaveBeenCalled()
     expect(click).toHaveBeenCalled()
+    expect(anchor.download).toBe('TO-20260628.pdf')
     expect(append).toHaveBeenCalled()
     expect(remove).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:test-order')
+  })
+
+  it('disables the print button and shows feedback while the PDF is generating', () => {
+    const html = renderToStaticMarkup(<TestOrderPrintButtonView order={testOrder()} status="pending" onPrint={() => undefined} />)
+
+    expect(html).toContain('disabled=""')
+    expect(html).toContain('生成中')
+    expect(html).toContain('正在生成委托单')
+    expect(html).toContain('aria-live="polite"')
   })
 
   it('renders list and detail print actions only when test order print permission is granted', () => {

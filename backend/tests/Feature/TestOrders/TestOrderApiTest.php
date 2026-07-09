@@ -5,6 +5,7 @@ namespace Tests\Feature\TestOrders;
 use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\Standard;
+use App\Models\TestOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -142,6 +143,32 @@ class TestOrderApiTest extends TestCase
         $this->assertDatabaseHas('test_order_standards', ['id' => $keptStandardId, 'requirement' => "接地电阻\n绝缘电阻\n耐压测试\n泄漏电流"]);
         $this->assertDatabaseMissing('test_order_samples', ['id' => $removedSampleId]);
         $this->assertDatabaseHas('test_order_samples', ['id' => $keptSampleId, 'detail_content' => '功能检查（更新）']);
+    }
+
+    public function test_test_order_list_defaults_to_newest_id_first(): void
+    {
+        $reader = $this->userWithPermissions(['test_orders.read']);
+        $older = TestOrder::query()->create([
+            'order_no' => 'ORDER-OLD',
+            'contract_no' => 'CONTRACT-OLD',
+            'order_date' => '2026-05-07',
+            'urgency' => 'normal',
+            'client_company' => '中山市旧委托客户',
+            'sample_status' => 'not_received',
+        ]);
+        $newer = TestOrder::query()->create([
+            'order_no' => 'ORDER-NEW',
+            'contract_no' => 'CONTRACT-NEW',
+            'order_date' => '2026-05-08',
+            'urgency' => 'normal',
+            'client_company' => '中山市新委托客户',
+            'sample_status' => 'not_received',
+        ]);
+
+        $this->getJsonAs($reader, '/api/test-orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $newer->id)
+            ->assertJsonPath('data.1.id', $older->id);
     }
 
     public function test_sample_options_requires_receive_permission_and_returns_minimal_rows(): void

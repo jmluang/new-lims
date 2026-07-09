@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { ArrowLeft, Printer } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
-import { Button, DataTable, ErrorNotice, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
+import { DataTable, ErrorNotice, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import type { ApiResource } from '../system/utils'
+import { TestOrderPrintButton } from './TestOrderPrintButton'
 import type { TestOrder } from './TestOrderListPage'
-import { downloadEntrustOrderPdf } from './testOrderPrint'
 
 export function TestOrderDetailPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
@@ -34,10 +34,7 @@ export function TestOrderDetailPage() {
           </Link>
           {order ? (
             <PermissionGate resource="test_orders" action="print">
-              <Button variant="secondary" onClick={() => void downloadEntrustOrderPdf(order)}>
-                <Printer className="size-4" aria-hidden="true" />
-                打印委托单
-              </Button>
+              <TestOrderPrintButton order={order} />
             </PermissionGate>
           ) : null}
         </>

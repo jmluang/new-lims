@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Download, Edit3, Eye, Plus, Printer, Search, Send, Trash2 } from 'lucide-react'
+import { Download, Edit3, Eye, Plus, Search, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
@@ -8,7 +8,7 @@ import { zhText } from '../../lib/zh'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass, localDateInputValue, paginationParams } from '../system/utils'
 import { fetchMessageRecipients, pushTestOrderMessage, type MessageRecipient } from '../messages/messages'
-import { downloadEntrustOrderPdf } from './testOrderPrint'
+import { TestOrderPrintButton } from './TestOrderPrintButton'
 
 export type TestOrderStandard = {
   id: number
@@ -327,10 +327,7 @@ function TestOrderActions({ order, onDelete, onNotify }: { order: TestOrder; onD
         </Button>
       </PermissionGate>
       <PermissionGate resource="test_orders" action="print">
-        <Button variant="secondary" onClick={() => void downloadEntrustOrderPdf(order)}>
-          <Printer className="size-4" aria-hidden="true" />
-          打印委托单
-        </Button>
+        <TestOrderPrintButton order={order} />
       </PermissionGate>
       <PermissionGate resource="test_orders" action="delete">
         <Button variant="danger" onClick={() => onDelete(order)}>

@@ -32,7 +32,7 @@ class TestOrderEntrustOrderController extends Controller
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename=entrust-order-'.$testOrder->order_no.'.pdf',
+            'Content-Disposition' => 'attachment; filename='.$testOrder->order_no.'.pdf',
         ]);
     }
 }

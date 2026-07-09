@@ -83,7 +83,7 @@ class TestOrderEntrustOrderPdfTest extends TestCase
         $this->get("/api/test-orders/{$order->id}/entrust-order.pdf")
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf')
-            ->assertHeader('content-disposition', 'attachment; filename=entrust-order-'.$order->order_no.'.pdf')
+            ->assertHeader('content-disposition', 'attachment; filename='.$order->order_no.'.pdf')
             ->assertSee('%PDF-1.4 fake pdf', false);
     }
 
