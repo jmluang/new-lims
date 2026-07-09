@@ -32,6 +32,10 @@ describe('sample receive form', () => {
           sample_name: '路灯-1',
           specification: 'LD',
           model: 'LD-100',
+          input_voltage: '220V',
+          rated_current: '1.3A',
+          rated_frequency: '50Hz',
+          power: '300W',
           appearance_check: '外观完整',
           remark: '客户备注：需保留原包装',
           reject_reason: '',
@@ -48,7 +52,17 @@ describe('sample receive form', () => {
     })
 
     expect(acceptedReceiveRowCount(payload.samples)).toBe(1)
-    expect(payload.samples).toMatchObject([{ remark: '客户备注：需保留原包装', reject_reason: null }, { reject_reason: '外观破损' }])
+    expect(payload.samples).toMatchObject([
+      {
+        input_voltage: '220V',
+        rated_current: '1.3A',
+        rated_frequency: '50Hz',
+        power: '300W',
+        remark: '客户备注：需保留原包装',
+        reject_reason: null,
+      },
+      { reject_reason: '外观破损' },
+    ])
   })
 
   it('throws validation errors instead of returning a successful empty submit result', () => {

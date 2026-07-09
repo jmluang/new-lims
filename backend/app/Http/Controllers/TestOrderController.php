@@ -203,6 +203,8 @@ class TestOrderController extends Controller
                         'specification' => $sample->specification,
                         'model' => $sample->model,
                         'input_voltage' => $sample->input_voltage,
+                        'rated_current' => $sample->rated_current,
+                        'rated_frequency' => $sample->rated_frequency,
                         'power' => $sample->power,
                         'quantity' => $sample->quantity,
                         'remark' => $sample->remark,

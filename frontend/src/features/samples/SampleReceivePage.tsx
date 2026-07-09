@@ -15,6 +15,8 @@ type SampleOption = {
   specification?: string | null
   model?: string | null
   input_voltage?: string | null
+  rated_current?: string | null
+  rated_frequency?: string | null
   power?: string | null
   quantity: number
   remark?: string | null
@@ -43,6 +45,8 @@ const emptyRow: ReceiveSampleRowValues = {
   specification: '',
   model: '',
   input_voltage: '',
+  rated_current: '',
+  rated_frequency: '',
   power: '',
   appearance_check: '',
   remark: '',
@@ -113,6 +117,8 @@ export function SampleReceivePage() {
             specification: row.specification ?? '',
             model: row.model ?? '',
             input_voltage: row.input_voltage ?? '',
+            rated_current: row.rated_current ?? '',
+            rated_frequency: row.rated_frequency ?? '',
             power: row.power ?? '',
             appearance_check: '外观完整',
             remark: row.remark ?? '',
@@ -214,6 +220,8 @@ export function SampleReceivePage() {
                         specification: option?.specification ?? row.specification,
                         model: option?.model ?? row.model,
                         input_voltage: option?.input_voltage ?? row.input_voltage,
+                        rated_current: option?.rated_current ?? row.rated_current,
+                        rated_frequency: option?.rated_frequency ?? row.rated_frequency,
                         power: option?.power ?? row.power,
                         remark: option?.remark ?? row.remark,
                       })
@@ -239,8 +247,14 @@ export function SampleReceivePage() {
                 <Field label="Input voltage">
                   <input className={inputClass} value={row.input_voltage ?? ''} onChange={(event) => updateRow(index, { input_voltage: event.target.value })} />
                 </Field>
+                <Field label="Rated current">
+                  <input className={inputClass} value={row.rated_current ?? ''} onChange={(event) => updateRow(index, { rated_current: event.target.value })} />
+                </Field>
                 <Field label="Power">
                   <input className={inputClass} value={row.power ?? ''} onChange={(event) => updateRow(index, { power: event.target.value })} />
+                </Field>
+                <Field label="Rated frequency">
+                  <input className={inputClass} value={row.rated_frequency ?? ''} onChange={(event) => updateRow(index, { rated_frequency: event.target.value })} />
                 </Field>
                 <Field label="Appearance check" className="md:col-span-2">
                   <textarea className={textareaClass} value={row.appearance_check ?? ''} onChange={(event) => updateRow(index, { appearance_check: event.target.value })} />

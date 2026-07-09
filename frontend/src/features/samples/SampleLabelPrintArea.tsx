@@ -6,6 +6,10 @@ export type SampleLabelPreview = {
   client_company?: string | null
   sample_name?: string | null
   model?: string | null
+  input_voltage?: string | null
+  rated_current?: string | null
+  rated_frequency?: string | null
+  power?: string | null
   sample_no: string
   status?: string | null
   qr_text: string
@@ -88,10 +92,12 @@ function renderLabels(labels: SampleLabelPreview[]) {
       className="sample-label flex flex-col items-center justify-center border border-slate-300 bg-white px-[2.5mm] py-[2mm] text-center text-slate-950 shadow-sm"
       key={label.sample_no}
     >
-      <div className="flex max-w-full flex-col items-center gap-[1.13mm] text-[9px] leading-tight">
+      <div className="flex max-w-full flex-col items-center gap-[1.13mm] text-[8.5px] leading-tight">
         <div className="max-w-full truncate">{label.client_company || '-'}</div>
-        <div className="max-w-full truncate">{label.sample_name || '-'}</div>
-        <div className="max-w-full truncate">{label.model || '-'}</div>
+        <div className="max-w-full truncate">名称：{label.sample_name || '-'}</div>
+        <div className="max-w-full truncate">型号：{label.model || '-'}</div>
+        <div className="max-w-full whitespace-nowrap">电压：{label.input_voltage || '-'} 电流：{label.rated_current || '-'}</div>
+        <div className="max-w-full whitespace-nowrap">频率：{label.rated_frequency || '-'} 功率：{label.power || '-'}</div>
       </div>
 
       <div className="sample-label-qr my-[1mm] flex shrink-0 items-center justify-center">

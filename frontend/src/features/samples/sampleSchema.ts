@@ -8,6 +8,8 @@ export const receiveSampleRowSchema = z.object({
   specification: z.string().optional(),
   model: z.string().optional(),
   input_voltage: z.string().optional(),
+  rated_current: z.string().optional(),
+  rated_frequency: z.string().optional(),
   power: z.string().optional(),
   appearance_check: z.string().optional(),
   remark: z.string().optional(),

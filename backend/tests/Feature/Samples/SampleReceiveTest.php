@@ -115,6 +115,47 @@ class SampleReceiveTest extends TestCase
         ]);
     }
 
+    public function test_receive_samples_copies_actual_electrical_values(): void
+    {
+        $receiver = $this->userWithPermissions(['samples.receive', 'samples.read']);
+        [$order, $orderSamples] = $this->orderWithSamples('ELECTRICAL');
+
+        $orderSamples[0]->update([
+            'input_voltage' => '220V',
+            'rated_current' => '1.3A',
+            'rated_frequency' => '50Hz',
+            'power' => '300W',
+        ]);
+
+        $this->getJsonAs($receiver, "/api/test-orders/{$order->id}/sample-options")
+            ->assertOk()
+            ->assertJsonPath('data.samples.0.input_voltage', '220V')
+            ->assertJsonPath('data.samples.0.rated_current', '1.3A')
+            ->assertJsonPath('data.samples.0.rated_frequency', '50Hz')
+            ->assertJsonPath('data.samples.0.power', '300W');
+
+        $this->postJsonAs($receiver, '/api/samples/receive', [
+            'test_order_id' => $order->id,
+            'received_date' => '2026-05-29',
+            'current_location' => '样品室 A1',
+            'samples' => [
+                $this->receiveRow($orderSamples[0]),
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.0.input_voltage', '220V')
+            ->assertJsonPath('data.0.rated_current', '1.3A')
+            ->assertJsonPath('data.0.rated_frequency', '50Hz')
+            ->assertJsonPath('data.0.power', '300W');
+
+        $this->assertDatabaseHas('samples', [
+            'test_order_sample_id' => $orderSamples[0]->id,
+            'input_voltage' => '220V',
+            'rated_current' => '1.3A',
+            'rated_frequency' => '50Hz',
+            'power' => '300W',
+        ]);
+    }
+
     public function test_sample_receive_order_list_denial_names_missing_permission(): void
     {
         $receiver = $this->userWithPermissions(['samples.receive']);
@@ -186,6 +227,10 @@ class SampleReceiveTest extends TestCase
             'sample_name' => $sampleName ?? $orderSample->sample_name,
             'specification' => $orderSample->specification,
             'model' => $orderSample->model,
+            'input_voltage' => $orderSample->input_voltage,
+            'rated_current' => $orderSample->rated_current,
+            'rated_frequency' => $orderSample->rated_frequency,
+            'power' => $orderSample->power,
             'appearance_check' => '外观完整',
             'reject_reason' => $rejectReason,
         ];

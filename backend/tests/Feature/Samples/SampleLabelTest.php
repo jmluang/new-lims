@@ -23,7 +23,7 @@ class SampleLabelTest extends TestCase
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
-    public function test_sample_label_preview_returns_company_name_model_number_status_and_qr_labels(): void
+    public function test_sample_label_preview_returns_company_name_model_electrical_values_status_and_qr_labels(): void
     {
         $printer = $this->userWithPermissions(['sample_labels.print']);
         $sample = $this->sample('SAMPLE-001');
@@ -36,6 +36,10 @@ class SampleLabelTest extends TestCase
             ->assertJsonPath('data.0.client_company', '中山市样品客户')
             ->assertJsonPath('data.0.sample_name', '控制器')
             ->assertJsonPath('data.0.model', 'CTRL-1')
+            ->assertJsonPath('data.0.input_voltage', '220V')
+            ->assertJsonPath('data.0.rated_current', '1.3A')
+            ->assertJsonPath('data.0.rated_frequency', '50Hz')
+            ->assertJsonPath('data.0.power', '300W')
             ->assertJsonPath('data.0.sample_no', 'SAMPLE-001')
             ->assertJsonPath('data.0.status', 'pending')
             ->assertJsonPath('data.0.qr_text', 'SAMPLE-001')
@@ -59,6 +63,10 @@ class SampleLabelTest extends TestCase
             'sample_no' => $sampleNo,
             'sample_name' => '控制器',
             'model' => 'CTRL-1',
+            'input_voltage' => '220V',
+            'rated_current' => '1.3A',
+            'rated_frequency' => '50Hz',
+            'power' => '300W',
             'quantity' => 1,
             'status' => 'pending',
             'current_holder' => '样品室',

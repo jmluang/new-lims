@@ -20,6 +20,10 @@ describe('sample label print spec', () => {
             client_company: '中山市样品客户',
             sample_name: '控制器',
             model: 'CTRL-1',
+            input_voltage: '220V',
+            rated_current: '1.3A',
+            rated_frequency: '50Hz',
+            power: '300W',
             sample_no: 'SAMPLE-001',
             status: 'pending',
             qr_text: 'SAMPLE-001',
@@ -29,8 +33,10 @@ describe('sample label print spec', () => {
     )
 
     expect(html).toContain('中山市样品客户')
-    expect(html).toContain('控制器')
-    expect(html).toContain('CTRL-1')
+    expect(html).toContain('名称：控制器')
+    expect(html).toContain('型号：CTRL-1')
+    expect(html).toContain('电压：220V 电流：1.3A')
+    expect(html).toContain('频率：50Hz 功率：300W')
     expect(html).toContain('SAMPLE-001')
     expect(html).toContain('sample-label-qr')
     expect(html).toContain('☑待检')

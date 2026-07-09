@@ -393,7 +393,7 @@ export function SampleListPage() {
         sample={returnClientSample}
         setRemark={setReturnClientRemark}
       />
-      <SampleLabelPrintArea labels={printLabels} screenHidden />
+      <SampleLabelPrintArea labels={printLabels} />
     </PageShell>
   )
 }
