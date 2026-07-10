@@ -92,16 +92,24 @@ function renderLabels(labels: SampleLabelPreview[]) {
       className="sample-label flex flex-col items-center justify-center border border-slate-300 bg-white px-[2.5mm] py-[2mm] text-center text-slate-950 shadow-sm"
       key={label.sample_no}
     >
-      <div className="flex max-w-full flex-col items-center gap-[1.13mm] text-[8.5px] leading-tight">
-        <div className="max-w-full truncate">{label.client_company || '-'}</div>
-        <div className="max-w-full truncate">名称：{label.sample_name || '-'}</div>
-        <div className="max-w-full truncate">型号：{label.model || '-'}</div>
-        <div className="max-w-full whitespace-nowrap">电压：{label.input_voltage || '-'} 电流：{label.rated_current || '-'}</div>
-        <div className="max-w-full whitespace-nowrap">频率：{label.rated_frequency || '-'} 功率：{label.power || '-'}</div>
-      </div>
+      <div className="flex w-[30mm] max-w-full flex-col items-stretch">
+        <div className="flex w-full max-w-full flex-col items-stretch gap-[0.72mm] text-left text-[7.2px] leading-tight">
+          <div className="max-w-full truncate text-center">{label.client_company || '-'}</div>
+          <div className="max-w-full truncate">型号：{label.model || '-'}</div>
+          <div className="max-w-full truncate">名称：{label.sample_name || '-'}</div>
+          <div className="grid w-full grid-cols-[17mm_1fr] gap-x-[1mm] whitespace-nowrap">
+            <span>电压：{label.input_voltage || '-'}</span>
+            <span>电流：{label.rated_current || '-'}</span>
+          </div>
+          <div className="grid w-full grid-cols-[17mm_1fr] gap-x-[1mm] whitespace-nowrap">
+            <span>频率：{label.rated_frequency || '-'}</span>
+            <span>功率：{label.power || '-'}</span>
+          </div>
+        </div>
 
-      <div className="sample-label-qr my-[1mm] flex shrink-0 items-center justify-center">
-        <QRCodeSVG value={label.qr_text} size={92} />
+        <div className="sample-label-qr my-[0.7mm] flex w-full shrink-0 items-center justify-start">
+          <QRCodeSVG value={label.qr_text} size={112} />
+        </div>
       </div>
 
       <div className="max-w-full break-all text-[9px] leading-tight">{label.sample_no}</div>
