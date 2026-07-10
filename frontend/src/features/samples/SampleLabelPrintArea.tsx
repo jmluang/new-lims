@@ -95,15 +95,15 @@ function renderLabels(labels: SampleLabelPreview[]) {
       <div className="flex w-[30mm] max-w-full flex-col items-stretch">
         <div className="flex w-full max-w-full flex-col items-stretch gap-[0.72mm] text-left text-[7.2px] leading-tight">
           <div className="max-w-full truncate text-center">{label.client_company || '-'}</div>
-          <div className="max-w-full truncate">型号：{label.model || '-'}</div>
           <div className="max-w-full truncate">名称：{label.sample_name || '-'}</div>
-          <div className="grid w-full grid-cols-[17mm_1fr] gap-x-[1mm] whitespace-nowrap">
-            <span>电压：{label.input_voltage || '-'}</span>
-            <span>电流：{label.rated_current || '-'}</span>
+          <div className="max-w-full truncate">型号：{label.model || '-'}</div>
+          <div className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-[1mm] whitespace-nowrap">
+            <span className="min-w-0 overflow-hidden text-ellipsis" title={`电压：${label.input_voltage || '-'}`}>电压：{label.input_voltage || '-'}</span>
+            <span className="min-w-0 overflow-hidden text-ellipsis" title={`电流：${label.rated_current || '-'}`}>电流：{label.rated_current || '-'}</span>
           </div>
-          <div className="grid w-full grid-cols-[17mm_1fr] gap-x-[1mm] whitespace-nowrap">
-            <span>频率：{label.rated_frequency || '-'}</span>
-            <span>功率：{label.power || '-'}</span>
+          <div className="grid w-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-[1mm] whitespace-nowrap">
+            <span className="min-w-0 overflow-hidden text-ellipsis" title={`频率：${label.rated_frequency || '-'}`}>频率：{label.rated_frequency || '-'}</span>
+            <span className="min-w-0 overflow-hidden text-ellipsis" title={`功率：${label.power || '-'}`}>功率：{label.power || '-'}</span>
           </div>
         </div>
 
