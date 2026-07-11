@@ -97,6 +97,43 @@ class EquipmentFieldPermissionTest extends TestCase
             ->assertSee('manual-bytes', false);
     }
 
+    public function test_equipment_file_download_cannot_escape_the_equipment_directory(): void
+    {
+        Storage::disk('local')->put('backups/20260712-1/database.sql', 'top-secret-backup');
+
+        $equipment = Equipment::query()->create([
+            'equipment_no' => 'EQ-ESCAPE',
+            'name' => 'Escape Equipment',
+            'status' => 'active',
+            'manual_files' => ['backups/20260712-1/database.sql'],
+        ]);
+
+        $response = $this->getJsonAs(
+            $this->userWithPermissions(['equipment.read', 'equipment.field.manual_files.read']),
+            "/api/equipment/{$equipment->id}/files/manual_files/0"
+        )->assertNotFound();
+
+        $this->assertStringNotContainsString('top-secret-backup', $response->getContent());
+    }
+
+    public function test_equipment_update_rejects_traversal_file_paths(): void
+    {
+        $equipment = Equipment::query()->create([
+            'equipment_no' => 'EQ-TRAVERSAL',
+            'name' => 'Traversal Equipment',
+            'status' => 'active',
+        ]);
+
+        $this->putJsonAs(
+            $this->userWithPermissions([
+                'equipment.update',
+                'equipment.field.manual_files.update',
+            ]),
+            "/api/equipment/{$equipment->id}",
+            ['manual_files' => ['../../backups/database.sql']]
+        )->assertStatus(422)->assertJsonValidationErrors('manual_files.0');
+    }
+
     private function userWithPermissions(array $permissions): User
     {
         $role = Role::create(['name' => 'test_equipment_field_'.str()->random(8), 'guard_name' => 'web']);
@@ -123,5 +160,12 @@ class EquipmentFieldPermissionTest extends TestCase
         Sanctum::actingAs($user);
 
         return $this->deleteJson($uri);
+    }
+
+    private function putJsonAs(User $user, string $uri, array $data)
+    {
+        Sanctum::actingAs($user);
+
+        return $this->putJson($uri, $data);
     }
 }

@@ -65,7 +65,7 @@ export function RegisterPage() {
             <div className="mt-20 max-w-md">
               <h1 className="text-3xl font-semibold tracking-normal">注册操作员账号</h1>
               <p className="mt-4 text-sm leading-6 text-slate-300">
-                注册后账号默认不属于任何角色组，需要管理员分配权限后才能访问业务模块。
+                注册后账号需管理员审核激活后方可登录；账号默认不属于任何角色组，需要管理员分配权限后才能访问业务模块。
               </p>
             </div>
           </div>

@@ -38,13 +38,15 @@ use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/login', [LoginController::class, 'login']);
-Route::post('/register', [LoginController::class, 'register']);
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/register', [LoginController::class, 'register'])->middleware('throttle:5,1');
 Route::get('/register/options', [LoginController::class, 'registerOptions']);
 
 // Public device ingest: temperature/humidity sensors push readings here
 // (ported from the legacy example/post.php). Accepts GET or POST.
-Route::match(['get', 'post'], '/device/temp-humidity', [TempHumidityRecordController::class, 'ingest']);
+// Throttled to blunt anonymous flooding of the readings table.
+Route::match(['get', 'post'], '/device/temp-humidity', [TempHumidityRecordController::class, 'ingest'])
+    ->middleware('throttle:120,1');
 Route::post('/public/test-order-submissions/customer-lookup', [PublicTestOrderSubmissionController::class, 'lookupCustomer'])
     ->middleware('throttle:20,1');
 Route::post('/public/test-order-submissions', [PublicTestOrderSubmissionController::class, 'store'])

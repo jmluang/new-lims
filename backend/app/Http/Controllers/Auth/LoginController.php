@@ -26,9 +26,14 @@ class LoginController extends Controller
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
         ]);
 
+        // Self-registered accounts start locked and cannot log in until an
+        // administrator reviews and unlocks them (UserController::unlock). This
+        // prevents anonymous visitors from creating usable accounts at will.
         $user = User::query()->create([
             ...$data,
-            'status' => 'active',
+            'status' => 'locked',
+            'locked_at' => Carbon::now(),
+            'lock_reason' => 'pending_approval',
             'must_change_password' => false,
             'password_changed_at' => Carbon::now(),
         ]);

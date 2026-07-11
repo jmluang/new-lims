@@ -25,6 +25,14 @@ class EquipmentController extends Controller
         'other_files',
     ];
 
+    /**
+     * Equipment file references are confined to this directory on the "local"
+     * disk. Without this guard a user-controlled path stored in one of the file
+     * fields could point downloadFile() at any file under storage/app/private
+     * (e.g. database backups), bypassing the backup permission checks.
+     */
+    private const FILE_BASE_DIR = 'equipment';
+
     public function index(Request $request, FieldPermissionFilter $fieldPermissionFilter): JsonResponse
     {
         $this->authorizePermission($request, 'equipment.read', self::RESOURCE);
@@ -129,7 +137,7 @@ class EquipmentController extends Controller
 
         $path = $this->filePath($equipment, $field, $index);
 
-        if ($path === null || ! Storage::disk('local')->exists($path)) {
+        if ($path === null || ! $this->isSafeDownloadPath($path) || ! Storage::disk('local')->exists($path)) {
             abort(404);
         }
 
@@ -230,13 +238,71 @@ class EquipmentController extends Controller
             'calibration_duration' => ['nullable', 'string', 'max:255'],
             'next_calibration_date' => ['nullable', 'date'],
             'status' => ['nullable', 'in:active,disabled,maintenance,retired'],
-            'device_image' => ['nullable', 'string', 'max:255'],
+            'device_image' => ['nullable', 'string', 'max:255', $this->safeRelativePathRule()],
             'manual_files' => ['nullable', 'array'],
+            'manual_files.*' => ['string', 'max:255', $this->safeRelativePathRule()],
             'instruction_files' => ['nullable', 'array'],
+            'instruction_files.*' => ['string', 'max:255', $this->safeRelativePathRule()],
             'calibration_files' => ['nullable', 'array'],
+            'calibration_files.*' => ['string', 'max:255', $this->safeRelativePathRule()],
             'other_files' => ['nullable', 'array'],
+            'other_files.*' => ['string', 'max:255', $this->safeRelativePathRule()],
             'remark' => ['nullable', 'string'],
         ];
+    }
+
+    /**
+     * Reject obviously unsafe file-path values (absolute paths, parent-directory
+     * traversal, null bytes) before they are stored. downloadFile() applies the
+     * authoritative confinement, but validating input gives a clear error early
+     * and keeps traversal payloads out of the database.
+     */
+    private function safeRelativePathRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if (! is_string($value)) {
+                $fail('The :attribute must be a string.');
+
+                return;
+            }
+
+            $normalized = str_replace('\\', '/', $value);
+
+            if (
+                str_contains($value, "\0")
+                || str_starts_with($normalized, '/')
+                || preg_match('#^[A-Za-z]:#', $normalized) === 1
+                || in_array('..', explode('/', $normalized), true)
+            ) {
+                $fail('The :attribute contains an invalid file path.');
+            }
+        };
+    }
+
+    /**
+     * A stored file reference is only downloadable when it resolves inside the
+     * equipment file directory on the "local" disk, with no traversal or
+     * absolute-path escape.
+     */
+    private function isSafeDownloadPath(string $path): bool
+    {
+        if ($path === '' || str_contains($path, "\0")) {
+            return false;
+        }
+
+        $normalized = str_replace('\\', '/', $path);
+
+        if (str_starts_with($normalized, '/') || preg_match('#^[A-Za-z]:#', $normalized) === 1) {
+            return false;
+        }
+
+        $segments = explode('/', $normalized);
+
+        if (in_array('..', $segments, true) || in_array('.', $segments, true)) {
+            return false;
+        }
+
+        return ($segments[0] ?? null) === self::FILE_BASE_DIR;
     }
 
     private function serializeEquipment(Equipment $equipment, Request $request, FieldPermissionFilter $fieldPermissionFilter): array

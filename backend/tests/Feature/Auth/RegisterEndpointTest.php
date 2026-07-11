@@ -12,7 +12,7 @@ class RegisterEndpointTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_guest_can_register_active_user_without_any_permissions(): void
+    public function test_guest_registration_creates_a_locked_account_pending_admin_approval(): void
     {
         $department = Department::query()->create([
             'name' => 'Lab',
@@ -26,7 +26,7 @@ class RegisterEndpointTest extends TestCase
             'password' => 'Password123!',
             'phone' => '13800000000',
             'department_id' => $department->id,
-            'status' => 'locked',
+            'status' => 'active',
             'must_change_password' => true,
             'group_ids' => [1],
         ])->assertCreated();
@@ -40,10 +40,18 @@ class RegisterEndpointTest extends TestCase
         $this->assertSame('New Operator', $user->name);
         $this->assertSame('13800000000', $user->phone);
         $this->assertSame($department->id, $user->department_id);
-        $this->assertSame('active', $user->status);
+        $this->assertSame('locked', $user->status);
+        $this->assertNotNull($user->locked_at);
+        $this->assertSame('pending_approval', $user->lock_reason);
         $this->assertFalse($user->must_change_password);
         $this->assertTrue(Hash::check('Password123!', $user->password));
         $this->assertCount(0, $user->roles);
+
+        // A freshly registered account cannot log in until an admin unlocks it.
+        $this->postJson('/api/login', [
+            'email' => 'new-operator@example.test',
+            'password' => 'Password123!',
+        ])->assertForbidden();
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'auth.register',
