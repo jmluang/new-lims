@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { AlertCircle, ArrowLeft, FlaskConical, UserPlus } from 'lucide-react'
+import { AlertCircle, ArrowLeft, CheckCircle2, FlaskConical, UserPlus } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { api } from '../../lib/api'
 import { Field } from '../system/shared'
@@ -15,7 +15,6 @@ type RegisterOptions = {
 }
 
 export function RegisterPage() {
-  const navigate = useNavigate()
   const form = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -37,9 +36,6 @@ export function RegisterPage() {
   const register = useMutation({
     mutationFn: async (values: RegisterForm) => {
       await api.post('/api/register', registerPayload(values))
-    },
-    onSuccess: async () => {
-      await navigate({ to: '/login' })
     },
   })
   const departments = flattenDepartmentOptions(optionsQuery.data?.departments ?? [])
@@ -71,72 +67,93 @@ export function RegisterPage() {
           </div>
 
           <form className="p-6 sm:p-8" onSubmit={form.handleSubmit(onSubmit)}>
-            <Link
-              className="inline-flex h-9 items-center gap-2 rounded-md text-sm font-medium text-slate-600 hover:text-emerald-800"
-              to="/login"
-            >
-              <ArrowLeft className="size-4" aria-hidden="true" />
-              返回登录
-            </Link>
-
-            <div className="mt-6">
-              <h2 className="text-xl font-semibold">注册</h2>
-              <p className="mt-1 text-sm text-slate-500">填写基础账号信息。</p>
-            </div>
-
-            {register.isError ? (
-              <div className="mt-5 flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span>注册失败，请检查邮箱是否已存在。</span>
+            {register.isSuccess ? (
+              <div className="flex min-h-[420px] flex-col items-center justify-center text-center" aria-live="polite">
+                <div className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <CheckCircle2 className="size-6" aria-hidden="true" />
+                </div>
+                <h2 className="mt-5 text-xl font-semibold">注册申请已提交</h2>
+                <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600">
+                  账号正在等待管理员审核激活。审核完成后，即可使用注册邮箱和密码登录。
+                </p>
+                <Link
+                  className="mt-6 inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700"
+                  to="/login"
+                >
+                  <ArrowLeft className="size-4" aria-hidden="true" />
+                  返回登录
+                </Link>
               </div>
-            ) : null}
+            ) : (
+              <>
+                <Link
+                  className="inline-flex h-9 items-center gap-2 rounded-md text-sm font-medium text-slate-600 hover:text-emerald-800"
+                  to="/login"
+                >
+                  <ArrowLeft className="size-4" aria-hidden="true" />
+                  返回登录
+                </Link>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <Field label="Name">
-                <input className={inputClass} autoComplete="name" {...form.register('name')} />
-                {form.formState.errors.name ? (
-                  <span className="mt-1 block text-xs text-red-600">{form.formState.errors.name.message}</span>
+                <div className="mt-6">
+                  <h2 className="text-xl font-semibold">注册</h2>
+                  <p className="mt-1 text-sm text-slate-500">填写基础账号信息。</p>
+                </div>
+
+                {register.isError ? (
+                  <div className="mt-5 flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <span>注册失败，请检查邮箱是否已存在。</span>
+                  </div>
                 ) : null}
-              </Field>
 
-              <Field label="Email">
-                <input className={inputClass} type="email" autoComplete="email" {...form.register('email')} />
-                {form.formState.errors.email ? (
-                  <span className="mt-1 block text-xs text-red-600">{form.formState.errors.email.message}</span>
-                ) : null}
-              </Field>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <Field label="Name">
+                    <input className={inputClass} autoComplete="name" {...form.register('name')} />
+                    {form.formState.errors.name ? (
+                      <span className="mt-1 block text-xs text-red-600">{form.formState.errors.name.message}</span>
+                    ) : null}
+                  </Field>
 
-              <Field label="Phone">
-                <input className={inputClass} autoComplete="tel" {...form.register('phone')} />
-              </Field>
+                  <Field label="Email">
+                    <input className={inputClass} type="email" autoComplete="email" {...form.register('email')} />
+                    {form.formState.errors.email ? (
+                      <span className="mt-1 block text-xs text-red-600">{form.formState.errors.email.message}</span>
+                    ) : null}
+                  </Field>
 
-              <Field label="Department">
-                <select className={inputClass} disabled={optionsQuery.isPending} {...form.register('department_id')}>
-                  <option value="">无部门</option>
-                  {departments.map((department) => (
-                    <option value={department.id} key={department.id}>
-                      {department.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
+                  <Field label="Phone">
+                    <input className={inputClass} autoComplete="tel" {...form.register('phone')} />
+                  </Field>
 
-              <Field label="Initial password" className="sm:col-span-2">
-                <input className={inputClass} type="password" autoComplete="new-password" {...form.register('password')} />
-                {form.formState.errors.password ? (
-                  <span className="mt-1 block text-xs text-red-600">{form.formState.errors.password.message}</span>
-                ) : null}
-              </Field>
-            </div>
+                  <Field label="Department">
+                    <select className={inputClass} disabled={optionsQuery.isPending} {...form.register('department_id')}>
+                      <option value="">无部门</option>
+                      {departments.map((department) => (
+                        <option value={department.id} key={department.id}>
+                          {department.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
 
-            <button
-              className="mt-6 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              type="submit"
-              disabled={register.isPending}
-            >
-              <UserPlus className="size-4" aria-hidden="true" />
-              {register.isPending ? '注册中' : '创建账号'}
-            </button>
+                  <Field label="Initial password" className="sm:col-span-2">
+                    <input className={inputClass} type="password" autoComplete="new-password" {...form.register('password')} />
+                    {form.formState.errors.password ? (
+                      <span className="mt-1 block text-xs text-red-600">{form.formState.errors.password.message}</span>
+                    ) : null}
+                  </Field>
+                </div>
+
+                <button
+                  className="mt-6 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  type="submit"
+                  disabled={register.isPending}
+                >
+                  <UserPlus className="size-4" aria-hidden="true" />
+                  {register.isPending ? '注册中' : '创建账号'}
+                </button>
+              </>
+            )}
           </form>
         </section>
       </div>

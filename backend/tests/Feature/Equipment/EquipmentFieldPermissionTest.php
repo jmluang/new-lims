@@ -21,7 +21,7 @@ class EquipmentFieldPermissionTest extends TestCase
         parent::setUp();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Storage::disk('local')->deleteDirectory('equipment');
+        Storage::fake('equipment');
     }
 
     public function test_equipment_detail_hides_file_fields_without_file_read_permissions(): void
@@ -77,7 +77,7 @@ class EquipmentFieldPermissionTest extends TestCase
 
     public function test_equipment_file_download_requires_matching_field_read_permission(): void
     {
-        Storage::disk('local')->put('equipment/manuals/manual.pdf', 'manual-bytes');
+        Storage::disk('equipment')->put('manuals/manual.pdf', 'manual-bytes');
         $equipment = Equipment::query()->create([
             'equipment_no' => 'EQ-DOWNLOAD',
             'name' => 'Download Equipment',
@@ -90,11 +90,13 @@ class EquipmentFieldPermissionTest extends TestCase
             "/api/equipment/{$equipment->id}/files/manual_files/0"
         )->assertForbidden();
 
-        $this->getJsonAs(
+        $response = $this->getJsonAs(
             $this->userWithPermissions(['equipment.read', 'equipment.field.manual_files.read']),
             "/api/equipment/{$equipment->id}/files/manual_files/0"
         )->assertOk()
-            ->assertSee('manual-bytes', false);
+            ->assertDownload('manual.pdf');
+
+        $this->assertSame('manual-bytes', file_get_contents($response->baseResponse->getFile()->getPathname()));
     }
 
     public function test_equipment_file_download_cannot_escape_the_equipment_directory(): void
@@ -132,6 +134,30 @@ class EquipmentFieldPermissionTest extends TestCase
             "/api/equipment/{$equipment->id}",
             ['manual_files' => ['../../backups/database.sql']]
         )->assertStatus(422)->assertJsonValidationErrors('manual_files.0');
+    }
+
+    public function test_equipment_file_download_rejects_symlink_escape(): void
+    {
+        Storage::disk('local')->put('backups/20260712-2/database.sql', 'symlink-secret-backup');
+        $linkPath = Storage::disk('equipment')->path('archive');
+        $backupPath = dirname(Storage::disk('local')->path('backups/20260712-2/database.sql'));
+
+        $this->assertTrue(symlink($backupPath, $linkPath));
+
+        $equipment = Equipment::query()->create([
+            'equipment_no' => 'EQ-SYMLINK',
+            'name' => 'Symlink Equipment',
+            'status' => 'active',
+            'manual_files' => ['equipment/archive/database.sql'],
+        ]);
+
+        $response = $this->getJsonAs(
+            $this->userWithPermissions(['equipment.read', 'equipment.field.manual_files.read']),
+            "/api/equipment/{$equipment->id}/files/manual_files/0"
+        )->assertNotFound();
+
+        $this->assertStringNotContainsString('symlink-secret-backup', $response->getContent());
+        unlink($linkPath);
     }
 
     private function userWithPermissions(array $permissions): User

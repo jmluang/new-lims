@@ -85,4 +85,22 @@ class RegisterEndpointTest extends TestCase
 
         $this->assertStringNotContainsString('Disabled Lab', $response->getContent());
     }
+
+    public function test_device_ingest_does_not_consume_auth_rate_limits(): void
+    {
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $this->postJson('/api/device/temp-humidity', [])->assertUnprocessable();
+        }
+
+        $this->postJson('/api/login', [
+            'email' => 'missing@example.test',
+            'password' => 'Password123!',
+        ])->assertUnauthorized();
+
+        $this->postJson('/api/register', [
+            'name' => 'Rate Limit Operator',
+            'email' => 'rate-limit-operator@example.test',
+            'password' => 'Password123!',
+        ])->assertCreated();
+    }
 }

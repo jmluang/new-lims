@@ -9,13 +9,16 @@ class ResetUserPasswordAction
 {
     public function execute(User $user, string $password, bool $mustChangePassword = true): User
     {
+        $unlocksFailedLoginLock = $user->status === 'locked'
+            && $user->lock_reason === 'failed_login_attempts';
+
         $user->forceFill([
             'password' => $password,
             'password_changed_at' => Carbon::now(),
             'must_change_password' => $mustChangePassword,
-            'status' => $user->status === 'locked' ? 'active' : $user->status,
-            'locked_at' => null,
-            'lock_reason' => null,
+            'status' => $unlocksFailedLoginLock ? 'active' : $user->status,
+            'locked_at' => $unlocksFailedLoginLock ? null : $user->locked_at,
+            'lock_reason' => $unlocksFailedLoginLock ? null : $user->lock_reason,
             'failed_login_attempts' => 0,
         ])->save();
 

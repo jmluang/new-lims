@@ -26,10 +26,8 @@ class EquipmentController extends Controller
     ];
 
     /**
-     * Equipment file references are confined to this directory on the "local"
-     * disk. Without this guard a user-controlled path stored in one of the file
-     * fields could point downloadFile() at any file under storage/app/private
-     * (e.g. database backups), bypassing the backup permission checks.
+     * Stored references retain the equipment/ prefix for compatibility, while
+     * file access uses the dedicated equipment disk.
      */
     private const FILE_BASE_DIR = 'equipment';
 
@@ -136,14 +134,14 @@ class EquipmentController extends Controller
         $this->authorizePermission($request, "equipment.field.{$field}.read", self::RESOURCE, $equipment);
 
         $path = $this->filePath($equipment, $field, $index);
+        $resolvedPath = is_string($path) ? $this->resolveEquipmentDownloadPath($path) : null;
 
-        if ($path === null || ! $this->isSafeDownloadPath($path) || ! Storage::disk('local')->exists($path)) {
+        if ($resolvedPath === null) {
             abort(404);
         }
 
-        return response(Storage::disk('local')->get($path), 200, [
+        return response()->download($resolvedPath, basename(str_replace('\\', '/', $path)), [
             'Content-Type' => 'application/octet-stream',
-            'Content-Disposition' => 'attachment; filename="'.basename($path).'"',
         ]);
     }
 
@@ -251,12 +249,6 @@ class EquipmentController extends Controller
         ];
     }
 
-    /**
-     * Reject obviously unsafe file-path values (absolute paths, parent-directory
-     * traversal, null bytes) before they are stored. downloadFile() applies the
-     * authoritative confinement, but validating input gives a clear error early
-     * and keeps traversal payloads out of the database.
-     */
     private function safeRelativePathRule(): \Closure
     {
         return function (string $attribute, mixed $value, \Closure $fail): void {
@@ -267,42 +259,67 @@ class EquipmentController extends Controller
             }
 
             $normalized = str_replace('\\', '/', $value);
+            $segments = explode('/', $normalized);
 
             if (
                 str_contains($value, "\0")
                 || str_starts_with($normalized, '/')
                 || preg_match('#^[A-Za-z]:#', $normalized) === 1
-                || in_array('..', explode('/', $normalized), true)
+                || in_array('..', $segments, true)
+                || in_array('.', $segments, true)
             ) {
                 $fail('The :attribute contains an invalid file path.');
             }
         };
     }
 
-    /**
-     * A stored file reference is only downloadable when it resolves inside the
-     * equipment file directory on the "local" disk, with no traversal or
-     * absolute-path escape.
-     */
-    private function isSafeDownloadPath(string $path): bool
+    private function equipmentRelativePath(string $path): ?string
     {
         if ($path === '' || str_contains($path, "\0")) {
-            return false;
+            return null;
         }
 
         $normalized = str_replace('\\', '/', $path);
 
         if (str_starts_with($normalized, '/') || preg_match('#^[A-Za-z]:#', $normalized) === 1) {
-            return false;
+            return null;
         }
 
         $segments = explode('/', $normalized);
 
-        if (in_array('..', $segments, true) || in_array('.', $segments, true)) {
-            return false;
+        if (
+            count($segments) < 2
+            || $segments[0] !== self::FILE_BASE_DIR
+            || in_array('', $segments, true)
+            || in_array('..', $segments, true)
+            || in_array('.', $segments, true)
+        ) {
+            return null;
         }
 
-        return ($segments[0] ?? null) === self::FILE_BASE_DIR;
+        return implode('/', array_slice($segments, 1));
+    }
+
+    private function resolveEquipmentDownloadPath(string $path): ?string
+    {
+        $relativePath = $this->equipmentRelativePath($path);
+
+        if ($relativePath === null) {
+            return null;
+        }
+
+        $disk = Storage::disk('equipment');
+        $rootPath = realpath($disk->path(''));
+        $filePath = realpath($disk->path($relativePath));
+
+        if ($rootPath === false || $filePath === false || ! is_file($filePath)) {
+            return null;
+        }
+
+        $normalizedRoot = rtrim(str_replace('\\', '/', $rootPath), '/').'/';
+        $normalizedFile = str_replace('\\', '/', $filePath);
+
+        return str_starts_with($normalizedFile, $normalizedRoot) ? $filePath : null;
     }
 
     private function serializeEquipment(Equipment $equipment, Request $request, FieldPermissionFilter $fieldPermissionFilter): array

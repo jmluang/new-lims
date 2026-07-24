@@ -38,19 +38,19 @@ use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
-Route::post('/register', [LoginController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:auth-login');
+Route::post('/register', [LoginController::class, 'register'])->middleware('throttle:auth-register');
 Route::get('/register/options', [LoginController::class, 'registerOptions']);
 
 // Public device ingest: temperature/humidity sensors push readings here
 // (ported from the legacy example/post.php). Accepts GET or POST.
 // Throttled to blunt anonymous flooding of the readings table.
 Route::match(['get', 'post'], '/device/temp-humidity', [TempHumidityRecordController::class, 'ingest'])
-    ->middleware('throttle:120,1');
+    ->middleware('throttle:device-temp-humidity');
 Route::post('/public/test-order-submissions/customer-lookup', [PublicTestOrderSubmissionController::class, 'lookupCustomer'])
-    ->middleware('throttle:20,1');
+    ->middleware('throttle:public-submission-lookup');
 Route::post('/public/test-order-submissions', [PublicTestOrderSubmissionController::class, 'store'])
-    ->middleware('throttle:5,1');
+    ->middleware('throttle:public-submission-store');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', function (Request $request) {

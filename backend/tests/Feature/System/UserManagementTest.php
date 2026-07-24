@@ -140,6 +140,36 @@ class UserManagementTest extends TestCase
         $this->assertSame(0, $user->failed_login_attempts);
     }
 
+    public function test_reset_password_does_not_approve_pending_registration(): void
+    {
+        $admin = $this->userWithPermissions(['system.users.update']);
+        $user = User::factory()->create([
+            'name' => 'Pending Operator',
+            'email' => 'pending-reset@example.test',
+            'password' => 'OldPassword123!',
+            'status' => 'locked',
+            'locked_at' => now(),
+            'lock_reason' => 'pending_approval',
+        ]);
+
+        $this->postJsonAs($admin, "/api/system/users/{$user->id}/reset-password", [
+            'password' => 'ChangeMe123!',
+            'must_change_password' => true,
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'locked')
+            ->assertJsonPath('data.lock_reason', 'pending_approval');
+
+        $this->postJson('/api/login', [
+            'email' => 'pending-reset@example.test',
+            'password' => 'ChangeMe123!',
+        ])->assertForbidden();
+
+        $user = $user->fresh();
+        $this->assertSame('locked', $user->status);
+        $this->assertNotNull($user->locked_at);
+        $this->assertSame('pending_approval', $user->lock_reason);
+    }
+
     public function test_user_list_can_filter_by_search_status_department_and_group(): void
     {
         $admin = $this->userWithPermissions(['system.users.read']);
