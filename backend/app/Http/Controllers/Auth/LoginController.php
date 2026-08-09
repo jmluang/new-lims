@@ -10,11 +10,17 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
 {
     private const MAX_FAILED_ATTEMPTS = 5;
+
+    private const MAX_IP_FAILED_ATTEMPTS = 30;
+
+    private const LOCKOUT_SECONDS = 60;
 
     public function register(Request $request, AuditLogger $auditLogger): JsonResponse
     {
@@ -87,9 +93,38 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
+        // Throttle *failed* logins only, on two axes:
+        //  - per email + IP: stops brute-forcing a single account;
+        //  - per IP: stops password-spraying many accounts from one host.
+        // Because only failures are counted (and the email+IP key is cleared on
+        // success), legitimate users are never blocked for signing in correctly,
+        // including many colleagues sharing one office/NAT IP.
+        $throttleKey = $this->throttleKey($request, $data['email']);
+        $ipThrottleKey = $this->ipThrottleKey($request);
+
+        if (
+            RateLimiter::tooManyAttempts($throttleKey, self::MAX_FAILED_ATTEMPTS)
+            || RateLimiter::tooManyAttempts($ipThrottleKey, self::MAX_IP_FAILED_ATTEMPTS)
+        ) {
+            $auditLogger->record(
+                actor: null,
+                action: 'auth.login.throttled',
+                module: 'auth',
+                subject: null,
+                after: ['email' => $data['email'], 'retry_after' => RateLimiter::availableIn($throttleKey)],
+            );
+
+            throw ValidationException::withMessages([
+                'email' => ['auth_throttled'],
+            ])->status(429);
+        }
+
         $user = User::query()->where('email', $data['email'])->first();
 
         if (! $user || ! Hash::check($data['password'], $user->password)) {
+            RateLimiter::hit($throttleKey, self::LOCKOUT_SECONDS);
+            RateLimiter::hit($ipThrottleKey, self::LOCKOUT_SECONDS);
+
             if ($user) {
                 $this->recordFailedAttempt($user, $auditLogger);
             }
@@ -110,6 +145,8 @@ class LoginController extends Controller
 
             abort(403);
         }
+
+        RateLimiter::clear($throttleKey);
 
         $user->forceFill([
             'failed_login_attempts' => 0,
@@ -187,19 +224,13 @@ class LoginController extends Controller
 
     private function recordFailedAttempt(User $user, AuditLogger $auditLogger): void
     {
+        // Keep a per-account failure counter for visibility/monitoring, but do
+        // not auto-lock the account: an anonymous attacker must not be able to
+        // lock a victim out. Brute-force is contained by the email+IP throttle;
+        // administrators can still lock accounts manually.
         $user->forceFill([
             'failed_login_attempts' => $user->failed_login_attempts + 1,
-        ]);
-
-        if ($user->failed_login_attempts >= self::MAX_FAILED_ATTEMPTS) {
-            $user->forceFill([
-                'status' => 'locked',
-                'locked_at' => Carbon::now(),
-                'lock_reason' => 'failed_login_attempts',
-            ]);
-        }
-
-        $user->save();
+        ])->save();
 
         $auditLogger->record(
             actor: $user,
@@ -212,5 +243,15 @@ class LoginController extends Controller
                 'status' => $user->status,
             ],
         );
+    }
+
+    private function throttleKey(Request $request, string $email): string
+    {
+        return 'login:'.Str::lower($email).'|'.$request->ip();
+    }
+
+    private function ipThrottleKey(Request $request): string
+    {
+        return 'login-ip:'.$request->ip();
     }
 }

@@ -38,7 +38,10 @@ use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:auth-login');
+// Login throttling is handled inside LoginController (failure-based, per email+IP
+// and per IP) so successful logins are never blocked — a blanket middleware
+// limiter would count every request and lock out users behind a shared/NAT IP.
+Route::post('/login', [LoginController::class, 'login']);
 Route::post('/register', [LoginController::class, 'register'])->middleware('throttle:auth-register');
 Route::get('/register/options', [LoginController::class, 'registerOptions']);
 
