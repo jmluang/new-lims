@@ -41,7 +41,7 @@ export function TestOrderForm({
 }) {
   const form = useForm<TestOrderFormValues>({
     resolver: zodResolver(testOrderSchema),
-    defaultValues: defaultValues(order),
+    defaultValues: testOrderDefaultValues(order),
   })
   const standardRows = useFieldArray({ control: form.control, name: 'standards' })
   const sampleRows = useFieldArray({ control: form.control, name: 'samples' })
@@ -66,7 +66,7 @@ export function TestOrderForm({
   )
 
   useEffect(() => {
-    form.reset(defaultValues(order))
+    form.reset(testOrderDefaultValues(order))
   }, [order, form])
 
   useEffect(() => {
@@ -556,7 +556,7 @@ function PartyFields({
   )
 }
 
-function defaultValues(order?: TestOrder | null): TestOrderFormValues {
+export function testOrderDefaultValues(order?: TestOrder | null): TestOrderFormValues {
   return {
     contract_no: order?.contract_no ?? '',
     order_date: order?.order_date ?? localDateInputValue(),
@@ -586,9 +586,9 @@ function defaultValues(order?: TestOrder | null): TestOrderFormValues {
     sample_return: order?.sample_return ?? 'return',
     remark: order?.remark ?? '',
     sample_status: order?.sample_status ?? 'not_received',
-    address_lab_name: order?.address_lab_name ?? '',
-    address_contact: order?.address_contact ?? '',
-    address_detail: order?.address_detail ?? '',
+    address_lab_name: order?.address_lab_name ?? '中山市鑫普达检测有限公司',
+    address_contact: order?.address_contact ?? '鑫普达检测',
+    address_detail: order?.address_detail ?? '广东省中山市古镇镇东兴东路33号7栋1层之一',
     address_phone: order?.address_phone ?? '',
     shipping_notes: order?.shipping_notes ?? '',
     client_signature: order?.client_signature ?? '',

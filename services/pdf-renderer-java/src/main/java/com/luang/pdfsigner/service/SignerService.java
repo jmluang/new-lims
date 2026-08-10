@@ -1797,13 +1797,13 @@ public class SignerService {
             }
 
             // 作者：设置为检测机构，而不是原始作者
-            docInfo.setAuthor("中山市鑫达普检测技术有限公司");
+            docInfo.setAuthor("中山市鑫普达检测有限公司");
 
             // 创建者：设置为系统名称，而不是原始创建者
-            docInfo.setCreator("鑫达普LIMS系统");
+            docInfo.setCreator("鑫普达LIMS系统");
 
             // 生产者：设置为系统信息
-            docInfo.setProducer("鑫达普PDF处理服务");
+            docInfo.setProducer("鑫普达PDF处理服务");
 
             // 主题：设置为检测报告
             docInfo.setSubject("检测报告文件");

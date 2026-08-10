@@ -11,7 +11,7 @@ import {
   testOrderSchema,
   type TestOrderFormValues,
 } from '../testOrderSchema'
-import { TestOrderForm } from '../TestOrderForm'
+import { TestOrderForm, testOrderDefaultValues } from '../TestOrderForm'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => React.createElement('a', { href: to }, children),
@@ -166,6 +166,14 @@ describe('test order form', () => {
     expect(html).toContain('数量单位')
     expect(html).toContain('样品状态')
     expect(html).toContain('特别说明')
+  })
+
+  it('defaults sample delivery details to the laboratory address', () => {
+    expect(testOrderDefaultValues()).toMatchObject({
+      address_lab_name: '中山市鑫普达检测有限公司',
+      address_contact: '鑫普达检测',
+      address_detail: '广东省中山市古镇镇东兴东路33号7栋1层之一',
+    })
   })
 
   it('builds searchable company labels from customer registry records', () => {

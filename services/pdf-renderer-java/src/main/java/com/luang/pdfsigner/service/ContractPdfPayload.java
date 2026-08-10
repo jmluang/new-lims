@@ -63,7 +63,7 @@ public record ContractPdfPayload(
             String footerRecordCode,
             String footerWebsite
     ) {
-        private static final String DEFAULT_COMPANY = "中山市鑫达普检测服务有限公司";
+        private static final String DEFAULT_COMPANY = "中山市鑫普达检测有限公司";
 
         public PageOne withDefaults() {
             return new PageOne(

@@ -66,6 +66,9 @@ class PublicTestOrderSubmissionReviewController extends Controller
                 'report_forms' => ['formal_report', 'electronic_report'],
                 'delivery_method' => 'self_pick',
                 'outsourcing_option' => 'allowed',
+                'address_lab_name' => '中山市鑫普达检测有限公司',
+                'address_contact' => '鑫普达检测',
+                'address_detail' => '广东省中山市古镇镇东兴东路33号7栋1层之一',
                 'created_by' => $request->user()?->id,
                 'updated_by' => $request->user()?->id,
             ]);

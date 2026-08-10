@@ -67,6 +67,7 @@ class TestOrderEntrustOrderPdfTest extends TestCase
                     )
                     && $payload['requirements']['standards'][0]['notes'] === null
                     && count($payload['samples']) === 2
+                    && $payload['sample']['name'] === 'LED模组路灯头'
                     && $payload['samples'][0]['current'] === '1.3A'
                     && $payload['samples'][0]['frequency'] === '50Hz'
                     && $payload['samples'][0]['quantity_unit'] === '个'

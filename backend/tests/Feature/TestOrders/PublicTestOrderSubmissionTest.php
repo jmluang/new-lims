@@ -85,6 +85,9 @@ class PublicTestOrderSubmissionTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.status', 'accepted')
             ->assertJsonPath('data.test_order.client_company', '中山市星河照明有限公司')
+            ->assertJsonPath('data.test_order.address_lab_name', '中山市鑫普达检测有限公司')
+            ->assertJsonPath('data.test_order.address_contact', '鑫普达检测')
+            ->assertJsonPath('data.test_order.address_detail', '广东省中山市古镇镇东兴东路33号7栋1层之一')
             ->assertJsonPath('data.test_order.samples.0.input_voltage', 'AC 220V');
 
         $this->assertDatabaseHas('public_test_order_submissions', [
@@ -97,6 +100,9 @@ class PublicTestOrderSubmissionTest extends TestCase
             'client_contact' => '唐小姐',
             'client_phone' => '13800000000',
             'sample_status' => 'not_received',
+            'address_lab_name' => '中山市鑫普达检测有限公司',
+            'address_contact' => '鑫普达检测',
+            'address_detail' => '广东省中山市古镇镇东兴东路33号7栋1层之一',
         ]);
         $this->assertDatabaseHas('test_order_samples', [
             'sample_name' => '路灯',

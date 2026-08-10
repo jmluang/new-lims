@@ -411,8 +411,8 @@ public class ContractPdfRenderer {
             }
 
             // 清理其他元信息，避免使用上传文件的元信息
-            docInfo.setCreator("中山市鑫达普检测技术有限公司");
-            docInfo.setProducer("鑫达普LIMS系统");
+            docInfo.setCreator("中山市鑫普达检测有限公司");
+            docInfo.setProducer("鑫普达LIMS系统");
 
             // 主题设置为合同类型
             docInfo.setSubject("检测合同文件");

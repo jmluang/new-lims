@@ -331,7 +331,7 @@ public class PageThreeRenderer implements ContractPdfPageRenderer<ContractPdfPay
         float stampFirstLineY = blockCenterY + (STAMP_FONT_SIZE / 2f) + STAMP_VERTICAL_SHIFT;
         float stampSecondLineY = stampFirstLineY - (STAMP_FONT_SIZE);
 
-        utils.drawCenteredText(content, utils.font(), STAMP_FONT_SIZE, rightColumnCenter, stampFirstLineY, "中山市鑫达普检测服务有限公司");
+        utils.drawCenteredText(content, utils.font(), STAMP_FONT_SIZE, rightColumnCenter, stampFirstLineY, "中山市鑫普达检测有限公司");
         utils.drawCenteredText(content, utils.font(), STAMP_FONT_SIZE, rightColumnCenter, stampSecondLineY, "（盖章）");
 
         return new SignatureAreaResult(blockBottom - SIGNATURE_BOTTOM_MARGIN, dividerX, true);

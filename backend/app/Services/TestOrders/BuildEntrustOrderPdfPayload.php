@@ -68,7 +68,7 @@ class BuildEntrustOrderPdfPayload
                     ->values()
                     ->all(),
             ],
-            'samples' => $order->samples
+            'samples' => $samples = $order->samples
                 ->map(fn ($sample): array => [
                     'name' => $sample->sample_name,
                     'model' => $sample->model,
@@ -84,10 +84,14 @@ class BuildEntrustOrderPdfPayload
                 ])
                 ->values()
                 ->all(),
+            // Current PDF renderers use `samples`; older deployed renderers use
+            // the singular `sample`. Send both so every renderer receives the
+            // actual first sample instead of falling back to template data.
+            'sample' => $samples[0] ?? null,
             'logistics' => [
-                'laboratory_name' => $order->address_lab_name,
-                'laboratory_address' => $order->address_detail,
-                'laboratory_contact' => $order->address_contact,
+                'laboratory_name' => $order->address_lab_name ?: '中山市鑫普达检测有限公司',
+                'laboratory_address' => $order->address_detail ?: '广东省中山市古镇镇东兴东路33号7栋1层之一',
+                'laboratory_contact' => $order->address_contact ?: '鑫普达检测',
                 'laboratory_phone' => $order->address_phone,
                 'shipping_notes' => $order->shipping_notes,
             ],

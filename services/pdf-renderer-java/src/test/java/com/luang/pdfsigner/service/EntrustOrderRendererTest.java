@@ -97,7 +97,7 @@ class EntrustOrderRendererTest {
                     \"remarks\": \"无特殊情况\"
                   },
                   \"logistics\": {
-                    \"laboratory_name\": \"中山市鑫达普检测服务有限公司\",
+                    \"laboratory_name\": \"中山市鑫普达检测有限公司\",
                     \"laboratory_address\": \"广东省中山市横栏镇环镇北路52号\",
                     \"laboratory_contact\": \"赵六\",
                     \"laboratory_phone\": \"13800000003\",
