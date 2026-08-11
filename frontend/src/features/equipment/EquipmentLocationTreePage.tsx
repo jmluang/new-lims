@@ -3,6 +3,7 @@ import { Plus, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import { Button, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, Panel, StatusBadge } from '../system/shared'
 import { type ApiCollection, inputClass } from '../system/utils'
 import type { EquipmentLocation } from './EquipmentListPage'
@@ -121,7 +122,7 @@ export function EquipmentLocationTreePage() {
           <div className="space-y-3">
             <Field label="Parent">
               <select className={inputClass} value={form.parent_id} onChange={(event) => setForm({ ...form, parent_id: event.target.value })}>
-                <option value="">Root</option>
+                <option value="">{zhText('Root')}</option>
                 {flatLocations
                   .filter((location) => location.id !== editing?.id)
                   .map((location) => (
@@ -143,8 +144,8 @@ export function EquipmentLocationTreePage() {
               </Field>
               <Field label="Status">
                 <select className={inputClass} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as LocationForm['status'] })}>
-                  <option value="active">active</option>
-                  <option value="disabled">disabled</option>
+                  <option value="active">{zhText('active')}</option>
+                  <option value="disabled">{zhText('disabled')}</option>
                 </select>
               </Field>
             </div>

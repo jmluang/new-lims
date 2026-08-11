@@ -83,7 +83,7 @@ export function EquipmentForm({
         </Field>
         <Field label="System">
           <select className={inputClass} {...form.register('system_id')}>
-            <option value="">No system</option>
+            <option value="">{zhText('No system')}</option>
             {systemOptions.map((system) => (
               <option value={system.id} key={system.id}>
                 {system.name}

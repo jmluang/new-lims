@@ -355,15 +355,15 @@ export function EquipmentListPage() {
                     </div>
                     <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                       <div>
-                        <dt className="text-slate-500">Location</dt>
+                        <dt className="text-slate-500">{zhText('Location')}</dt>
                         <dd className="font-medium text-slate-800">{locationLabel(item)}</dd>
                       </div>
                       <div>
-                        <dt className="text-slate-500">System</dt>
+                        <dt className="text-slate-500">{zhText('System')}</dt>
                         <dd className="font-medium text-slate-800">{systemLabel(item)}</dd>
                       </div>
                       <div>
-                        <dt className="text-slate-500">Next calibration</dt>
+                        <dt className="text-slate-500">{zhText('Next calibration')}</dt>
                         <dd className="font-medium text-slate-800">{item.next_calibration_date ?? '-'}</dd>
                       </div>
                     </dl>

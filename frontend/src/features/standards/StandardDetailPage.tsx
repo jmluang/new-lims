@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { api } from '../../lib/api'
+import { zhText } from '../../lib/zh'
 import { ErrorNotice, LoadingState, PageShell, Panel, StatusBadge } from '../system/shared'
 import type { ApiResource } from '../system/utils'
 import { StandardCatalogTree } from './StandardCatalogTree'
@@ -40,7 +41,7 @@ export function StandardDetailPage() {
           <Panel title={standard.std_no} description={standard.chinese_name}>
             <dl className="grid gap-3 text-sm sm:grid-cols-3">
               <div>
-                <dt className="text-xs font-medium uppercase text-slate-500">Status</dt>
+                <dt className="text-xs font-medium uppercase text-slate-500">{zhText('Status')}</dt>
                 <dd className="mt-1">
                   <StatusBadge status={standard.status} />
                 </dd>

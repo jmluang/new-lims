@@ -3,6 +3,7 @@ import { DatabaseBackup, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../../components/app/PermissionGate'
 import { api } from '../../../lib/api'
+import { zhText } from '../../../lib/zh'
 import {
   Button,
   DataTable,
@@ -116,18 +117,18 @@ export function BackupListPage() {
 
       <div className="space-y-3 md:hidden">
         {backups.map((backup) => (
-          <Panel title={`Backup #${backup.id}`} description={backup.type} key={backup.id}>
+          <Panel title={`${zhText('Backup')} #${backup.id}`} description={backup.type} key={backup.id}>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <div className="text-xs text-slate-500">Status</div>
+                <div className="text-xs text-slate-500">{zhText('Status')}</div>
                 <StatusBadge status={backup.status} />
               </div>
               <div>
-                <div className="text-xs text-slate-500">Size</div>
+                <div className="text-xs text-slate-500">{zhText('Size')}</div>
                 <div className="font-medium text-slate-900">{formatBytes(backup.size_bytes)}</div>
               </div>
               <div className="col-span-2">
-                <div className="text-xs text-slate-500">Started</div>
+                <div className="text-xs text-slate-500">{zhText('Started')}</div>
                 <div className="font-medium text-slate-900">{formatDateTime(backup.started_at)}</div>
               </div>
               <div className="col-span-2">
