@@ -211,9 +211,12 @@ if [[ "$run_migrations" == '1' ]]; then
   sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" migrate --force
 fi
 
-sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" config:cache
-sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" route:cache
-sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" view:cache
+# Disable CLI OPcache while producing these files. On this host its persistent
+# CLI cache can otherwise keep the staging directory's absolute paths after a
+# release directory is renamed.
+sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" config:cache
+sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" route:cache
+sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" view:cache
 
 sudo ln -s "$release_dir" "$deploy_root/current.next"
 sudo mv -Tf "$deploy_root/current.next" "$deploy_root/current"
