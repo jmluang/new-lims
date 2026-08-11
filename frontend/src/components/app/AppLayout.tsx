@@ -3,6 +3,7 @@ import type { PropsWithChildren } from 'react'
 import { LogOut } from 'lucide-react'
 import { MobileNav } from './MobileNav'
 import { Sidebar } from './Sidebar'
+import { ToastViewport } from './ToastViewport'
 import { useCurrentUser, useLogout } from '../../features/auth/useCurrentUser'
 import { MessageCenter } from '../../features/messages/MessageCenter'
 
@@ -23,6 +24,7 @@ export function AppLayout({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-svh text-slate-950">
+      <ToastViewport />
       <Sidebar />
 
       <div className="lg:pl-64">

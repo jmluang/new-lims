@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ToastViewport } from '../../../components/app/ToastViewport'
+import { clearToasts } from '../../../lib/toast'
 import { TestOrderDetailPage } from '../TestOrderDetailPage'
 import { TestOrderListPage, type TestOrder } from '../TestOrderListPage'
 import { TestOrderPrintButtonView } from '../TestOrderPrintButton'
-import { downloadEntrustOrderPdf } from '../testOrderPrint'
+import { downloadEntrustOrderPdf, printEntrustOrder } from '../testOrderPrint'
 
 type TestPermissions = {
   resources: Record<
@@ -44,29 +46,17 @@ describe('test order entrust print', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     apiGetMock.mockReset()
+    clearToasts()
     permissionState.data = permissionsWithPrint(true)
   })
 
-  it('downloads the entrust order PDF through the blob endpoint', async () => {
-    const click = vi.fn()
-    const revokeObjectURL = vi.fn()
-    const createObjectURL = vi.fn(() => 'blob:test-order')
-    const append = vi.fn()
-    const remove = vi.fn()
-    const anchor = {
-      href: '',
-      download: '',
-      click,
-    }
+  afterEach(() => {
+    clearToasts()
+  })
 
-    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
-    vi.stubGlobal('document', {
-      body: {
-        appendChild: append,
-        removeChild: remove,
-      },
-      createElement: vi.fn(() => anchor),
-    })
+  it('downloads the entrust order PDF through the blob endpoint', async () => {
+    const { anchor, append, click, createObjectURL, remove, revokeObjectURL } = stubDownloadEnvironment()
+
     apiGetMock.mockResolvedValueOnce({ data: new Blob(['pdf'], { type: 'application/pdf' }) })
 
     await downloadEntrustOrderPdf({ id: 7, order_no: 'TO-20260628' })
@@ -80,13 +70,56 @@ describe('test order entrust print', () => {
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:test-order')
   })
 
-  it('disables the print button and shows feedback while the PDF is generating', () => {
-    const html = renderToStaticMarkup(<TestOrderPrintButtonView order={testOrder()} status="pending" onPrint={() => undefined} />)
+  it('disables the print button while the PDF is generating and keeps the row free of status text', () => {
+    const html = renderToStaticMarkup(<TestOrderPrintButtonView isPending onPrint={() => undefined} />)
 
     expect(html).toContain('disabled=""')
     expect(html).toContain('生成中')
-    expect(html).toContain('正在生成委托单')
-    expect(html).toContain('aria-live="polite"')
+    expect(html).not.toContain('正在生成委托单')
+  })
+
+  it('reports print progress through the corner toast so page navigation is not blocked', async () => {
+    stubDownloadEnvironment()
+    apiGetMock.mockResolvedValueOnce({ data: new Blob(['pdf'], { type: 'application/pdf' }) })
+
+    const printing = printEntrustOrder({ id: 7, order_no: 'TO-20260628' })
+    const pendingHtml = renderToStaticMarkup(<ToastViewport />)
+
+    expect(pendingHtml).toContain('正在生成委托单')
+    expect(pendingHtml).toContain('TO-20260628')
+    expect(pendingHtml).toContain('aria-live="polite"')
+
+    await printing
+
+    const successHtml = renderToStaticMarkup(<ToastViewport />)
+
+    expect(successHtml).toContain('委托单已下载')
+    expect(successHtml).toContain('TO-20260628.pdf')
+  })
+
+  it('shows a dismissible error toast when the PDF request fails', async () => {
+    stubDownloadEnvironment()
+    apiGetMock.mockRejectedValueOnce(new Error('boom'))
+
+    await printEntrustOrder({ id: 7, order_no: 'TO-20260628' })
+
+    const errorHtml = renderToStaticMarkup(<ToastViewport />)
+
+    expect(errorHtml).toContain('委托单生成失败，请重试')
+    expect(errorHtml).toContain('role="alert"')
+    expect(errorHtml).toContain('关闭提示')
+  })
+
+  it('ignores a second print request while the same order is still generating', async () => {
+    stubDownloadEnvironment()
+    apiGetMock.mockResolvedValue({ data: new Blob(['pdf'], { type: 'application/pdf' }) })
+
+    const printing = printEntrustOrder({ id: 7, order_no: 'TO-20260628' })
+
+    await printEntrustOrder({ id: 7, order_no: 'TO-20260628' })
+    await printing
+
+    expect(apiGetMock).toHaveBeenCalledTimes(1)
   })
 
   it('renders list and detail print actions only when test order print permission is granted', () => {
@@ -123,6 +156,30 @@ describe('test order entrust print', () => {
     expect(hiddenDetailHtml).not.toContain('打印委托单')
   })
 })
+
+function stubDownloadEnvironment() {
+  const click = vi.fn()
+  const revokeObjectURL = vi.fn()
+  const createObjectURL = vi.fn(() => 'blob:test-order')
+  const append = vi.fn()
+  const remove = vi.fn()
+  const anchor = {
+    href: '',
+    download: '',
+    click,
+  }
+
+  vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
+  vi.stubGlobal('document', {
+    body: {
+      appendChild: append,
+      removeChild: remove,
+    },
+    createElement: vi.fn(() => anchor),
+  })
+
+  return { anchor, append, click, createObjectURL, remove, revokeObjectURL }
+}
 
 function permissionsWithPrint(print: boolean): TestPermissions {
   return {
