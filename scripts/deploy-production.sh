@@ -110,6 +110,7 @@ if ((dry_run)); then
     --exclude='backend/storage/' \
     --exclude='backend/vendor/' \
     --exclude='backend/node_modules/' \
+    --exclude='backend/bootstrap/cache/*.php' \
     --exclude='backend/public/app/' \
     --exclude='backend/public/storage' \
     --exclude='frontend/node_modules/' \
@@ -129,12 +130,13 @@ if ! ssh_run "sudo test ! -e $(printf '%q' "$deploy_root/releases/$release_sha")
 fi
 trap cleanup_remote_release ERR INT TERM
 
-rsync -a --delete --info=progress2 \
+rsync -a --delete --info=name,stats2 \
   --exclude='.git/' \
   --exclude='backend/.env' \
   --exclude='backend/storage/' \
   --exclude='backend/vendor/' \
   --exclude='backend/node_modules/' \
+  --exclude='backend/bootstrap/cache/*.php' \
   --exclude='backend/public/app/' \
   --exclude='backend/public/storage' \
   --exclude='frontend/node_modules/' \
@@ -196,6 +198,13 @@ sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" storage:link --force
 # the `current` symlink remains unchanged until all steps have succeeded.
 sudo mv -T "$staging_release" "$release_dir"
 backend_dir="$release_dir/backend"
+
+# A local checkout can have ignored Laravel cache files. Remove any such files
+# before booting Artisan from the final path, otherwise config:cache may export
+# stale absolute paths from the staging release.
+sudo rm -f -- "$backend_dir/bootstrap/cache/config.php" \
+  "$backend_dir/bootstrap/cache/routes-v7.php" \
+  "$backend_dir/bootstrap/cache/events.php"
 
 if [[ "$run_migrations" == '1' ]]; then
   printf '%s\n' 'Running requested database migrations before activation.'
