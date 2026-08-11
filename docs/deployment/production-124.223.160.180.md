@@ -50,7 +50,8 @@ The script:
    `backend/public/app`;
 4. atomically changes `current` to the new commit directory;
 5. removes ignored local Laravel cache artifacts, then refreshes the caches
-   through the stable `current` path with CLI OPcache disabled.
+   through the stable `current` path with CLI OPcache disabled, in a fresh
+   server session.
 
 It intentionally does **not** run database migrations by default. If a release
 contains reviewed, backward-compatible migrations, run:

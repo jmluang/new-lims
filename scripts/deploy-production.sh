@@ -217,8 +217,27 @@ fi
 sudo ln -s "$release_dir" "$deploy_root/current.next"
 sudo mv -Tf "$deploy_root/current.next" "$deploy_root/current"
 
-# Build cache files through the stable current symlink. Laravel records absolute
-# paths in these files, while release directory names change on every deploy.
+printf 'Activated release %s\n' "$release_sha"
+REMOTE_SCRIPT
+
+cache_args="$(remote_quote_args "$release_sha" "$deploy_root" "$deploy_user" "$deploy_php")"
+ssh "${ssh_opts[@]}" "$target" "bash -s --$cache_args" <<'CACHE_SCRIPT'
+set -Eeuo pipefail
+
+release_sha="$1"
+deploy_root="$2"
+deploy_user="$3"
+php_bin="$4"
+active_release="$(sudo readlink -f "$deploy_root/current")"
+
+[[ "$active_release" == "$deploy_root/releases/$release_sha" ]] || {
+  printf 'Refusing to cache a different active release: %s\n' "$active_release" >&2
+  exit 1
+}
+
+# This is deliberately a fresh SSH/PHP CLI process. The host keeps realpath
+# state during a long build session, and Laravel writes absolute paths to its
+# cache files. The stable current symlink avoids stale release paths.
 active_backend="$deploy_root/current/backend"
 sudo rm -f -- "$active_backend/bootstrap/cache/config.php" \
   "$active_backend/bootstrap/cache/routes-v7.php" \
@@ -226,9 +245,7 @@ sudo rm -f -- "$active_backend/bootstrap/cache/config.php" \
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" config:cache
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" route:cache
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" view:cache
-
-printf 'Activated release %s\n' "$release_sha"
-REMOTE_SCRIPT
+CACHE_SCRIPT
 
 trap - ERR INT TERM
 printf 'Deployment completed: %s\n' "$release_sha"
