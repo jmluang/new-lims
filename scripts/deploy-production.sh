@@ -190,16 +190,22 @@ sudo rsync -a --delete "$frontend_dir/dist/" "$backend_dir/public/app/"
 sudo chown -R "$deploy_user:$deploy_group" "$backend_dir/public/app"
 
 sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" storage:link --force
-sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" config:cache
-sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" route:cache
-sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" view:cache
+
+# Laravel's cached configuration contains absolute paths. Promote the completed
+# release to its final immutable directory before generating those caches; only
+# the `current` symlink remains unchanged until all steps have succeeded.
+sudo mv -T "$staging_release" "$release_dir"
+backend_dir="$release_dir/backend"
 
 if [[ "$run_migrations" == '1' ]]; then
   printf '%s\n' 'Running requested database migrations before activation.'
   sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" migrate --force
 fi
 
-sudo mv -T "$staging_release" "$release_dir"
+sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" config:cache
+sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" route:cache
+sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" view:cache
+
 sudo ln -s "$release_dir" "$deploy_root/current.next"
 sudo mv -Tf "$deploy_root/current.next" "$deploy_root/current"
 
