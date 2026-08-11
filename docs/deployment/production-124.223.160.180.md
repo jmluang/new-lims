@@ -48,9 +48,9 @@ The script:
 2. links the existing shared `.env` and `storage` (they are never uploaded);
 3. runs `composer install`, builds the React app, and publishes it to
    `backend/public/app`;
-4. removes ignored local Laravel cache artifacts, then refreshes the caches
-   from the final release path with CLI OPcache disabled;
-5. atomically changes `current` to the new commit directory.
+4. atomically changes `current` to the new commit directory;
+5. removes ignored local Laravel cache artifacts, then refreshes the caches
+   through the stable `current` path with CLI OPcache disabled.
 
 It intentionally does **not** run database migrations by default. If a release
 contains reviewed, backward-compatible migrations, run:

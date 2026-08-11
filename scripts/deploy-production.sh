@@ -214,12 +214,18 @@ fi
 # Disable CLI OPcache while producing these files. On this host its persistent
 # CLI cache can otherwise keep the staging directory's absolute paths after a
 # release directory is renamed.
-sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" config:cache
-sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" route:cache
-sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" view:cache
-
 sudo ln -s "$release_dir" "$deploy_root/current.next"
 sudo mv -Tf "$deploy_root/current.next" "$deploy_root/current"
+
+# Build cache files through the stable current symlink. Laravel records absolute
+# paths in these files, while release directory names change on every deploy.
+active_backend="$deploy_root/current/backend"
+sudo rm -f -- "$active_backend/bootstrap/cache/config.php" \
+  "$active_backend/bootstrap/cache/routes-v7.php" \
+  "$active_backend/bootstrap/cache/events.php"
+sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" config:cache
+sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" route:cache
+sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" view:cache
 
 printf 'Activated release %s\n' "$release_sha"
 REMOTE_SCRIPT
