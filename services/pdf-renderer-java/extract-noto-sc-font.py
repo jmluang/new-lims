@@ -1,7 +1,12 @@
-from fontTools.ttLib import TTCollection
+from fontTools.merge import Merger
 
 
-collection = TTCollection("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc")
-# The collection's third face is Noto Sans CJK SC Regular. Save it as a normal
-# TrueType font because PDFBox embeds .ttf/.otf files but not TTC collections.
-collection.fonts[2].save("/opt/fonts/NotoSansCJKsc-Regular.ttf")
+# Droid Sans Fallback provides the required Chinese glyphs as TrueType outlines,
+# while DejaVu Sans supplies the Latin letters and numerals used by form codes.
+# Merge them into one TrueType font because the renderer must measure and draw a
+# mixed Chinese/Latin string with one embedded PDF font.
+font = Merger().merge([
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+])
+font.save("/opt/fonts/LimsCjk.ttf")
