@@ -4,6 +4,8 @@ import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -33,6 +35,11 @@ public final class ContractPdfAssets {
             "/fonts/SourceHanSerifHC-VF.ttf",
     };
 
+    private static final String[] SYSTEM_FONT_CANDIDATES = new String[] {
+            System.getenv("PDF_FONT_PATH"),
+            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    };
+
     private static final Map<String, byte[]> FONT_DATA_CACHE = new ConcurrentHashMap<>();
 
     public static PDFont loadPrimaryFont(PDDocument document) throws IOException {
@@ -55,6 +62,28 @@ public final class ContractPdfAssets {
                 return PDType0Font.load(document, new ByteArrayInputStream(fontBytes));
             } catch (IOException ex) {
                 log.warn("Failed to load font {}: {}", normalized, ex.getMessage());
+            }
+        }
+
+        for (String candidate : SYSTEM_FONT_CANDIDATES) {
+            if (candidate == null || candidate.isBlank()) {
+                continue;
+            }
+            Path path = Path.of(candidate);
+            if (!Files.isRegularFile(path) || !Files.isReadable(path)) {
+                continue;
+            }
+            try {
+                byte[] fontBytes = FONT_DATA_CACHE.get(candidate);
+                if (fontBytes == null) {
+                    fontBytes = Files.readAllBytes(path);
+                    FONT_DATA_CACHE.put(candidate, fontBytes);
+                }
+
+                log.info("Loaded contract font from filesystem: {}", candidate);
+                return PDType0Font.load(document, new ByteArrayInputStream(fontBytes));
+            } catch (IOException ex) {
+                log.warn("Failed to load font {}: {}", candidate, ex.getMessage());
             }
         }
 

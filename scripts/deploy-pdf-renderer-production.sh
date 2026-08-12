@@ -126,6 +126,23 @@ old_backup_image="lims-pdf-signer:before-$release_sha"
 old_was_running=0
 switched=0
 
+render_check() {
+  local base_url="$1"
+  local output_file
+  output_file="$(mktemp /tmp/lims-pdf-renderer-check-XXXXXX.pdf)"
+  trap 'rm -f -- "$output_file"' RETURN
+  curl -fsS --max-time 30 -X POST "$base_url/api/pdf/entrust-order" \
+    -H 'Content-Type: application/json' \
+    --data-binary '{"base":{},"client":{},"manufacturer":{},"producer":{},"requirements":{},"samples":[],"logistics":{"laboratory_name":"中山市鑫普达检测有限公司"},"signatures":{},"meta":{}}' \
+    -o "$output_file"
+  test -s "$output_file"
+  if command -v pdftotext >/dev/null; then
+    pdftotext "$output_file" - | grep -Fqx '中山市鑫普达检测有限公司'
+  fi
+  rm -f -- "$output_file"
+  trap - RETURN
+}
+
 rollback() {
   exit_code=$?
   if ((switched)); then
@@ -177,8 +194,11 @@ for _ in $(seq 1 30); do
   if curl -fsS --max-time 2 http://127.0.0.1:18081/api/pdf/health >/dev/null; then smoke_ok=1; break; fi
   sleep 1
 done
+if ((smoke_ok)); then
+  render_check http://127.0.0.1:18081 || smoke_ok=0
+fi
 sudo docker rm -f "$smoke_name" >/dev/null
-((smoke_ok)) || { printf '%s\n' 'New PDF renderer did not pass the health check.' >&2; exit 1; }
+((smoke_ok)) || { printf '%s\n' 'New PDF renderer did not pass the health and render checks.' >&2; exit 1; }
 
 switched=1
 if ((old_was_running)); then
@@ -192,6 +212,7 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 ((live_ok)) || { printf '%s\n' 'PDF renderer did not become healthy on port 8080.' >&2; exit 1; }
+render_check http://127.0.0.1:8080 || { printf '%s\n' 'PDF renderer failed the live rendering check.' >&2; exit 1; }
 
 printf '%s\n' "$release_sha" | sudo tee "$marker" >/dev/null
 printf 'PDF renderer deployed and healthy: %s\n' "$release_sha"
