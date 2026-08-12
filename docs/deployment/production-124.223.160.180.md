@@ -21,11 +21,15 @@ Nginx serves `current/backend/public`, with the React SPA under
 symlink is the only serving pointer, so replacing it is an atomic activation
 and changing it back provides a quick code rollback.
 
-The Java PDF signer is deliberately outside this release script. Its running
-Docker container currently uses keys and source mounted from a separate
-production directory; rebuilding it during every PHP/frontend release would
-be unsafe. Manage it as a separate deployment once its own configuration is
-also versioned and documented.
+The Java PDF renderer is deployed from the same committed revision as the web
+application. Its source is copied to `shared/pdf-renderer-java/source`, while
+the signing keys remain in `shared/pdf-renderer-java/keys` and are never stored
+in Git. The deploy script builds and health-checks a temporary container before
+switching the internal port-8080 service. It skips rebuilding when the deployed
+renderer commit already matches; use `--force` only for renderer recovery.
+
+`scripts/deploy-production.sh` invokes this renderer deployment automatically.
+Use `--skip-pdf-service` only for an intentional, temporary web-only rollback.
 
 ## Run a release
 

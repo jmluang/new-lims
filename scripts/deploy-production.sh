@@ -16,7 +16,7 @@ readonly DEFAULT_COMPOSER="/usr/bin/composer"
 
 usage() {
   cat <<'EOF'
-Usage: scripts/deploy-production.sh [--dry-run] [--run-migrations]
+Usage: scripts/deploy-production.sh [--dry-run] [--run-migrations] [--skip-pdf-service]
 
 Environment overrides:
   DEPLOY_HOST       Production host (default: 124.223.160.180)
@@ -30,7 +30,8 @@ Environment overrides:
 
 The working tree must be clean. The release is identified by the checked-out
 Git commit SHA, copied to releases/<SHA>, then activated by atomically swapping
-the current symlink. Database migrations are deliberately opt-in.
+the current symlink. Database migrations are deliberately opt-in. The Java PDF
+renderer is updated from the same revision unless --skip-pdf-service is used.
 EOF
 }
 
@@ -41,10 +42,12 @@ die() {
 
 dry_run=0
 run_migrations=0
+skip_pdf_service=0
 while (($#)); do
   case "$1" in
     --dry-run) dry_run=1 ;;
     --run-migrations) run_migrations=1 ;;
+    --skip-pdf-service) skip_pdf_service=1 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
@@ -246,6 +249,17 @@ sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artis
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" route:cache
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" view:cache
 CACHE_SCRIPT
+
+if (( ! skip_pdf_service )); then
+  if [[ -n "${SSH_IDENTITY:-}" ]]; then
+    DEPLOY_HOST="$deploy_host" DEPLOY_USER="$deploy_user" DEPLOY_ROOT="$deploy_root" \
+      SSH_PORT="$ssh_port" SSH_IDENTITY="$SSH_IDENTITY" \
+      "$repo_root/scripts/deploy-pdf-renderer-production.sh"
+  else
+    DEPLOY_HOST="$deploy_host" DEPLOY_USER="$deploy_user" DEPLOY_ROOT="$deploy_root" \
+      SSH_PORT="$ssh_port" "$repo_root/scripts/deploy-pdf-renderer-production.sh"
+  fi
+fi
 
 trap - ERR INT TERM
 printf 'Deployment completed: %s\n' "$release_sha"
