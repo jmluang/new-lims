@@ -38,6 +38,7 @@ public final class ContractPdfAssets {
 
     private static final String[] SYSTEM_FONT_CANDIDATES = new String[] {
             System.getenv("PDF_FONT_PATH"),
+            "/fonts/ms-song.ttf",
             "/fonts/NotoSansSC-VariableFont_wght.ttf",
     };
 
