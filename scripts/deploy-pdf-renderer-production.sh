@@ -117,6 +117,7 @@ deploy_user="$5"
 force="$6"
 source_dir="$pdf_root/source"
 keys_dir="$pdf_root/keys"
+fonts_dir="$pdf_root/fonts"
 state_dir="$pdf_root/state"
 marker="$state_dir/source-commit"
 compose=(sudo docker compose --project-name lims-pdf-signer --file "$source_dir/docker-compose.yml")
@@ -178,10 +179,17 @@ if [[ ! -d "$keys_dir" ]]; then
   [[ -d "$legacy_service_root/keys" ]] || { printf '%s\n' 'Missing existing PDF signing keys; refusing to deploy.' >&2; exit 1; }
   sudo cp -a "$legacy_service_root/keys" "$keys_dir"
 fi
+if [[ ! -r "$fonts_dir/NotoSansSC-VariableFont_wght.ttf" ]]; then
+  legacy_font="$legacy_service_root/src/main/resources/fonts/NotoSansSC-VariableFont_wght.ttf"
+  [[ -r "$legacy_font" ]] || { printf '%s\n' 'Missing the existing PDF renderer CJK font; refusing to deploy.' >&2; exit 1; }
+  sudo install -d -m 0755 -o "$deploy_user" -g www "$fonts_dir"
+  sudo install -m 0644 -o "$deploy_user" -g www "$legacy_font" "$fonts_dir/NotoSansSC-VariableFont_wght.ttf"
+fi
 sudo install -d -m 0755 -o "$deploy_user" -g www "$source_dir"
-sudo rsync -a --delete --exclude='keys/' --exclude='target/' "$staging_source/" "$source_dir/"
-sudo rm -rf -- "$source_dir/keys"
+sudo rsync -a --delete --exclude='keys/' --exclude='fonts/' --exclude='target/' "$staging_source/" "$source_dir/"
+sudo rm -rf -- "$source_dir/keys" "$source_dir/fonts"
 sudo ln -s ../keys "$source_dir/keys"
+sudo ln -s ../fonts "$source_dir/fonts"
 sudo chown -R "$deploy_user:www" "$pdf_root"
 
 old_container="$(sudo docker ps --filter 'name=^/pdf-signer-java-pdf-signer-1$' --format '{{.ID}}' | head -n1)"

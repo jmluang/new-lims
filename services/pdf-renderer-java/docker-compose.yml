@@ -31,4 +31,5 @@ services:
       
     volumes:
       - ./keys:/keys:ro
+      - ./fonts:/fonts:ro
     restart: unless-stopped
