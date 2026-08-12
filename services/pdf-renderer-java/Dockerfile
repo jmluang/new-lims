@@ -12,7 +12,7 @@ RUN mvn -e -B -DskipTests package
 FROM m.daocloud.io/docker.io/library/eclipse-temurin:17-jre
 WORKDIR /app
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends fonts-droid-fallback \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=25.0 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 COPY --from=build /app/target/pdf-signer-*.jar app.jar

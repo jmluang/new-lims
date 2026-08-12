@@ -130,21 +130,25 @@ render_check() {
   local base_url="$1"
   local output_file
   output_file="$(mktemp /tmp/lims-pdf-renderer-check-XXXXXX.pdf)"
-  trap 'rm -f -- "$output_file"' RETURN
-  curl -fsS --max-time 30 -X POST "$base_url/api/pdf/entrust-order" \
+  if ! curl -fsS --max-time 30 -X POST "$base_url/api/pdf/entrust-order" \
     -H 'Content-Type: application/json' \
     --data-binary '{"base":{},"client":{},"manufacturer":{},"producer":{},"requirements":{},"samples":[],"logistics":{"laboratory_name":"中山市鑫普达检测有限公司"},"signatures":{},"meta":{}}' \
-    -o "$output_file"
-  test -s "$output_file"
-  if command -v pdftotext >/dev/null; then
-    pdftotext "$output_file" - | grep -Fqx '中山市鑫普达检测有限公司'
+    -o "$output_file"; then
+    rm -f -- "$output_file"
+    return 1
+  fi
+  if ! test -s "$output_file"; then
+    rm -f -- "$output_file"
+    return 1
+  fi
+  if command -v pdftotext >/dev/null && ! pdftotext "$output_file" - | grep -Fqx '中山市鑫普达检测有限公司'; then
+    rm -f -- "$output_file"
+    return 1
   fi
   rm -f -- "$output_file"
-  trap - RETURN
 }
 
 rollback() {
-  exit_code=$?
   if ((switched)); then
     printf '%s\n' 'PDF renderer switch failed; restoring previous container.' >&2
     "${compose[@]}" down >/dev/null 2>&1 || true
@@ -153,9 +157,14 @@ rollback() {
       sudo docker compose --file "$legacy_service_root/docker-compose.yml" up -d >/dev/null 2>&1 || true
     fi
   fi
+}
+
+on_error() {
+  exit_code=$?
+  rollback
   exit "$exit_code"
 }
-trap rollback ERR
+trap on_error ERR
 
 if [[ "$force" != '1' && -r "$marker" && "$(<"$marker")" == "$release_sha" ]]; then
   if curl -fsS --max-time 10 http://127.0.0.1:8080/api/pdf/health >/dev/null; then
@@ -211,8 +220,16 @@ for _ in $(seq 1 30); do
   if curl -fsS --max-time 2 http://127.0.0.1:8080/api/pdf/health >/dev/null; then live_ok=1; break; fi
   sleep 1
 done
-((live_ok)) || { printf '%s\n' 'PDF renderer did not become healthy on port 8080.' >&2; exit 1; }
-render_check http://127.0.0.1:8080 || { printf '%s\n' 'PDF renderer failed the live rendering check.' >&2; exit 1; }
+if (( ! live_ok )); then
+  printf '%s\n' 'PDF renderer did not become healthy on port 8080.' >&2
+  rollback
+  exit 1
+fi
+if ! render_check http://127.0.0.1:8080; then
+  printf '%s\n' 'PDF renderer failed the live rendering check.' >&2
+  rollback
+  exit 1
+fi
 
 printf '%s\n' "$release_sha" | sudo tee "$marker" >/dev/null
 printf 'PDF renderer deployed and healthy: %s\n' "$release_sha"
