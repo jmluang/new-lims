@@ -205,7 +205,7 @@ fi
 smoke_name="lims-pdf-signer-smoke-$$"
 sudo docker rm -f "$smoke_name" >/dev/null 2>&1 || true
 sudo docker run -d --rm --name "$smoke_name" -p 127.0.0.1:18081:8081 \
-  -v "$keys_dir:/keys:ro" pdf-signer:local >/dev/null
+  -v "$keys_dir:/keys:ro" -v "$fonts_dir:/fonts:ro" pdf-signer:local >/dev/null
 smoke_ok=0
 for _ in $(seq 1 30); do
   if curl -fsS --max-time 2 http://127.0.0.1:18081/api/pdf/health >/dev/null; then smoke_ok=1; break; fi
