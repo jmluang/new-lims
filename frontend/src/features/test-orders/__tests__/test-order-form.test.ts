@@ -11,7 +11,8 @@ import {
   testOrderSchema,
   type TestOrderFormValues,
 } from '../testOrderSchema'
-import { TestOrderForm, testOrderDefaultValues } from '../TestOrderForm'
+import { TestOrderForm } from '../TestOrderForm'
+import { testOrderDefaultValues } from '../testOrderDefaults'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => React.createElement('a', { href: to }, children),

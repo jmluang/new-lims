@@ -186,6 +186,9 @@ class PublicTestOrderSubmissionReviewController extends Controller
             'order_no' => $testOrder->order_no,
             'client_company' => $testOrder->client_company,
             'sample_status' => $testOrder->sample_status,
+            'address_lab_name' => $testOrder->address_lab_name,
+            'address_contact' => $testOrder->address_contact,
+            'address_detail' => $testOrder->address_detail,
             'samples' => $testOrder->samples
                 ->map(fn ($sample): array => [
                     'id' => $sample->id,
