@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.luang.pdfsigner.dto.EntrustOrderPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
@@ -141,6 +142,25 @@ class EntrustOrderRendererTest {
             assertThat(text).contains("客户要求的评审*");
             assertThat(text).contains("检测部");
             assertThat(text).contains("2025.9.9");
+        }
+    }
+
+    @Test
+    void embedsTheSongStyleFontForEntrustOrders() throws Exception {
+        EntrustOrderPayload data = mapper.readValue("""
+                {"samples":[{"name":"宋体样品"}]}
+                """, EntrustOrderPayload.class);
+
+        try (PDDocument document = Loader.loadPDF(new EntrustOrderRenderer().render(data))) {
+            boolean hasSongStyleFont = false;
+            for (COSName fontName : document.getPage(0).getResources().getFontNames()) {
+                if (document.getPage(0).getResources().getFont(fontName).getName().contains("SourceHanSerifSC")) {
+                    hasSongStyleFont = true;
+                    break;
+                }
+            }
+
+            assertThat(hasSongStyleFont).isTrue();
         }
     }
 

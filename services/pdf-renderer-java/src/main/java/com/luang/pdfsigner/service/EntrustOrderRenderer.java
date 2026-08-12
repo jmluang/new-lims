@@ -115,6 +115,11 @@ public class EntrustOrderRenderer {
         }
     }
 
+    private void beginBlackText(PDPageContentStream content) throws IOException {
+        content.setNonStrokingColor(Color.BLACK);
+        content.beginText();
+    }
+
     public byte[] render(EntrustOrderPayload payload) throws IOException {
         try (PDDocument document = new PDDocument()) {
             PDFont font = resolveFont(document);
@@ -171,7 +176,7 @@ public class EntrustOrderRenderer {
 
     private float drawTitle(PDPageContentStream content, PDFont font, float margin, float cursorY, float contentWidth) throws IOException {
         String title = sanitizeText("实验委托单");
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, TITLE_FONT_SIZE);
         float titleWidth = font.getStringWidth(title) / 1000 * TITLE_FONT_SIZE;
         content.newLineAtOffset(margin + (contentWidth - titleWidth) / 2, cursorY - mm(8));
@@ -469,7 +474,7 @@ public class EntrustOrderRenderer {
         content.fill();
         content.setNonStrokingColor(Color.BLACK);
         drawRectangle(content, remarksX, y - ROW_HEIGHT, remarksWidth, ROW_HEIGHT);
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, SMALL_FONT_SIZE);
         content.newLineAtOffset(remarksX + CELL_PADDING, y - ROW_HEIGHT + CELL_PADDING);
         content.showText("特别说明");
@@ -480,7 +485,7 @@ public class EntrustOrderRenderer {
         drawRectangle(content, remarksX, y - remainingHeight, remarksWidth, remainingHeight);
         String remarks = logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::shippingNotes, "");
         if (!remarks.isBlank()) {
-            content.beginText();
+            beginBlackText(content);
             content.setFont(font, SMALL_FONT_SIZE);
             float remarkTextMaxWidth = remarksWidth - CELL_PADDING * 2;
             String remarkText = truncateText(font, remarks, SMALL_FONT_SIZE, remarkTextMaxWidth);
@@ -496,14 +501,14 @@ public class EntrustOrderRenderer {
         drawRectangle(content, margin, y - ROW_HEIGHT * 2, labelWidth, ROW_HEIGHT * 2);
         drawRectangle(content, margin + labelWidth, y - ROW_HEIGHT * 2, infoWidth, ROW_HEIGHT * 2);
         float labelBaseline = (y - ROW_HEIGHT * 2) + ((ROW_HEIGHT * 2 - SMALL_FONT_SIZE) / 2);
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, SMALL_FONT_SIZE);
         content.newLineAtOffset(margin + CELL_PADDING, labelBaseline);
         content.showText("实验室地址");
         content.endText();
 
         String address = sanitizeText(logisticsField(payload.logistics(), EntrustOrderPayload.Logistics::laboratoryAddress, ""));
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, SMALL_FONT_SIZE);
         content.newLineAtOffset(margin + labelWidth + CELL_PADDING, y - SMALL_FONT_SIZE - CELL_PADDING);
         content.showText(address);
@@ -537,7 +542,7 @@ public class EntrustOrderRenderer {
 
         drawRectangle(content, margin, declarationBottom, contentWidth, declarationHeight);
 
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, TITLE_FONT_SIZE);
         float declarationBaseline = declarationBottom + declarationHeight / 2 - NORMAL_FONT_SIZE / 2;
         content.newLineAtOffset(margin + CELL_PADDING + mm(5f), declarationBaseline);
@@ -545,7 +550,7 @@ public class EntrustOrderRenderer {
         content.endText();
         content.setNonStrokingColor(Color.BLACK);
 
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, NORMAL_FONT_SIZE);
         content.newLineAtOffset(margin + contentWidth * 0.6f, declarationBaseline);
         content.showText("委托人（客户）签字");
@@ -553,7 +558,7 @@ public class EntrustOrderRenderer {
 
         String clientSignedAt = payload.signatures() != null ? formatDate(payload.signatures().clientSignedAt()) : "";
         if (!clientSignedAt.isBlank()) {
-            content.beginText();
+            beginBlackText(content);
             content.setFont(font, NORMAL_FONT_SIZE);
             content.newLineAtOffset(margin + contentWidth * 0.6f, declarationBottom + mm(4f));
             content.showText("日期 " + clientSignedAt);
@@ -682,7 +687,7 @@ public class EntrustOrderRenderer {
 
         // Draw title
         String sanitizedTitle = sanitizeText(title);
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, NORMAL_FONT_SIZE);
         content.newLineAtOffset(x + CELL_PADDING, y - ROW_HEIGHT + CELL_PADDING);
         content.showText(sanitizedTitle);
@@ -710,7 +715,7 @@ public class EntrustOrderRenderer {
 
         float baseline = y + (height - fontSize) / 2;
 
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, fontSize);
         content.newLineAtOffset(startX, baseline);
         content.showText(displayText);
@@ -727,7 +732,7 @@ public class EntrustOrderRenderer {
         float textWidth = font.getStringWidth(sanitizedText) / 1000 * SMALL_FONT_SIZE;
         float startX = x + (width - textWidth) / 2;
         float baseline = y + (height - SMALL_FONT_SIZE) / 2;
-        content.beginText();
+        beginBlackText(content);
         content.setFont(font, SMALL_FONT_SIZE);
         content.newLineAtOffset(startX, baseline);
         content.showText(sanitizedText);
@@ -764,7 +769,7 @@ public class EntrustOrderRenderer {
         if (text != null && !text.isEmpty()) {
             // Sanitize text first
             String sanitizedText = sanitizeText(text);
-            content.beginText();
+            beginBlackText(content);
             content.setFont(font, SMALL_FONT_SIZE);
 
             // Handle red asterisk
@@ -778,7 +783,7 @@ public class EntrustOrderRenderer {
                 content.endText();
 
                 content.setNonStrokingColor(Color.BLACK);
-                content.beginText();
+                beginBlackText(content);
                 content.setFont(font, SMALL_FONT_SIZE);
                 content.newLineAtOffset(x + CELL_PADDING + mainWidth, y + height / 2 - SMALL_FONT_SIZE / 2);
                 content.showText("*");
@@ -1051,7 +1056,7 @@ public class EntrustOrderRenderer {
     }
 
     private PDFont resolveFont(PDDocument document) throws IOException {
-        // 统一复用合同 PDF 的字体加载与缓存策略：ms-song -> SourceHanSerifSC-VF -> SourceHanSerifHC-VF。
+        // 统一复用合同 PDF 的字体加载与缓存策略，优先使用宋体风格字体。
         return ContractPdfAssets.loadPrimaryFont(document);
     }
 }

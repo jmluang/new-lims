@@ -31,6 +31,7 @@ public final class ContractPdfAssets {
 
     private static final String[] FONT_CANDIDATES = new String[] {
             "/fonts/ms-song.ttf",
+            "/fonts/SourceHanSerifSC-Regular.otf",
             "/fonts/SourceHanSerifSC-VF.ttf",
             "/fonts/SourceHanSerifHC-VF.ttf",
     };
