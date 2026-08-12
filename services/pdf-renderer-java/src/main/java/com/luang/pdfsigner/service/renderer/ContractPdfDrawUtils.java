@@ -28,6 +28,7 @@ public class ContractPdfDrawUtils {
     }
 
     public void showText(PDPageContentStream content, PDFont font, float fontSize, float x, float y, String text) throws IOException {
+        content.setNonStrokingColor(Color.BLACK);
         content.beginText();
         content.setFont(font != null ? font : primaryFont, fontSize);
         content.newLineAtOffset(x, y);
@@ -72,6 +73,7 @@ public class ContractPdfDrawUtils {
         float textY = y + (height - fontSize) / 2f + 2f;
 
         content.beginText();
+        content.setNonStrokingColor(Color.BLACK);
         content.setFont(font != null ? font : primaryFont, fontSize);
         content.newLineAtOffset(textX, textY);
         content.showText(safe);

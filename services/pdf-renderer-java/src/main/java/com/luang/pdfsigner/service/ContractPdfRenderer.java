@@ -344,6 +344,7 @@ public class ContractPdfRenderer {
     }
 
     private void showText(PDPageContentStream content, PDFont font, float fontSize, float x, float y, String text) throws IOException {
+        content.setNonStrokingColor(java.awt.Color.BLACK);
         content.beginText();
         content.setFont(font, fontSize);
         content.newLineAtOffset(x, y);

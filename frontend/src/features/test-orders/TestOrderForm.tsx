@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Plus, Save, Trash2, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, Save, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { type UseFormReturn, useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { Button, ErrorNotice, Field, Panel } from '../system/shared'
@@ -277,10 +277,18 @@ export function TestOrderForm({
             <div className="rounded-md border border-emerald-900/10 bg-slate-50/60 p-3" key={row.id}>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="text-sm font-medium text-slate-900">#{index + 1}</span>
-                <Button variant="ghost" onClick={() => sampleRows.remove(index)} disabled={sampleRows.fields.length === 1}>
-                  <Trash2 className="size-4" aria-hidden="true" />
-                  Remove
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" title="上移样品" aria-label="上移样品" onClick={() => sampleRows.move(index, index - 1)} disabled={index === 0}>
+                    <ArrowUp className="size-4" aria-hidden="true" />
+                  </Button>
+                  <Button variant="ghost" title="下移样品" aria-label="下移样品" onClick={() => sampleRows.move(index, index + 1)} disabled={index === sampleRows.fields.length - 1}>
+                    <ArrowDown className="size-4" aria-hidden="true" />
+                  </Button>
+                  <Button variant="ghost" onClick={() => sampleRows.remove(index)} disabled={sampleRows.fields.length === 1}>
+                    <Trash2 className="size-4" aria-hidden="true" />
+                    Remove
+                  </Button>
+                </div>
               </div>
               <div className="grid gap-3 md:grid-cols-4">
                 <Field label="Sample name">

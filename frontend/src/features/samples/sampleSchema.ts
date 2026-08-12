@@ -41,6 +41,19 @@ export type ReceiveLocationOption = {
   name: string
 }
 
+export type ReceiveExpectedSampleOption = {
+  id: number
+  sample_name: string
+  specification?: string | null
+  model?: string | null
+  input_voltage?: string | null
+  rated_current?: string | null
+  rated_frequency?: string | null
+  power?: string | null
+  remark?: string | null
+  quantity: number
+}
+
 export class ReceiveSamplesValidationError extends Error {
   constructor(message: string) {
     super(message)
@@ -67,6 +80,31 @@ export function normalizeReceivePayload(values: ReceiveSamplesValues) {
 
 export function acceptedReceiveRowCount(rows: ReceiveSampleRowValues[]) {
   return rows.filter((row) => !row.reject_reason?.trim()).length
+}
+
+/**
+ * A quantity on an entrust-order row represents physical samples. Expand it
+ * before receiving so every physical sample receives its own sample number.
+ */
+export function expandExpectedReceiveRows(samples: ReceiveExpectedSampleOption[]): ReceiveSampleRowValues[] {
+  return samples.flatMap((sample) => {
+    const quantity = Number.isInteger(sample.quantity) && sample.quantity > 0 ? sample.quantity : 1
+    const row: ReceiveSampleRowValues = {
+      test_order_sample_id: sample.id,
+      sample_name: sample.sample_name,
+      specification: sample.specification ?? '',
+      model: sample.model ?? '',
+      input_voltage: sample.input_voltage ?? '',
+      rated_current: sample.rated_current ?? '',
+      rated_frequency: sample.rated_frequency ?? '',
+      power: sample.power ?? '',
+      appearance_check: '外观完整',
+      remark: sample.remark ?? '',
+      reject_reason: '',
+    }
+
+    return Array.from({ length: quantity }, () => ({ ...row }))
+  })
 }
 
 export function defaultReceiveLocation(locations: ReceiveLocationOption[]) {

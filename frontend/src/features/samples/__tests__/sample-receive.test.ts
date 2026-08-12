@@ -3,6 +3,7 @@ import {
   buildReceiveSamplesPayload,
   acceptedReceiveRowCount,
   defaultReceiveLocation,
+  expandExpectedReceiveRows,
   normalizeReceivePayload,
   receiveSamplesSchema,
   sampleReceiveOrderPermissions,
@@ -97,6 +98,30 @@ describe('sample receive form', () => {
     expect(normalizeReceivePayload({ ...baseReceiveValues(), current_location: defaultReceiveLocation(locations) })).toMatchObject({
       current_location: '样品室',
     })
+  })
+
+  it('expands an expected sample according to its entrusted quantity', () => {
+    const rows = expandExpectedReceiveRows([
+      {
+        id: 18,
+        sample_name: '控制器',
+        specification: 'CTRL',
+        model: 'C-1',
+        quantity: 5,
+      },
+    ])
+
+    expect(rows).toHaveLength(5)
+    expect(rows).toEqual(
+      Array.from({ length: 5 }, () =>
+        expect.objectContaining({
+          test_order_sample_id: 18,
+          sample_name: '控制器',
+          specification: 'CTRL',
+          model: 'C-1',
+        }),
+      ),
+    )
   })
 })
 

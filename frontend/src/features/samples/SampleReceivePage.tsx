@@ -1,26 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { zhText } from '../../lib/zh'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { type ApiCollection, inputClass, localDateInputValue, textareaClass } from '../system/utils'
 import type { TestOrder } from '../test-orders/TestOrderListPage'
-import { acceptedReceiveRowCount, buildReceiveSamplesPayload, defaultReceiveLocation, type ReceiveLocationOption, type ReceiveSampleRowValues } from './sampleSchema'
+import {
+  acceptedReceiveRowCount,
+  buildReceiveSamplesPayload,
+  defaultReceiveLocation,
+  expandExpectedReceiveRows,
+  type ReceiveExpectedSampleOption,
+  type ReceiveLocationOption,
+  type ReceiveSampleRowValues,
+} from './sampleSchema'
 
-type SampleOption = {
-  id: number
-  sample_name: string
-  specification?: string | null
-  model?: string | null
-  input_voltage?: string | null
-  rated_current?: string | null
-  rated_frequency?: string | null
-  power?: string | null
-  quantity: number
-  remark?: string | null
-}
+type SampleOption = ReceiveExpectedSampleOption
 
 type SampleOptionsResponse = {
   data: {
@@ -62,6 +59,7 @@ export function SampleReceivePage() {
   const [currentLocation, setCurrentLocation] = useState(defaultReceiveLocation([]))
   const [batchNo, setBatchNo] = useState('')
   const [rows, setRows] = useState<ReceiveSampleRowValues[]>([{ ...emptyRow }])
+  const autoLoadedOrderId = useRef<number | null>(null)
   const ordersQuery = useQuery({
     queryKey: ['receive-test-orders'],
     queryFn: async () => {
@@ -99,33 +97,27 @@ export function SampleReceivePage() {
     },
   })
 
+  useEffect(() => {
+    if (!optionsQuery.data || optionsQuery.data.order.id !== testOrderId || autoLoadedOrderId.current === testOrderId) {
+      return
+    }
+
+    setRows(expandExpectedReceiveRows(optionsQuery.data.samples))
+    autoLoadedOrderId.current = testOrderId
+  }, [optionsQuery.data, testOrderId])
+
   function selectOrder(value: string) {
     const id = Number(value)
 
     setTestOrderId(Number.isFinite(id) ? id : 0)
+    autoLoadedOrderId.current = null
     setRows([{ ...emptyRow }])
   }
 
   function loadExpectedRows() {
     const optionRows = optionsQuery.data?.samples ?? []
 
-    setRows(
-      optionRows.length > 0
-        ? optionRows.map((row) => ({
-            test_order_sample_id: row.id,
-            sample_name: row.sample_name,
-            specification: row.specification ?? '',
-            model: row.model ?? '',
-            input_voltage: row.input_voltage ?? '',
-            rated_current: row.rated_current ?? '',
-            rated_frequency: row.rated_frequency ?? '',
-            power: row.power ?? '',
-            appearance_check: '外观完整',
-            remark: row.remark ?? '',
-            reject_reason: '',
-          }))
-        : [{ ...emptyRow }],
-    )
+    setRows(optionRows.length > 0 ? expandExpectedReceiveRows(optionRows) : [{ ...emptyRow }])
   }
 
   function updateRow(index: number, patch: Partial<ReceiveSampleRowValues>) {
@@ -190,7 +182,7 @@ export function SampleReceivePage() {
               {optionsQuery.data.order.order_no} / {optionsQuery.data.order.client_company}
             </span>
             <Button variant="secondary" onClick={loadExpectedRows}>
-              Load expected rows
+              按委托单数量重新加载
             </Button>
           </div>
         ) : null}

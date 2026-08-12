@@ -95,13 +95,14 @@ public class EntrustOrderRenderer {
             }
         }
 
-        private void newPage() throws IOException {
+    private void newPage() throws IOException {
             if (content != null) {
                 content.close();
             }
             page = new PDPage(PDRectangle.A4);
             document.addPage(page);
             content = new PDPageContentStream(document, page, AppendMode.APPEND, true, true);
+            content.setNonStrokingColor(Color.BLACK);
             y = page.getMediaBox().getHeight() - margin;
         }
 
@@ -540,7 +541,6 @@ public class EntrustOrderRenderer {
         content.setFont(font, TITLE_FONT_SIZE);
         float declarationBaseline = declarationBottom + declarationHeight / 2 - NORMAL_FONT_SIZE / 2;
         content.newLineAtOffset(margin + CELL_PADDING + mm(5f), declarationBaseline);
-        content.setNonStrokingColor(Color.RED);
         content.showText("委托单位声明：上述提供资料正确无误！");
         content.endText();
         content.setNonStrokingColor(Color.BLACK);
@@ -773,11 +773,11 @@ public class EntrustOrderRenderer {
                 content.newLineAtOffset(x + CELL_PADDING, y + height / 2 - SMALL_FONT_SIZE / 2);
                 content.showText(mainText);
 
-                // Draw asterisk in red
+                // Keep every printable character black, including required marks.
                 float mainWidth = font.getStringWidth(mainText) / 1000 * SMALL_FONT_SIZE;
                 content.endText();
 
-                content.setNonStrokingColor(Color.RED);
+                content.setNonStrokingColor(Color.BLACK);
                 content.beginText();
                 content.setFont(font, SMALL_FONT_SIZE);
                 content.newLineAtOffset(x + CELL_PADDING + mainWidth, y + height / 2 - SMALL_FONT_SIZE / 2);
