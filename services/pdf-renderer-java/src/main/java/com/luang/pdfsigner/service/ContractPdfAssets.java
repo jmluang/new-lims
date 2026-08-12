@@ -37,7 +37,7 @@ public final class ContractPdfAssets {
 
     private static final String[] SYSTEM_FONT_CANDIDATES = new String[] {
             System.getenv("PDF_FONT_PATH"),
-            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/opt/fonts/NotoSansCJKsc-Regular.ttf",
     };
 
     private static final Map<String, byte[]> FONT_DATA_CACHE = new ConcurrentHashMap<>();

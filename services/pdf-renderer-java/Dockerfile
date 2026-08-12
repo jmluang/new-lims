@@ -11,9 +11,13 @@ RUN mvn -e -B -DskipTests package
 # Run stage
 FROM m.daocloud.io/docker.io/library/eclipse-temurin:17-jre
 WORKDIR /app
+COPY extract-noto-sc-font.py /tmp/extract-noto-sc-font.py
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends fonts-noto-cjk \
-    && rm -rf /var/lib/apt/lists/*
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends fonts-noto-cjk python3-fonttools \
+    && install -d -m 0755 /opt/fonts \
+    && python3 /tmp/extract-noto-sc-font.py \
+    && DEBIAN_FRONTEND=noninteractive apt-get purge -y --auto-remove fonts-noto-cjk python3-fonttools \
+    && rm -rf /var/lib/apt/lists/* /tmp/extract-noto-sc-font.py
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=25.0 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 COPY --from=build /app/target/pdf-signer-*.jar app.jar
 EXPOSE 8081
