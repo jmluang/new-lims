@@ -86,7 +86,7 @@ remote_staging="/tmp/lims-pdf-renderer-$release_sha-$$"
 if ((dry_run)); then
   printf 'PDF renderer: %s\nTarget: %s:%s\n' "$release_sha" "$target" "$pdf_root"
   ssh "${ssh_opts[@]}" "$target" "sudo -n true && sudo test -d $(printf '%q' "$legacy_service_root/keys")"
-  rsync -ani --delete --exclude='.git/' --exclude='keys/' --exclude='target/' \
+  rsync -ani --delete --exclude='.git/' --exclude='/keys/' --exclude='/target/' --exclude='/fonts/' \
     -e "$rsync_ssh" "$source_dir/" "$target:$remote_staging/"
   exit 0
 fi
@@ -97,7 +97,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-rsync -a --delete --exclude='.git/' --exclude='keys/' --exclude='target/' \
+rsync -a --delete --exclude='.git/' --exclude='/keys/' --exclude='/target/' --exclude='/fonts/' \
   -e "$rsync_ssh" "$source_dir/" "$target:$remote_staging/"
 
 remote_args=()
