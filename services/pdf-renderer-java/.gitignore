@@ -45,3 +45,4 @@ application-*.properties
 ./test_*.pdf
 
 *.ttf
+!src/main/resources/fonts/LimsSongSC-Regular.ttf

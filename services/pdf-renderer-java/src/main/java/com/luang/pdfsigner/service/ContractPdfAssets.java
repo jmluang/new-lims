@@ -29,45 +29,22 @@ public final class ContractPdfAssets {
     public static final Color BRAND_BLUE = new Color(0x00, 0x66, 0xCC);
     public static final float RULE_STROKE_WIDTH = 1.4f;
 
-    private static final String[] FONT_CANDIDATES = new String[] {
-            "/fonts/ms-song.ttf",
-            "/fonts/SourceHanSerifSC-Regular.otf",
+    private static final String[] CLASSPATH_FONT_CANDIDATES = new String[] {
+            "/fonts/LimsSongSC-Regular.ttf",
             "/fonts/SourceHanSerifSC-VF.ttf",
             "/fonts/SourceHanSerifHC-VF.ttf",
     };
 
-    private static final String[] SYSTEM_FONT_CANDIDATES = new String[] {
+    private static final String[] FILESYSTEM_FONT_CANDIDATES = new String[] {
             System.getenv("PDF_FONT_PATH"),
-            "/fonts/ms-song.ttf",
+            "/fonts/LimsSongSC-Regular.ttf",
             "/fonts/NotoSansSC-VariableFont_wght.ttf",
     };
 
     private static final Map<String, byte[]> FONT_DATA_CACHE = new ConcurrentHashMap<>();
 
     public static PDFont loadPrimaryFont(PDDocument document) throws IOException {
-        for (String candidate : FONT_CANDIDATES) {
-            String normalized = candidate.startsWith("/") ? candidate.substring(1) : candidate;
-            ClassPathResource resource = new ClassPathResource(normalized);
-            if (!resource.exists()) {
-                continue;
-            }
-            try {
-                byte[] fontBytes = FONT_DATA_CACHE.get(normalized);
-                if (fontBytes == null) {
-                    try (InputStream in = resource.getInputStream()) {
-                        fontBytes = in.readAllBytes();
-                        FONT_DATA_CACHE.put(normalized, fontBytes);
-                    }
-                }
-
-                log.info("Loaded contract font from classpath: {}", normalized);
-                return PDType0Font.load(document, new ByteArrayInputStream(fontBytes));
-            } catch (IOException ex) {
-                log.warn("Failed to load font {}: {}", normalized, ex.getMessage());
-            }
-        }
-
-        for (String candidate : SYSTEM_FONT_CANDIDATES) {
+        for (String candidate : FILESYSTEM_FONT_CANDIDATES) {
             if (candidate == null || candidate.isBlank()) {
                 continue;
             }
@@ -82,10 +59,34 @@ public final class ContractPdfAssets {
                     FONT_DATA_CACHE.put(candidate, fontBytes);
                 }
 
-                log.info("Loaded contract font from filesystem: {}", candidate);
-                return PDType0Font.load(document, new ByteArrayInputStream(fontBytes));
+                PDFont font = PDType0Font.load(document, new ByteArrayInputStream(fontBytes));
+                log.info("Loaded contract font from filesystem: {} ({})", candidate, font.getName());
+                return font;
             } catch (IOException ex) {
                 log.warn("Failed to load font {}: {}", candidate, ex.getMessage());
+            }
+        }
+
+        for (String candidate : CLASSPATH_FONT_CANDIDATES) {
+            String normalized = candidate.startsWith("/") ? candidate.substring(1) : candidate;
+            ClassPathResource resource = new ClassPathResource(normalized);
+            if (!resource.exists()) {
+                continue;
+            }
+            try {
+                byte[] fontBytes = FONT_DATA_CACHE.get(normalized);
+                if (fontBytes == null) {
+                    try (InputStream in = resource.getInputStream()) {
+                        fontBytes = in.readAllBytes();
+                        FONT_DATA_CACHE.put(normalized, fontBytes);
+                    }
+                }
+
+                PDFont font = PDType0Font.load(document, new ByteArrayInputStream(fontBytes));
+                log.info("Loaded contract font from classpath: {} ({})", normalized, font.getName());
+                return font;
+            } catch (IOException ex) {
+                log.warn("Failed to load font {}: {}", normalized, ex.getMessage());
             }
         }
 

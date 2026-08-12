@@ -124,7 +124,7 @@ keys_dir="$pdf_root/keys"
 fonts_dir="$pdf_root/fonts"
 state_dir="$pdf_root/state"
 marker="$state_dir/source-commit"
-bundled_song_font="$staging_source/src/main/resources/fonts/SourceHanSerifSC-Regular.otf"
+bundled_song_font="$staging_source/src/main/resources/fonts/LimsSongSC-Regular.ttf"
 compose=(sudo docker compose --project-name lims-pdf-signer --file "$source_dir/docker-compose.yml")
 old_container=''
 old_image=''
@@ -148,6 +148,10 @@ render_check() {
     return 1
   fi
   if command -v pdftotext >/dev/null && ! pdftotext "$output_file" - | grep -Fqx '中山市鑫普达检测有限公司'; then
+    rm -f -- "$output_file"
+    return 1
+  fi
+  if command -v pdffonts >/dev/null && ! pdffonts "$output_file" | grep -Fq 'LIMSSongSC-Regular'; then
     rm -f -- "$output_file"
     return 1
   fi
@@ -190,8 +194,8 @@ if [[ ! -r "$fonts_dir/NotoSansSC-VariableFont_wght.ttf" ]]; then
   sudo install -d -m 0755 -o "$deploy_user" -g www "$fonts_dir"
   sudo install -m 0644 -o "$deploy_user" -g www "$legacy_font" "$fonts_dir/NotoSansSC-VariableFont_wght.ttf"
 fi
-[[ -r "$bundled_song_font" ]] || { printf '%s\n' 'Missing bundled Song-style font; refusing to deploy.' >&2; exit 1; }
-sudo install -m 0644 -o "$deploy_user" -g www "$bundled_song_font" "$fonts_dir/ms-song.ttf"
+[[ -r "$bundled_song_font" ]] || { printf '%s\n' 'Missing bundled LIMS Song SC font; refusing to deploy.' >&2; exit 1; }
+sudo install -m 0644 -o "$deploy_user" -g www "$bundled_song_font" "$fonts_dir/LimsSongSC-Regular.ttf"
 sudo install -d -m 0755 -o "$deploy_user" -g www "$source_dir"
 sudo rsync -a --delete --exclude='/keys/' --exclude='/fonts/' --exclude='/target/' "$staging_source/" "$source_dir/"
 sudo rm -rf -- "$source_dir/keys" "$source_dir/fonts"

@@ -146,21 +146,21 @@ class EntrustOrderRendererTest {
     }
 
     @Test
-    void embedsTheSongStyleFontForEntrustOrders() throws Exception {
+    void embedsRegularSongFontForEntrustOrders() throws Exception {
         EntrustOrderPayload data = mapper.readValue("""
                 {"samples":[{"name":"宋体样品"}]}
                 """, EntrustOrderPayload.class);
 
         try (PDDocument document = Loader.loadPDF(new EntrustOrderRenderer().render(data))) {
-            boolean hasSongStyleFont = false;
+            boolean hasRegularSongFont = false;
             for (COSName fontName : document.getPage(0).getResources().getFontNames()) {
-                if (document.getPage(0).getResources().getFont(fontName).getName().contains("SourceHanSerifSC")) {
-                    hasSongStyleFont = true;
+                if (document.getPage(0).getResources().getFont(fontName).getName().contains("LIMSSongSC-Regular")) {
+                    hasRegularSongFont = true;
                     break;
                 }
             }
 
-            assertThat(hasSongStyleFont).isTrue();
+            assertThat(hasRegularSongFont).isTrue();
         }
     }
 
