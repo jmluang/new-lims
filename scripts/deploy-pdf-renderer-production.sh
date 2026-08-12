@@ -25,6 +25,7 @@ Environment overrides:
                               the keys and stop the previous container
   SSH_PORT                    SSH port (default: 22)
   SSH_IDENTITY                Optional SSH private-key file
+  SSH_PROXY_COMMAND           Optional OpenSSH ProxyCommand for the host
 
 The renderer source is published to <DEPLOY_ROOT>/shared/pdf-renderer-java.
 Signing keys are kept in its keys/ directory and are never copied from Git.
@@ -73,6 +74,9 @@ ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -p 
 if [[ -n "${SSH_IDENTITY:-}" ]]; then
   [[ -r "$SSH_IDENTITY" ]] || { printf '%s\n' "Error: SSH_IDENTITY is not readable" >&2; exit 1; }
   ssh_opts+=(-i "$SSH_IDENTITY")
+fi
+if [[ -n "${SSH_PROXY_COMMAND:-}" ]]; then
+  ssh_opts+=(-o "ProxyCommand=$SSH_PROXY_COMMAND")
 fi
 
 rsync_ssh='ssh'
