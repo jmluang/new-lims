@@ -186,7 +186,7 @@ if [[ ! -r "$fonts_dir/NotoSansSC-VariableFont_wght.ttf" ]]; then
   sudo install -m 0644 -o "$deploy_user" -g www "$legacy_font" "$fonts_dir/NotoSansSC-VariableFont_wght.ttf"
 fi
 sudo install -d -m 0755 -o "$deploy_user" -g www "$source_dir"
-sudo rsync -a --delete --exclude='keys/' --exclude='fonts/' --exclude='target/' "$staging_source/" "$source_dir/"
+sudo rsync -a --delete --exclude='/keys/' --exclude='/fonts/' --exclude='/target/' "$staging_source/" "$source_dir/"
 sudo rm -rf -- "$source_dir/keys" "$source_dir/fonts"
 sudo ln -s ../keys "$source_dir/keys"
 sudo ln -s ../fonts "$source_dir/fonts"
