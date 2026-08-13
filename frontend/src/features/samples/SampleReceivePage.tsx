@@ -16,6 +16,7 @@ import {
   type ReceiveLocationOption,
   type ReceiveSampleRowValues,
 } from './sampleSchema'
+import { saveSampleLabelIds } from './sampleLabelPrintState'
 
 type SampleOption = ReceiveExpectedSampleOption
 
@@ -88,12 +89,15 @@ export function SampleReceivePage() {
         samples: rows,
       })
 
-      await api.post('/api/samples/receive', payload)
+      const response = await api.post<{ data: Array<{ id: number }> }>('/api/samples/receive', payload)
+
+      return response.data.data
     },
-    onSuccess: async () => {
+    onSuccess: async (receivedSamples) => {
       await queryClient.invalidateQueries({ queryKey: ['samples'] })
       await queryClient.invalidateQueries({ queryKey: ['test-orders'] })
-      await navigate({ to: '/samples' })
+      saveSampleLabelIds(receivedSamples.map((sample) => sample.id))
+      await navigate({ to: '/samples/labels' })
     },
   })
 

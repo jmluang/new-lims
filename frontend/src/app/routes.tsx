@@ -16,6 +16,7 @@ import { TempHumidityListPage } from '../features/equipment/TempHumidityListPage
 import { SampleDetailPage } from '../features/samples/SampleDetailPage'
 import { SampleFlowRecordsPage } from '../features/samples/SampleFlowRecordsPage'
 import { SampleListPage } from '../features/samples/SampleListPage'
+import { SampleLabelPrintPage } from '../features/samples/SampleLabelPrintPage'
 import { SampleReceivePage } from '../features/samples/SampleReceivePage'
 import { SampleScanPage } from '../features/samples/SampleScanPage'
 import { getAuthToken } from '../lib/api'
@@ -210,6 +211,13 @@ const sampleReceiveRoute = createRoute({
   component: SampleReceivePage,
 })
 
+const sampleLabelsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/samples/labels',
+  beforeLoad: () => requireRoutePermission('sample_labels', 'print'),
+  component: SampleLabelPrintPage,
+})
+
 const sampleScanRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/samples/scan',
@@ -361,6 +369,7 @@ export const routeTree = rootRoute.addChildren([
     testOrderDetailRoute,
     samplesRoute,
     sampleReceiveRoute,
+    sampleLabelsRoute,
     sampleScanRoute,
     sampleFlowRecordsRoute,
     sampleDetailRoute,

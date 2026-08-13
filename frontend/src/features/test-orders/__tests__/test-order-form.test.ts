@@ -177,6 +177,10 @@ describe('test order form', () => {
     })
   })
 
+  it('leaves qualifications blank for new execution standards', () => {
+    expect(testOrderDefaultValues().standards[0]?.qualifications_text).toBe('')
+  })
+
   it('builds searchable company labels from customer registry records', () => {
     expect(
       customerSearchValue({

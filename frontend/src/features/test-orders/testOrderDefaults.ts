@@ -82,7 +82,7 @@ function emptyStandardRow() {
     standard_code: '',
     standard_name: '',
     report_language: 'zh',
-    qualifications_text: 'CMA',
+    qualifications_text: '',
     requirement: '',
   }
 }
