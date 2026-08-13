@@ -45,6 +45,15 @@ return [
             'report' => false,
         ],
 
+        // Stamp images, certificate templates and signed PDFs. Kept private and
+        // served through authenticated controllers, matching the equipment disk.
+        'pdf' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/pdf'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

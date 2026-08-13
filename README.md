@@ -28,6 +28,7 @@ Laravel owns all server-side security and data contracts:
 - dictionary options
 - backup and restore APIs
 - Java PDF service client integration
+- PDF tamper-proof signing, digest ledger, and public report verification
 
 Important commands:
 
@@ -126,9 +127,21 @@ For local PDF integration, set these in `backend/.env`:
 
 ```dotenv
 PDF_SERVICE_ENABLED=true
-PDF_SERVICE_BASE_URL=http://localhost:8080
+PDF_SERVICE_BASE_URL=http://localhost:8081
 PDF_SERVICE_TIMEOUT=120
 ```
+
+### PDF tamper-proof system
+
+The signing desk (`/pdf/signing`) stamps and signs a report through the Java
+service, then records its SHA-256, MD5 and byte length. Verification recomputes
+those digests and looks for a matching ledger row, so any edit — even one that
+preserves the file size — fails the check. Report recipients can verify a file
+themselves at `/verify` without logging in.
+
+The "处理光度数据后签名" mode is ported but disabled; see
+[the migration plan](docs/plans/2026-08-13-pdf-tamper-proof-migration-plan.md)
+for how to turn it on and why it ships off.
 
 ## Production Deployment
 

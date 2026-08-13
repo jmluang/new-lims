@@ -22,7 +22,18 @@ import { SampleScanPage } from '../features/samples/SampleScanPage'
 import { getAuthToken } from '../lib/api'
 import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
+import { PublicPdfVerifyPage } from '../features/public/PublicPdfVerifyPage'
 import { PublicTestOrderSubmissionPage } from '../features/public/PublicTestOrderSubmissionPage'
+import { PdfFileListPage } from '../features/pdf/PdfFileListPage'
+import { PdfSigningPage } from '../features/pdf/PdfSigningPage'
+import { PdfVerificationLogPage } from '../features/pdf/PdfVerificationLogPage'
+import { PdfVerifyPage } from '../features/pdf/PdfVerifyPage'
+import {
+  CertificateTemplateSettingsPage,
+  DigitalSignatureSettingsPage,
+  FunctionStampSettingsPage,
+  PerforationStampSettingsPage,
+} from '../features/pdf/settingsPages'
 import { StandardDetailPage } from '../features/standards/StandardDetailPage'
 import { StandardFormPage } from '../features/standards/StandardFormPage'
 import { StandardListPage } from '../features/standards/StandardListPage'
@@ -344,10 +355,75 @@ const backupsRoute = createRoute({
   component: BackupListPage,
 })
 
+// PDF 防篡改系统
+export const publicPdfVerifyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/verify',
+  component: PublicPdfVerifyPage,
+})
+
+const pdfSigningRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/signing',
+  beforeLoad: () => requireRoutePermission('pdf_signing'),
+  component: PdfSigningPage,
+})
+
+const pdfVerifyRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/verify',
+  beforeLoad: () => requireRoutePermission('pdf_verification'),
+  component: PdfVerifyPage,
+})
+
+const pdfFilesRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/files',
+  beforeLoad: () => requireRoutePermission('pdf_files'),
+  component: PdfFileListPage,
+})
+
+const pdfVerificationLogsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/verification-logs',
+  beforeLoad: () => requireRoutePermission('pdf_verification_logs'),
+  component: PdfVerificationLogPage,
+})
+
+const pdfDigitalSignaturesRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/digital-signatures',
+  beforeLoad: () => requireRoutePermission('pdf_digital_signatures'),
+  component: DigitalSignatureSettingsPage,
+})
+
+const pdfPerforationStampsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/perforation-stamps',
+  beforeLoad: () => requireRoutePermission('pdf_perforation_stamps'),
+  component: PerforationStampSettingsPage,
+})
+
+const pdfFunctionStampsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/function-stamps',
+  beforeLoad: () => requireRoutePermission('pdf_function_stamps'),
+  component: FunctionStampSettingsPage,
+})
+
+const pdfCertificateTemplatesRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/certificate-templates',
+  beforeLoad: () => requireRoutePermission('pdf_certificate_templates'),
+  component: CertificateTemplateSettingsPage,
+})
+
+
 export const routeTree = rootRoute.addChildren([
   loginRoute,
   registerRoute,
   publicTestOrderSubmissionRoute,
+  publicPdfVerifyRoute,
   protectedRoute.addChildren([
     indexRoute,
     systemRoute,
@@ -388,5 +464,13 @@ export const routeTree = rootRoute.addChildren([
     tempHumidityRoute,
     auditLogsRoute,
     backupsRoute,
+    pdfSigningRoute,
+    pdfVerifyRoute,
+    pdfFilesRoute,
+    pdfVerificationLogsRoute,
+    pdfDigitalSignaturesRoute,
+    pdfPerforationStampsRoute,
+    pdfFunctionStampsRoute,
+    pdfCertificateTemplatesRoute,
   ]),
 ])

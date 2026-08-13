@@ -1,5 +1,9 @@
 .DS_Store
 
+# Local tooling: launch configs hold machine-specific paths, and .vite is a cache.
+/.claude/
+/.vite/
+
 /backend/vendor/
 /backend/node_modules/
 /backend/.env

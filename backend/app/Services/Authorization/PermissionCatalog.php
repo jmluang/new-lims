@@ -35,6 +35,14 @@ class PermissionCatalog
             'calibration_projects' => ['read', 'create', 'update', 'delete'],
             'calibration_project_labels' => ['print'],
             'equipment_calibrations' => ['read', 'create', 'update', 'delete'],
+            'pdf_signing' => ['read', 'create'],
+            'pdf_verification' => ['read', 'create'],
+            'pdf_files' => ['read', 'download'],
+            'pdf_verification_logs' => ['read', 'download'],
+            'pdf_digital_signatures' => ['read', 'create', 'update', 'delete'],
+            'pdf_perforation_stamps' => ['read', 'create', 'update', 'delete'],
+            'pdf_function_stamps' => ['read', 'create', 'update', 'delete'],
+            'pdf_certificate_templates' => ['read', 'create', 'update', 'delete'],
         ];
     }
 

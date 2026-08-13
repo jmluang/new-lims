@@ -32,6 +32,14 @@ export default defineConfig({
               priority: 10,
             },
             {
+              // pdf-lib is only needed when the signing desk merges a
+              // declaration page, and it is imported dynamically for that.
+              // Its own chunk keeps it out of the eagerly fetched vendor bundle.
+              name: 'pdf-vendor',
+              test: /node_modules[\\/](pdf-lib|@pdf-lib)[\\/]/,
+              priority: 15,
+            },
+            {
               name: 'vendor',
               test: /node_modules[\\/]/,
             },

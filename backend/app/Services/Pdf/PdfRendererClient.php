@@ -30,10 +30,13 @@ class PdfRendererClient
     }
 
     /**
-     * @param  array<string, mixed>  $options
+     * Stamp and/or sign a PDF.
+     *
+     * @param  array<string, mixed>  $fields  scalar form fields, null values are skipped
+     * @param  array<string, string>  $files  extra uploads as field name => absolute path
      * @return array<string, mixed>
      */
-    public function processPdf(string $pdfPath, array $options = []): array
+    public function processPdf(string $pdfPath, array $fields = [], array $files = []): array
     {
         $this->ensureEnabled();
         $resources = [];
@@ -44,18 +47,16 @@ class PdfRendererClient
         ]];
 
         try {
-            foreach ($options as $name => $value) {
+            foreach ($files as $name => $path) {
+                $multipart[] = [
+                    'name' => $name,
+                    'contents' => $this->openReadableFile($path, $resources),
+                    'filename' => basename($path),
+                ];
+            }
+
+            foreach ($fields as $name => $value) {
                 if ($value === null) {
-                    continue;
-                }
-
-                if (is_string($value) && is_file($value)) {
-                    $multipart[] = [
-                        'name' => $name,
-                        'contents' => $this->openReadableFile($value, $resources),
-                        'filename' => basename($value),
-                    ];
-
                     continue;
                 }
 

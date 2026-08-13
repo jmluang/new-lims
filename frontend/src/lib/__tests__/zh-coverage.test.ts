@@ -11,7 +11,14 @@ import { textMap } from '../zh'
  */
 
 /** Brand names, unit hints and example values that are meant to stay as they are. */
-const allowedLiterals = new Set(['New LIMS', 'CMA, CNAS'])
+const allowedLiterals = new Set([
+  'New LIMS',
+  'CMA, CNAS',
+  // A language's own name, and PEM markers that are part of the file format.
+  'English',
+  '-----BEGIN PUBLIC KEY-----',
+  '-----BEGIN PRIVATE KEY-----',
+])
 
 const translatedProps = /\b(title|description|label|placeholder|fallback)="([^"]*)"/g
 const zhTextKeys = /zhText\(\s*'((?:[^'\\]|\\.)*)'/g

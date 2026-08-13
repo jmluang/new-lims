@@ -12,6 +12,14 @@ use App\Http\Controllers\EquipmentLabelController;
 use App\Http\Controllers\EquipmentLocationController;
 use App\Http\Controllers\EquipmentSystemController;
 use App\Http\Controllers\EquipmentUsageRecordController;
+use App\Http\Controllers\Pdf\CertificateTemplateController;
+use App\Http\Controllers\Pdf\DigitalSignatureController;
+use App\Http\Controllers\Pdf\HomepageFunctionStampController;
+use App\Http\Controllers\Pdf\PdfFileController;
+use App\Http\Controllers\Pdf\PdfSigningController;
+use App\Http\Controllers\Pdf\PdfVerificationController;
+use App\Http\Controllers\Pdf\PdfVerificationLogController;
+use App\Http\Controllers\Pdf\PerforationStampController;
 use App\Http\Controllers\PublicTestOrderSubmissionController;
 use App\Http\Controllers\PublicTestOrderSubmissionReviewController;
 use App\Http\Controllers\SampleController;
@@ -54,6 +62,10 @@ Route::post('/public/test-order-submissions/customer-lookup', [PublicTestOrderSu
     ->middleware('throttle:public-submission-lookup');
 Route::post('/public/test-order-submissions', [PublicTestOrderSubmissionController::class, 'store'])
     ->middleware('throttle:public-submission-store');
+
+// PDF 防篡改公开验证：报告持有人上传 PDF 核验真伪，无需登录。
+Route::post('/public/pdf/verify', [PdfVerificationController::class, 'publicVerify'])
+    ->middleware('throttle:public-pdf-verify');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', function (Request $request) {
@@ -154,6 +166,37 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/calibration-project-labels/preview', [CalibrationProjectLabelController::class, 'preview']);
         Route::apiResource('/calibration-projects', CalibrationProjectController::class)->parameters(['calibration-projects' => 'calibrationProject'])->only(['index', 'store', 'update', 'destroy']);
         Route::apiResource('/equipment-calibrations', EquipmentCalibrationController::class)->parameters(['equipment-calibrations' => 'equipmentCalibration'])->only(['index', 'store', 'show', 'update', 'destroy']);
+
+        // PDF 防篡改系统
+        Route::prefix('pdf')->group(function (): void {
+            Route::get('/signing/options', [PdfSigningController::class, 'options']);
+            Route::get('/signing/certificate-templates/{certificateTemplate}/file', [PdfSigningController::class, 'certificateTemplate']);
+            Route::post('/signing/process', [PdfSigningController::class, 'process']);
+
+            Route::post('/verification/verify', [PdfVerificationController::class, 'verify']);
+
+            Route::get('/files', [PdfFileController::class, 'index']);
+            Route::get('/files/{pdfFile}', [PdfFileController::class, 'show']);
+            Route::get('/files/{pdfFile}/download', [PdfFileController::class, 'download']);
+
+            Route::get('/verification-logs', [PdfVerificationLogController::class, 'index']);
+            Route::get('/verification-logs/{pdfVerificationLog}', [PdfVerificationLogController::class, 'show']);
+            Route::get('/verification-logs/{pdfVerificationLog}/download', [PdfVerificationLogController::class, 'download']);
+
+            // The asset controllers resolve their own models, so ids stay scalar.
+            foreach ([
+                'digital-signatures' => DigitalSignatureController::class,
+                'perforation-stamps' => PerforationStampController::class,
+                'function-stamps' => HomepageFunctionStampController::class,
+                'certificate-templates' => CertificateTemplateController::class,
+            ] as $path => $controller) {
+                Route::get("/{$path}", [$controller, 'index']);
+                Route::post("/{$path}", [$controller, 'store']);
+                Route::post("/{$path}/{id}", [$controller, 'update'])->whereNumber('id');
+                Route::delete("/{$path}/{id}", [$controller, 'destroy'])->whereNumber('id');
+                Route::get("/{$path}/{id}/file", [$controller, 'file'])->whereNumber('id');
+            }
+        });
 
         Route::get('/temp-humidity-records/equipment-lookup', [TempHumidityRecordController::class, 'equipmentLookup']);
         Route::get('/temp-humidity-records', [TempHumidityRecordController::class, 'index']);

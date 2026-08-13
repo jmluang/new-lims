@@ -30,5 +30,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('device-temp-humidity', fn (Request $request): Limit => Limit::perMinute(120)->by($request->ip()));
         RateLimiter::for('public-submission-lookup', fn (Request $request): Limit => Limit::perMinute(20)->by($request->ip()));
         RateLimiter::for('public-submission-store', fn (Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
+        // Public PDF verification uploads a whole report per call; keep the rate
+        // low enough that the endpoint cannot be used to probe the ledger.
+        RateLimiter::for('public-pdf-verify', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
     }
 }
