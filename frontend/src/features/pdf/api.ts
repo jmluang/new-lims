@@ -180,6 +180,25 @@ export function useAuthedObjectUrl(url: string | null) {
   return loaded?.url === url ? loaded.objectUrl : null
 }
 
+/**
+ * Reads a percent-encoded header value.
+ *
+ * HTTP header values are ISO-8859-1, so the server percent-encodes anything
+ * that can hold Chinese — a raw value arrives as mojibake. Values that are not
+ * encoded are returned unchanged, which keeps older responses readable.
+ */
+export function decodeHeaderValue(value?: string | null) {
+  if (!value) {
+    return null
+  }
+
+  try {
+    return decodeURIComponent(value) || null
+  } catch {
+    return value
+  }
+}
+
 export function securityLevelLabel(level?: string | null) {
   switch (level) {
     case 'very_high':

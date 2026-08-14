@@ -181,7 +181,10 @@ class PdfSigningController extends Controller
             'X-Final-File-Id' => $result['pdf_file']->file_id,
             // These are listed in config/cors.php `exposed_headers` so the SPA
             // can read them cross-origin.
-            'X-Cover-Report-Number' => $result['metadata']['cover_report_number'] ?? '',
+            //
+            // Percent-encoded because HTTP header values are ISO-8859-1: a
+            // Chinese report number sent raw reaches the browser as mojibake.
+            'X-Cover-Report-Number' => rawurlencode((string) ($result['metadata']['cover_report_number'] ?? '')),
         ]);
     }
 

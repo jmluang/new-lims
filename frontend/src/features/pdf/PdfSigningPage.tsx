@@ -7,6 +7,7 @@ import { Button, ErrorNotice, LoadingState, PageShell, Panel } from '../system/s
 import { errorMessage, formatBytes } from '../system/utils'
 import {
   assetFileUrl,
+  decodeHeaderValue,
   digestLabels,
   useAuthedObjectUrl,
   useSigningOptions,
@@ -275,7 +276,7 @@ export function PdfSigningPage() {
         blobUrl,
         sha256: (response.headers['x-final-file-hash'] as string | undefined) ?? null,
         fileSize: Number(response.headers['x-final-file-size'] ?? 0) || null,
-        reportNumber: (response.headers['x-cover-report-number'] as string | undefined) || null,
+        reportNumber: decodeHeaderValue(response.headers['x-cover-report-number'] as string | undefined),
       } satisfies SignResult
     } catch (caught) {
       // A blob responseType turns error bodies into blobs, so read the JSON back.
