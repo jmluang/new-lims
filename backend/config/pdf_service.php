@@ -35,6 +35,11 @@ return [
         'tsa_enabled' => (bool) env('PDF_SIGNING_TSA_ENABLED', true),
         'tsa_url' => env('PDF_SIGNING_TSA_URL', ''),
 
+        // Signing takes time proportional to page count times document size.
+        // Jobs slower than this are logged at warning level with their page
+        // count and byte sizes. Set to 0 to disable the warning.
+        'slow_warning_seconds' => (int) env('PDF_SIGNING_SLOW_WARNING_SECONDS', 20),
+
         /*
          | 处理光度数据后签名
          |

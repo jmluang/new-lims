@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Pdf\PdfRendererClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -115,6 +116,87 @@ class PdfSigningTest extends TestCase
         $record = PdfFile::query()->sole();
         $this->assertFalse($record->metadata['signed']);
         $this->assertSame(hash('sha256', '%PDF-1.7 source'), $record->sha256_hash);
+    }
+
+    public function test_completion_log_carries_what_a_slow_report_needs_to_be_diagnosed(): void
+    {
+        Storage::fake('pdf');
+        $this->fakeRendererReturning('%PDF-1.7 signed output');
+
+        Log::spy();
+
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $signature = $this->seal(DigitalSignature::class, ['name' => '检测专用章']);
+        $perforation = $this->seal(PerforationStamp::class, ['name' => '骑缝章']);
+        $functionStamp = $this->functionStamp('CMA');
+
+        // A two-page document, so the logged page count is not a lucky default.
+        $source = "%PDF-1.4\n1 0 obj<</Type/Pages/Count 2>>endobj\n%%EOF";
+
+        $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', $source),
+            'original_name' => 'report.pdf',
+            'digital_signature_id' => $signature->id,
+            'perforation_stamp_id' => $perforation->id,
+            'function_stamp_ids' => [$functionStamp->id],
+        ])->assertOk();
+
+        Log::shouldHaveReceived('info')
+            ->withArgs(function (string $message, array $context): bool {
+                if ($message !== 'PDF 签章完成') {
+                    return false;
+                }
+
+                // Signing cost is page count times document size; without all
+                // three a "took forever" report cannot be explained afterwards.
+                $this->assertSame(2, $context['page_count']);
+                $this->assertGreaterThan(0, $context['input_bytes']);
+                $this->assertGreaterThan(0, $context['output_bytes']);
+                $this->assertArrayHasKey('duration_ms', $context);
+                $this->assertArrayHasKey('sign', $context['phase_ms']);
+                $this->assertSame('report.pdf', $context['file_name']);
+
+                return true;
+            })
+            ->once();
+    }
+
+    public function test_page_count_is_null_rather_than_wrong_for_object_stream_pdfs(): void
+    {
+        Storage::fake('pdf');
+        $this->fakeRendererReturning('%PDF-1.7 signed output');
+
+        Log::spy();
+
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $signature = $this->seal(DigitalSignature::class, ['name' => '检测专用章']);
+        $perforation = $this->seal(PerforationStamp::class, ['name' => '骑缝章']);
+        $functionStamp = $this->functionStamp('CMA');
+
+        // Object streams hide the page tree from a byte scan; a guessed number
+        // in the log would be worse than none.
+        $source = "%PDF-1.5\n1 0 obj<</Type/ObjStm/N 4>>stream\n...\nendstream\n%%EOF";
+
+        $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', $source),
+            'digital_signature_id' => $signature->id,
+            'perforation_stamp_id' => $perforation->id,
+            'function_stamp_ids' => [$functionStamp->id],
+        ])->assertOk();
+
+        Log::shouldHaveReceived('info')
+            ->withArgs(function (string $message, array $context): bool {
+                if ($message !== 'PDF 签章完成') {
+                    return false;
+                }
+
+                $this->assertNull($context['page_count']);
+
+                return true;
+            })
+            ->once();
     }
 
     public function test_photometric_mode_is_rejected_while_the_feature_is_off(): void

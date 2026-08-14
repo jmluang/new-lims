@@ -52,6 +52,11 @@ class PdfSigningService
         $workingDir = storage_path('app/private/pdf/working/'.Str::uuid());
         $this->ensureDirectory($workingDir);
 
+        // Signing cost scales with page count times document size, so every
+        // timing below is logged next to both — a "slow" report is otherwise
+        // impossible to diagnose after the fact.
+        $timer = new SigningTimer;
+
         try {
             $currentPath = $workingDir.'/input.pdf';
 
@@ -59,31 +64,52 @@ class PdfSigningService
                 throw new RuntimeException("无法复制文件到工作目录: {$sourcePath}");
             }
 
+            $inputBytes = filesize($currentPath) ?: 0;
+            $pageCount = $this->countPages($currentPath);
+
             $removePhotometric = (bool) ($config['remove_photometric_content'] ?? false);
 
             if ($removePhotometric) {
                 // Guarded rather than silently skipped: an operator who ticked
                 // the box must not receive an unmasked report believing it was
                 // processed.
-                $currentPath = $this->photometricContentRemover->remove($currentPath, $workingDir);
+                $currentPath = $timer->measure('photometric', fn (): string => $this->photometricContentRemover->remove($currentPath, $workingDir));
             }
 
             $digitalSignature = $this->resolveDigitalSignature($config['digital_signature_id'] ?? null);
             $perforationStamp = $this->resolvePerforationStamp($config['perforation_stamp_id'] ?? null);
             $functionStamps = $this->resolveFunctionStamps($config['function_stamp_ids'] ?? []);
 
-            $signed = $this->applySeals($currentPath, $digitalSignature, $perforationStamp, $functionStamps, $workingDir);
+            $signed = $timer->measure('sign', fn (): array => $this->applySeals(
+                $currentPath, $digitalSignature, $perforationStamp, $functionStamps, $workingDir, [
+                    'file_number' => $config['file_number'] ?? null,
+                    'input_bytes' => $inputBytes,
+                    'page_count' => $pageCount,
+                ],
+            ));
             $currentPath = $signed['path'];
 
-            $storedPath = $this->store($currentPath);
+            $storedPath = $timer->measure('store', fn (): string => $this->store($currentPath));
             $absolutePath = Storage::disk(self::STORAGE_DISK)->path($storedPath);
 
-            $pdfFile = $this->record($absolutePath, $storedPath, $config, $signed['cover_fields'], [
+            $pdfFile = $timer->measure('record', fn (): PdfFile => $this->record($absolutePath, $storedPath, $config, $signed['cover_fields'], [
                 'digital_signature' => $digitalSignature,
                 'perforation_stamp' => $perforationStamp,
                 'function_stamps' => $functionStamps,
                 'signed' => $signed['signed'],
                 'remove_photometric_content' => $removePhotometric,
+            ]));
+
+            $this->logCompletion($timer, [
+                'file_id' => $pdfFile->file_id,
+                'file_name' => $pdfFile->file_name,
+                'page_count' => $pageCount,
+                'input_bytes' => $inputBytes,
+                'output_bytes' => $pdfFile->file_size,
+                'size_ratio' => $inputBytes > 0 ? round(((int) $pdfFile->file_size) / $inputBytes, 2) : null,
+                'signed' => $signed['signed'],
+                'has_perforation' => $perforationStamp !== null,
+                'function_stamp_count' => $functionStamps->count(),
             ]);
 
             return [
@@ -112,6 +138,7 @@ class PdfSigningService
         ?PerforationStamp $perforationStamp,
         Collection $functionStamps,
         string $workingDir,
+        array $context = [],
     ): array {
         // Nothing to stamp and nothing to sign: the Java round trip would only
         // rewrite the bytes, so leave the upload untouched.
@@ -190,7 +217,9 @@ class PdfSigningService
 
         $fields['function_stamp_count'] = $functionStampIndex;
 
-        Log::info('发起 PDF 签章请求', [
+        // Page count and input size go in the *start* line too: if the request
+        // never finishes, this is the only record of how big the job was.
+        Log::info('发起 PDF 签章请求', $context + [
             'has_signature' => $digitalSignature !== null,
             'has_perforation' => $perforationStamp !== null,
             'function_stamp_count' => $functionStampIndex,
@@ -374,6 +403,100 @@ class PdfSigningService
             ->map(fn (int $id): ?HomepageFunctionStamp => $stamps->get($id))
             ->filter()
             ->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function logCompletion(SigningTimer $timer, array $context): void
+    {
+        $payload = $context + [
+            'duration_ms' => $timer->totalMs(),
+            'phase_ms' => $timer->phases(),
+            // Signing has stalled for minutes on a host that ran out of memory
+            // and started swapping. Recording the pressure next to the duration
+            // means a slow job explains itself instead of needing a live
+            // investigation after the fact.
+            'host' => $this->hostPressure(),
+        ];
+
+        $threshold = (int) config('pdf_service.signing.slow_warning_seconds');
+
+        // Slow jobs are logged at warning so they surface without trawling the
+        // whole file, and carry the numbers needed to explain the duration.
+        if ($threshold > 0 && $timer->totalMs() >= $threshold * 1000) {
+            Log::warning('PDF 签章耗时偏长', $payload + ['slow_threshold_seconds' => $threshold]);
+
+            return;
+        }
+
+        Log::info('PDF 签章完成', $payload);
+    }
+
+    /**
+     * Host memory and load at the moment the job finished.
+     *
+     * A signing that took minutes on a box with no free swap is a capacity
+     * problem, not a slow document — but only if the numbers were captured
+     * while it happened. Returns null where /proc is unavailable.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function hostPressure(): ?array
+    {
+        $meminfo = @file_get_contents('/proc/meminfo');
+
+        if ($meminfo === false) {
+            return null;
+        }
+
+        $read = static function (string $key) use ($meminfo): ?int {
+            return preg_match('/^'.$key.':\s+(\d+) kB$/m', $meminfo, $matches) === 1
+                ? (int) round(((int) $matches[1]) / 1024)
+                : null;
+        };
+
+        $swapTotal = $read('SwapTotal');
+        $swapFree = $read('SwapFree');
+
+        return array_filter([
+            'mem_available_mb' => $read('MemAvailable'),
+            'mem_total_mb' => $read('MemTotal'),
+            'swap_free_mb' => $swapFree,
+            'swap_used_pct' => $swapTotal > 0 && $swapFree !== null
+                ? (int) round((($swapTotal - $swapFree) / $swapTotal) * 100)
+                : null,
+            'load_1m' => ($load = sys_getloadavg()) !== false ? round($load[0], 2) : null,
+        ], static fn (mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * Best-effort page count, used to explain signing duration.
+     *
+     * Signing cost is driven by page count, so the log needs it — but a PDF
+     * that stores its page tree in object streams hides it from a byte scan.
+     * Null is returned rather than a wrong number in that case.
+     */
+    private function countPages(string $path): ?int
+    {
+        $contents = @file_get_contents($path);
+
+        if ($contents === false) {
+            return null;
+        }
+
+        if (str_contains($contents, '/ObjStm')) {
+            return null;
+        }
+
+        // The page tree root carries the authoritative total.
+        if (preg_match('#/Count\s+(\d+)#', $contents, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        $pages = preg_match_all('#/Type\s*/Page[^sR]#', $contents);
+
+        return $pages > 0 ? $pages : null;
     }
 
     private function imagePath(?string $relativePath): ?string
