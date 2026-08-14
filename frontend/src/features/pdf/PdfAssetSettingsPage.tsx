@@ -6,7 +6,7 @@ import { api } from '../../lib/api'
 import { cn } from '../../lib/utils'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, StatusBadge } from '../system/shared'
 import { formatBytes, inputClass, textareaClass, type ApiCollection } from '../system/utils'
-import { useAuthedObjectUrl, type PdfAsset } from './api'
+import { assetFileUrl, useAuthedObjectUrl, type PdfAsset } from './api'
 
 type AssetKind = 'seal' | 'function_stamp' | 'certificate_template'
 
@@ -193,7 +193,7 @@ export function PdfAssetSettingsPage({
                       {asset.file_size ? ` · ${formatBytes(asset.file_size)}` : ''}
                     </span>
                   ) : (
-                    <AssetThumbnail path={path} id={asset.id} name={asset.name} />
+                    <AssetThumbnail path={path} id={asset.id} name={asset.name} updatedAt={asset.updated_at} />
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -261,7 +261,7 @@ export function PdfAssetSettingsPage({
           <AssetFileField
             kind={kind}
             file={form.file}
-            existing={editing ? { path, id: editing.id, name: editing.name, fileName: editing.file_name } : null}
+            existing={editing ? { path, id: editing.id, name: editing.name, fileName: editing.file_name, updatedAt: editing.updated_at } : null}
             onChange={(file) => setForm((current) => ({ ...current, file }))}
           />
 
@@ -386,8 +386,8 @@ export function PdfAssetSettingsPage({
   )
 }
 
-function AssetThumbnail({ path, id, name }: { path: string; id: number; name: string }) {
-  const url = useAuthedObjectUrl(`/api/pdf/${path}/${id}/file`)
+function AssetThumbnail({ path, id, name, updatedAt }: { path: string; id: number; name: string; updatedAt?: string | null }) {
+  const url = useAuthedObjectUrl(assetFileUrl(path, id, updatedAt))
 
   return url ? (
     <img className="size-12 object-contain" src={url} alt={name} />
@@ -411,14 +411,14 @@ function AssetFileField({
 }: {
   kind: AssetKind
   file: File | null
-  existing: { path: string; id: number; name: string; fileName?: string | null } | null
+  existing: { path: string; id: number; name: string; fileName?: string | null; updatedAt?: string | null } | null
   onChange: (file: File | null) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const isImage = kind !== 'certificate_template'
   const previewUrl = useObjectUrl(isImage ? file : null)
-  const existingUrl = useAuthedObjectUrl(isImage && existing && !file ? `/api/pdf/${existing.path}/${existing.id}/file` : null)
+  const existingUrl = useAuthedObjectUrl(isImage && existing && !file ? assetFileUrl(existing.path, existing.id, existing.updatedAt) : null)
   const shownUrl = previewUrl ?? existingUrl
 
   const label = isImage ? '图片（PNG / JPG，建议透明底）' : '模板 PDF'

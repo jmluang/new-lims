@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils'
 import { Button, ErrorNotice, LoadingState, PageShell, Panel } from '../system/shared'
 import { errorMessage, formatBytes } from '../system/utils'
 import {
+  assetFileUrl,
   digestLabels,
   useAuthedObjectUrl,
   useSigningOptions,
@@ -923,7 +924,7 @@ function SealCard({
   disabled: boolean
   onSelect: () => void
 }) {
-  const imageUrl = useAuthedObjectUrl(`/api/pdf/${path}/${option.id}/file`)
+  const imageUrl = useAuthedObjectUrl(assetFileUrl(path, option.id, option.updated_at))
 
   return (
     <button
@@ -1065,7 +1066,7 @@ function FunctionStampCard({
   disabled: boolean
   onToggle: () => void
 }) {
-  const imageUrl = useAuthedObjectUrl(`/api/pdf/function-stamps/${option.id}/file`)
+  const imageUrl = useAuthedObjectUrl(assetFileUrl('function-stamps', option.id, option.updated_at))
 
   return (
     <button

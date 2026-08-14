@@ -42,22 +42,22 @@ class PdfSigningController extends Controller
                     ->orderBy('language')
                     ->orderByDesc('is_default')
                     ->orderBy('id')
-                    ->get(['id', 'name', 'language', 'description', 'file_name', 'file_size', 'is_default']),
+                    ->get(['id', 'name', 'language', 'description', 'file_name', 'file_size', 'is_default', 'updated_at']),
                 'digital_signatures' => DigitalSignature::query()
                     ->active()
                     ->orderByDesc('is_default')
                     ->orderBy('id')
-                    ->get(['id', 'name', 'description', 'is_default']),
+                    ->get(['id', 'name', 'description', 'is_default', 'updated_at']),
                 'perforation_stamps' => PerforationStamp::query()
                     ->active()
                     ->orderByDesc('is_default')
                     ->orderBy('id')
-                    ->get(['id', 'name', 'description', 'is_default']),
+                    ->get(['id', 'name', 'description', 'is_default', 'updated_at']),
                 'function_stamps' => HomepageFunctionStamp::query()
                     ->active()
                     ->orderBy('sort_order')
                     ->orderBy('id')
-                    ->get(['id', 'name', 'sort_order', 'is_default']),
+                    ->get(['id', 'name', 'sort_order', 'is_default', 'updated_at']),
             ],
             'meta' => [
                 'signing_enabled' => (bool) $signing['enabled'] && (bool) config('pdf_service.enabled'),

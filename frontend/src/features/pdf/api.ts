@@ -19,6 +19,7 @@ export type SealOption = {
   name: string
   description?: string | null
   is_default: boolean
+  updated_at?: string | null
 }
 
 export type FunctionStampOption = {
@@ -26,6 +27,7 @@ export type FunctionStampOption = {
   name: string
   sort_order: number
   is_default: boolean
+  updated_at?: string | null
 }
 
 export type SigningOptions = {
@@ -90,12 +92,28 @@ export function useSigningOptions() {
   })
 }
 
+/**
+ * URL for an asset's stored file, versioned by its last update.
+ *
+ * Replacing a seal image keeps the same id, so an unversioned URL is both
+ * cached by the browser and treated as unchanged by the loader hook — the
+ * operator saves a new image and still sees the old one, which reads as the
+ * edit having failed. The version makes the URL change exactly when the file
+ * does.
+ */
+export function assetFileUrl(path: string, id: number, updatedAt?: string | null) {
+  const url = `/api/pdf/${path}/${id}/file`
+
+  return updatedAt ? `${url}?v=${encodeURIComponent(updatedAt)}` : url
+}
+
 export type PdfAsset = {
   id: number
   name: string
   description?: string | null
   is_default: boolean
   is_active: boolean
+  updated_at?: string | null
   signature_contact?: string | null
   signature_location?: string | null
   signature_reason?: string | null
