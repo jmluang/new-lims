@@ -24,6 +24,15 @@ services:
       # 覆盖镜像内的默认值，改为按容器限额取堆，而不是按宿主机。
       JAVA_TOOL_OPTIONS: ${PDF_SIGNER_JAVA_OPTS:--XX:MaxRAMPercentage=70.0 -XX:+UseG1GC -XX:MaxGCPauseMillis=200}
 
+      # 每个签名域预留的字节数。代码默认 512KB，而实测真实 PKCS#7 签名最大只用
+      # 1623 字节 —— 多出来的空洞不只是撑大文件：首页章会先把文档撑大约 2MB，
+      # 之后骑缝章的每一次逐页增量保存都要重写这个更大的文档。
+      #
+      # 实测（13 页 / 6MB 报告）：512KB → 8.7s / 输出 8.3MB；
+      # 32KB → 4.8s / 输出 6.4MB，签名域数量一致，验证与防篡改检测均正常。
+      # 32KB 仍留有约 20 倍余量；若将来启用 TSA 时间戳需要更多空间，调大即可。
+      SIGNATURE_RESERVED_SIZE: ${PDF_SIGNER_SIGNATURE_RESERVED_SIZE:-32768}
+
       DEFAULT_PFX_PATH: ${DEFAULT_PFX_PATH:-/keys/signer.pfx}
       DEFAULT_PFX_PASS: ${DEFAULT_PFX_PASS:-changeit}
       FUNCTION_STAMP_TOP_MARGIN_MM: ${FUNCTION_STAMP_TOP_MARGIN_MM:-32}
