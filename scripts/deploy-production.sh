@@ -177,6 +177,17 @@ sudo -n true || fail "passwordless sudo is required for $deploy_user"
 [[ -d "$shared_backend/storage" ]] || fail "missing shared storage: $shared_backend/storage"
 [[ -d "$backend_dir" && -d "$frontend_dir" ]] || fail 'uploaded release is incomplete'
 
+# User-generated files must outlive a release.  A normal deployment excludes
+# backend/storage entirely, but merge any storage directory that is present in
+# the staging release before replacing it with the shared-storage symlink.  It
+# protects uploads from older/manual deployment paths without ever deleting an
+# existing shared file.
+if [[ -d "$backend_dir/storage" && ! -L "$backend_dir/storage" ]]; then
+  printf '%s\n' 'Merging release-local storage into shared persistent storage.'
+  sudo rsync -a --ignore-existing "$backend_dir/storage/" "$shared_backend/storage/"
+  sudo rm -rf -- "$backend_dir/storage"
+fi
+
 sudo chown -R "$deploy_user:$deploy_group" "$staging_release"
 sudo find "$staging_release" -type d -exec chmod 2775 {} +
 sudo find "$staging_release" -type f -exec chmod 0664 {} +
@@ -184,6 +195,11 @@ sudo find "$staging_release" -type f -exec chmod 0664 {} +
 sudo ln -s "$shared_backend/.env" "$backend_dir/.env"
 sudo ln -s "$shared_backend/storage" "$backend_dir/storage"
 sudo ln -s "$shared_backend/storage/app/public" "$backend_dir/public/storage"
+
+[[ "$(sudo readlink -f "$backend_dir/storage")" == "$shared_backend/storage" ]] \
+  || fail 'release storage is not linked to shared persistent storage'
+[[ "$(sudo readlink -f "$backend_dir/public/storage")" == "$shared_backend/storage/app/public" ]] \
+  || fail 'public storage is not linked to shared persistent storage'
 
 sudo -u "$deploy_user" "$php_bin" "$composer_bin" --working-dir="$backend_dir" install \
   --no-dev --prefer-dist --optimize-autoloader --no-interaction
