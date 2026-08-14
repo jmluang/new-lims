@@ -22,3 +22,6 @@
 # Reference-only directories. Keep them local and out of the new project history.
 /example/
 /zs-lims/
+
+# Generated demo/report output.
+/output/
