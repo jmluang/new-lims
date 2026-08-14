@@ -204,9 +204,11 @@ class PdfSigningTest extends TestCase
         Storage::fake('pdf');
         $this->fakeRendererReturning('%PDF-1.7 signed output');
 
+        // storage_path() is not affected by Storage::fake, so this test touches
+        // the real filesystem; keep the names unique and clean them up below.
         $workingRoot = storage_path('app/private/pdf/working');
-        $stale = $workingRoot.'/stale-job';
-        $active = $workingRoot.'/active-job';
+        $stale = $workingRoot.'/stale-'.Str::uuid();
+        $active = $workingRoot.'/active-'.Str::uuid();
 
         foreach ([$stale, $active] as $directory) {
             mkdir($directory, 0775, true);
@@ -230,12 +232,16 @@ class PdfSigningTest extends TestCase
             'function_stamp_ids' => [$functionStamp->id],
         ])->assertOk();
 
-        $this->assertDirectoryDoesNotExist($stale);
-        // A slow job still running must never have its inputs deleted.
-        $this->assertDirectoryExists($active);
-
-        // The job's own directory is cleaned up by its finally block.
-        $this->assertSame([], glob($workingRoot.'/*', GLOB_ONLYDIR) === false ? [] : array_diff(glob($workingRoot.'/*', GLOB_ONLYDIR), [$active]));
+        try {
+            $this->assertDirectoryDoesNotExist($stale);
+            // A slow job still running must never have its inputs deleted.
+            $this->assertDirectoryExists($active);
+        } finally {
+            // The signing job removes its own directory; this test must remove
+            // the one it deliberately kept, or it pollutes the next run.
+            @unlink($active.'/input.pdf');
+            @rmdir($active);
+        }
     }
 
     public function test_photometric_mode_is_rejected_while_the_feature_is_off(): void
