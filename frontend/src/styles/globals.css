@@ -72,3 +72,23 @@ input[type="datetime-local"] {
     animation: none;
   }
 }
+
+/* Indeterminate bar for the signing stage: the server reports no progress
+   between "upload finished" and "here is your file", so the motion — not a
+   percentage — is what tells the operator the job is still alive. */
+@keyframes pdfsign-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[pdfsign-sweep_1\.4s_ease-in-out_infinite\] {
+    animation: none;
+    width: 100%;
+    opacity: 0.55;
+  }
+}

@@ -41,7 +41,7 @@ type SignResult = {
   error?: string
 }
 
-type TaskStage = 'merge' | 'upload' | 'done' | 'error'
+type TaskStage = 'merge' | 'upload' | 'signing' | 'done' | 'error'
 
 type TaskState = {
   key: string
@@ -50,6 +50,22 @@ type TaskState = {
   progress: number
   status: string
   stage: TaskStage
+  /** Wall-clock start, used to show that a silent stage is still alive. */
+  startedAt: number
+  /** Upload size, used to state what a normal duration looks like. */
+  bytes: number
+  /** Set once the request is with the server and no progress events arrive. */
+  signingSince?: number
+}
+
+/**
+ * Rough server-side signing time, measured on production: a 13-page, 6 MB
+ * report signs in about 5s, and the cost tracks pages times bytes. Used only
+ * to set expectations and to decide when a run is worth flagging as unusual —
+ * never to fake progress.
+ */
+function expectedSigningSeconds(bytes: number) {
+  return Math.max(3, Math.round((bytes / 1048576) * 0.8))
 }
 
 type SigningConfig = {
@@ -170,7 +186,16 @@ export function PdfSigningPage() {
 
     setTasks((current) => [
       ...current,
-      { key: item.key, index, fileName: item.file.name, progress: 0, status: '准备中', stage: 'merge' },
+      {
+        key: item.key,
+        index,
+        fileName: item.file.name,
+        progress: 0,
+        status: '准备中',
+        stage: 'merge',
+        startedAt: Date.now(),
+        bytes: item.file.size,
+      },
     ])
 
     try {
@@ -218,11 +243,18 @@ export function PdfSigningPage() {
           }
 
           const uploaded = (event.loaded / event.total) * 100
-          setTask({
-            progress: 50 + uploaded * 0.45,
-            status: uploaded >= 100 ? '服务端签章中…' : `上传中 ${Math.round(uploaded)}%`,
-            stage: 'upload',
-          })
+
+          // Once the bytes are all sent, no further events arrive until the
+          // signed file comes back. Switch to a stage that reports elapsed
+          // time instead of leaving a bar frozen near the end, which is what
+          // makes a working job look hung.
+          if (uploaded >= 100) {
+            setTask({ progress: 95, status: '服务端签章中', stage: 'signing', signingSince: Date.now() })
+
+            return
+          }
+
+          setTask({ progress: 50 + uploaded * 0.45, status: `上传中 ${Math.round(uploaded)}%`, stage: 'upload' })
         },
       })
 
@@ -542,6 +574,16 @@ function ProcessingOverlay({
   overallProgress: number
   tasks: TaskState[]
 }) {
+  // A ticking clock is the cheapest proof that a silent stage is still running:
+  // the server sends nothing between "upload finished" and "here is your file".
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 500)
+
+    return () => clearInterval(timer)
+  }, [])
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 px-4 py-10">
       <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
@@ -575,31 +617,64 @@ function ProcessingOverlay({
 
             <ul className="mt-2 space-y-2">
               {tasks.map((task) => (
-                <li className="rounded-md border border-emerald-900/10 bg-slate-50 p-3" key={task.key}>
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="font-medium text-slate-500">任务 {task.index}</span>
-                    <span className={task.stage === 'error' ? 'text-red-700' : 'text-slate-500'}>
-                      {Math.round(task.progress)}%
-                    </span>
-                  </div>
-                  <p className="mt-1 truncate text-sm text-slate-900">{task.fileName}</p>
-                  <p className={cn('text-xs', task.stage === 'error' ? 'text-red-700' : 'text-slate-500')}>{task.status}</p>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className={cn(
-                        'h-full transition-[width]',
-                        task.stage === 'error' ? 'bg-red-500' : task.stage === 'merge' ? 'bg-sky-500' : 'bg-emerald-600',
-                      )}
-                      style={{ width: `${task.progress}%` }}
-                    />
-                  </div>
-                </li>
+                <TaskCard key={task.key} task={task} now={now} />
               ))}
             </ul>
           </div>
         ) : null}
       </section>
     </div>
+  )
+}
+
+/**
+ * One in-flight file.
+ *
+ * While the server signs, there is no progress to report — so this shows the
+ * seconds elapsed instead. A number that keeps moving is what distinguishes
+ * "working" from "hung", which a bar parked at 95% cannot do.
+ */
+function TaskCard({ task, now }: { task: TaskState; now: number }) {
+  const signing = task.stage === 'signing'
+  const elapsedSeconds = Math.max(0, Math.round((now - task.startedAt) / 1000))
+  const signingSeconds = task.signingSince ? Math.max(0, Math.round((now - task.signingSince) / 1000)) : 0
+  const expected = expectedSigningSeconds(task.bytes)
+  // Several times the measured norm, so the warning keeps its meaning.
+  const overdue = signing && signingSeconds >= Math.max(45, expected * 5)
+
+  return (
+    <li className="rounded-md border border-emerald-900/10 bg-slate-50 p-3">
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="font-medium text-slate-500">任务 {task.index}</span>
+        <span className={task.stage === 'error' ? 'text-red-700' : 'text-slate-500'}>
+          {signing ? `已用 ${elapsedSeconds} 秒 / 通常约 ${expected} 秒` : `${Math.round(task.progress)}%`}
+        </span>
+      </div>
+      <p className="mt-1 truncate text-sm text-slate-900">{task.fileName}</p>
+      <p className={cn('text-xs', task.stage === 'error' ? 'text-red-700' : overdue ? 'text-amber-700' : 'text-slate-500')}>
+        {task.status}
+        {signing ? '…' : ''}
+        {overdue ? ' · 比平常久，仍在进行' : ''}
+      </p>
+
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+        {signing ? (
+          // Indeterminate: the server reports nothing until it is done, so an
+          // animated stripe is honest where a percentage would be invented.
+          <div
+            className={cn('h-full w-1/3 animate-[pdfsign-sweep_1.4s_ease-in-out_infinite] rounded-full', overdue ? 'bg-amber-500' : 'bg-emerald-600')}
+          />
+        ) : (
+          <div
+            className={cn(
+              'h-full transition-[width]',
+              task.stage === 'error' ? 'bg-red-500' : task.stage === 'merge' ? 'bg-sky-500' : 'bg-emerald-600',
+            )}
+            style={{ width: `${task.progress}%` }}
+          />
+        )}
+      </div>
+    </li>
   )
 }
 
