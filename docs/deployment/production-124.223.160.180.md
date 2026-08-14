@@ -21,6 +21,27 @@ Nginx serves `current/backend/public`, with the React SPA under
 symlink is the only serving pointer, so replacing it is an atomic activation
 and changing it back provides a quick code rollback.
 
+### Storage path must be pinned
+
+The shared `.env` must set:
+
+```dotenv
+LARAVEL_STORAGE_PATH=/www/wwwroot/lims.verify-pdf.com/shared/backend/storage
+```
+
+Laravel derives `storage_path()` from the directory the application booted
+from, and `config:cache` writes that absolute path into
+`bootstrap/cache/config.php` — every filesystem disk root and the log file
+path. In a release-directory layout that bakes one specific release (or worse,
+a `.tmp-` staging directory) into the cache. Once that directory is replaced or
+cleaned up, uploads and logs are written to a path nobody serves from: the
+database rows remain, the files disappear on the next deploy.
+
+This was observed in production, where all four disks (`local`, `public`,
+`equipment`, `pdf`) and the log path pointed at a staging directory that no
+longer existed, and previously uploaded seal images were lost. Pinning the
+variable makes the path independent of which directory boots the application.
+
 The Java PDF renderer is deployed from the same committed revision as the web
 application. Its source is copied to `shared/pdf-renderer-java/source`, while
 the signing keys remain in `shared/pdf-renderer-java/keys` and are never stored
