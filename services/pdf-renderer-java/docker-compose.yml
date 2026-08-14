@@ -6,7 +6,24 @@ services:
     image: pdf-signer:local
     ports:
       - "8080:8081"
+
+    # 内存限额。没有这一项时 JVM 的 MaxRAMPercentage 是按*宿主机*内存算的，
+    # 于是在与数据库共用的小主机上它会一路涨到把整机拖进 swap —— 生产曾因此
+    # 单次签章卡住 6 分钟，并被内核 OOM 杀掉（一天两次，另有一次杀的是 mysqld）。
+    #
+    # memswap_limit 与 mem_limit 相等表示不允许该容器使用 swap：宁可这一个请求
+    # 失败并由 restart 拉起，也不要把整台机器冻住。
+    #
+    # 768m 的依据：本地实测 6.5MB / 14 页的图片型报告在 128m 堆下即可完成，
+    # 按 70% 取堆约 537m，留了 4 倍余量给并发与更大的文件，其余供
+    # metaspace / 代码缓存 / 直接内存 / 线程栈使用。
+    mem_limit: ${PDF_SIGNER_MEM_LIMIT:-768m}
+    memswap_limit: ${PDF_SIGNER_MEM_LIMIT:-768m}
+
     environment:
+      # 覆盖镜像内的默认值，改为按容器限额取堆，而不是按宿主机。
+      JAVA_TOOL_OPTIONS: ${PDF_SIGNER_JAVA_OPTS:--XX:MaxRAMPercentage=70.0 -XX:+UseG1GC -XX:MaxGCPauseMillis=200}
+
       DEFAULT_PFX_PATH: ${DEFAULT_PFX_PATH:-/keys/signer.pfx}
       DEFAULT_PFX_PASS: ${DEFAULT_PFX_PASS:-changeit}
       FUNCTION_STAMP_TOP_MARGIN_MM: ${FUNCTION_STAMP_TOP_MARGIN_MM:-32}
