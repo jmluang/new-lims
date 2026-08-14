@@ -49,7 +49,10 @@ class PdfSigningService
      */
     public function handle(string $sourcePath, array $config): array
     {
-        $workingDir = storage_path('app/private/pdf/working/'.Str::uuid());
+        $workingRoot = storage_path('app/private/pdf/working');
+        $this->sweepStaleWorkingDirs($workingRoot);
+
+        $workingDir = $workingRoot.'/'.Str::uuid();
         $this->ensureDirectory($workingDir);
 
         // Signing cost scales with page count times document size, so every
@@ -431,6 +434,40 @@ class PdfSigningService
         }
 
         Log::info('PDF 签章完成', $payload);
+    }
+
+    /**
+     * Removes working directories left behind by jobs that died mid-flight.
+     *
+     * The per-job cleanup runs in a finally block, which a killed process never
+     * reaches — and this service has been killed in production, by request
+     * timeouts and by the kernel under memory pressure. Each leak holds a full
+     * copy of a report, so on a disk-constrained host they add up quietly.
+     */
+    private function sweepStaleWorkingDirs(string $workingRoot): void
+    {
+        if (! is_dir($workingRoot)) {
+            return;
+        }
+
+        $cutoff = time() - (int) config('pdf_service.signing.working_dir_ttl_seconds', 21600);
+
+        foreach (glob($workingRoot.'/*', GLOB_ONLYDIR) ?: [] as $candidate) {
+            $modifiedAt = @filemtime($candidate);
+
+            // Skip anything still in use: a slow job's directory is younger
+            // than the cutoff, so an in-flight signing is never swept.
+            if ($modifiedAt === false || $modifiedAt > $cutoff) {
+                continue;
+            }
+
+            Log::info('清理残留的签章工作目录', [
+                'path' => basename($candidate),
+                'age_minutes' => (int) round((time() - $modifiedAt) / 60),
+            ]);
+
+            $this->deleteDirectory($candidate);
+        }
     }
 
     /**

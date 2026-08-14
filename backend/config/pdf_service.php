@@ -35,6 +35,12 @@ return [
         'tsa_enabled' => (bool) env('PDF_SIGNING_TSA_ENABLED', true),
         'tsa_url' => env('PDF_SIGNING_TSA_URL', ''),
 
+        // How long a signing working directory may sit before it is treated as
+        // abandoned. Per-job cleanup runs in a finally block, which a killed
+        // process never reaches, so leftovers are swept on the next signing.
+        // Must exceed the longest signing a report can legitimately take.
+        'working_dir_ttl_seconds' => (int) env('PDF_SIGNING_WORKING_DIR_TTL', 21600),
+
         // Signing takes time proportional to page count times document size.
         // Jobs slower than this are logged at warning level with their page
         // count and byte sizes. Set to 0 to disable the warning.

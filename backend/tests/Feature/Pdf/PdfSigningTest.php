@@ -199,6 +199,45 @@ class PdfSigningTest extends TestCase
             ->once();
     }
 
+    public function test_abandoned_working_directories_are_swept_but_recent_ones_are_kept(): void
+    {
+        Storage::fake('pdf');
+        $this->fakeRendererReturning('%PDF-1.7 signed output');
+
+        $workingRoot = storage_path('app/private/pdf/working');
+        $stale = $workingRoot.'/stale-job';
+        $active = $workingRoot.'/active-job';
+
+        foreach ([$stale, $active] as $directory) {
+            mkdir($directory, 0775, true);
+            file_put_contents($directory.'/input.pdf', 'leftover');
+        }
+
+        // Older than the TTL: the process that owned it never came back.
+        touch($stale, time() - 7200);
+        config(['pdf_service.signing.working_dir_ttl_seconds' => 3600]);
+
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $signature = $this->seal(DigitalSignature::class, ['name' => '检测专用章']);
+        $perforation = $this->seal(PerforationStamp::class, ['name' => '骑缝章']);
+        $functionStamp = $this->functionStamp('CMA');
+
+        $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.7 source'),
+            'digital_signature_id' => $signature->id,
+            'perforation_stamp_id' => $perforation->id,
+            'function_stamp_ids' => [$functionStamp->id],
+        ])->assertOk();
+
+        $this->assertDirectoryDoesNotExist($stale);
+        // A slow job still running must never have its inputs deleted.
+        $this->assertDirectoryExists($active);
+
+        // The job's own directory is cleaned up by its finally block.
+        $this->assertSame([], glob($workingRoot.'/*', GLOB_ONLYDIR) === false ? [] : array_diff(glob($workingRoot.'/*', GLOB_ONLYDIR), [$active]));
+    }
+
     public function test_photometric_mode_is_rejected_while_the_feature_is_off(): void
     {
         Storage::fake('pdf');
