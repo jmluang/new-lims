@@ -159,7 +159,10 @@ if ! ssh_run "sudo test ! -e $(printf '%q' "$deploy_root/releases/$release_sha")
 fi
 trap cleanup_remote_release ERR INT TERM
 
-rsync -a --delete --info=name,stats2 \
+# --out-format/--stats rather than --info=name,stats2: the latter is GNU rsync
+# 3.1+ only, and macOS ships openrsync, where the upload died on an unknown
+# option before a release was ever staged.
+rsync -a --delete --out-format='%n' --stats \
   "${rsync_excludes[@]}" \
   -e "$rsync_ssh" \
   ./ "$target:$remote_release/"
