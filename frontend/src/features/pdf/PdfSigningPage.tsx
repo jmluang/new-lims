@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { cn } from '../../lib/utils'
 import { Button, ErrorNotice, LoadingState, PageShell, Panel } from '../system/shared'
-import { errorMessage, formatBytes } from '../system/utils'
+import { errorMessage, formatBytes, inputClass } from '../system/utils'
 import {
   assetFileUrl,
   decodeHeaderValue,
   digestLabels,
+  reportNumberFromFileName,
   useAuthedObjectUrl,
   useSigningOptions,
   type CertificateTemplate,
@@ -29,6 +30,8 @@ type QueuedFile = {
   key: string
   file: File
   removePhotometric: boolean
+  /** Pre-filled from the file name, confirmed or corrected by the operator. */
+  reportNumber: string
 }
 
 type SignResult = {
@@ -153,7 +156,12 @@ export function PdfSigningPage() {
         return
       }
 
-      accepted.push({ key: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`, file, removePhotometric })
+      accepted.push({
+        key: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+        file,
+        removePhotometric,
+        reportNumber: reportNumberFromFileName(file.name),
+      })
     })
 
     setError(rejected.length > 0 ? `已跳过 ${rejected.length} 个文件：${rejected.join('，')}` : null)
@@ -215,6 +223,10 @@ export function PdfSigningPage() {
       const form = new FormData()
       form.append('pdf_file', payload, item.file.name)
       form.append('original_name', item.file.name)
+
+      if (item.reportNumber.trim()) {
+        form.append('report_number', item.reportNumber.trim())
+      }
 
       if (effectiveConfig.certificateId) {
         form.append('certificate_id', String(effectiveConfig.certificateId))
@@ -482,28 +494,54 @@ export function PdfSigningPage() {
               </div>
               <ul className="mt-2 space-y-2">
                 {queue.map((item, index) => (
-                  <li className="flex items-center gap-3 rounded-md border border-emerald-900/10 bg-white p-3 text-sm" key={item.key}>
-                    <FileText className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate text-slate-900">{item.file.name}</span>
-                    <span className="shrink-0 text-xs text-slate-500">{formatBytes(item.file.size)}</span>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-md border px-2 py-0.5 text-xs',
-                        item.removePhotometric
-                          ? 'border-amber-200 bg-amber-50 text-amber-700'
-                          : 'border-slate-200 bg-slate-50 text-slate-600',
+                  <li className="rounded-md border border-emerald-900/10 bg-white p-3 text-sm" key={item.key}>
+                    <div className="flex items-center gap-3">
+                      <FileText className="size-4 shrink-0 text-slate-400" aria-hidden="true" />
+                      <span className="min-w-0 flex-1 truncate text-slate-900">{item.file.name}</span>
+                      <span className="shrink-0 text-xs text-slate-500">{formatBytes(item.file.size)}</span>
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-md border px-2 py-0.5 text-xs',
+                          item.removePhotometric
+                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border-slate-200 bg-slate-50 text-slate-600',
+                        )}
+                      >
+                        {item.removePhotometric ? '删除光度数据' : '正常处理'}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        aria-label={`移除 ${item.file.name}`}
+                        disabled={signing}
+                        onClick={() => setQueue((current) => current.filter((_, position) => position !== index))}
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+
+                    {/*
+                      Pre-filled from the file name and editable: the cover-page
+                      extractor has returned a whole labelled line as the report
+                      number, and a wrong number is worse than none — the ledger
+                      is searched by it and recipients are shown it.
+                    */}
+                    <label className="mt-2 flex flex-wrap items-center gap-2 pl-7">
+                      <span className="text-xs text-slate-600">报告编号</span>
+                      <input
+                        className={cn(inputClass, 'h-8 max-w-56 font-mono text-xs')}
+                        value={item.reportNumber}
+                        placeholder="如 XDP2025120133"
+                        disabled={signing}
+                        onChange={(event) =>
+                          setQueue((current) =>
+                            current.map((row) => (row.key === item.key ? { ...row, reportNumber: event.target.value } : row)),
+                          )
+                        }
+                      />
+                      {item.reportNumber.trim() ? null : (
+                        <span className="text-xs text-amber-700">未能从文件名识别，留空则该报告不登记编号</span>
                       )}
-                    >
-                      {item.removePhotometric ? '删除光度数据' : '正常处理'}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      aria-label={`移除 ${item.file.name}`}
-                      disabled={signing}
-                      onClick={() => setQueue((current) => current.filter((_, position) => position !== index))}
-                    >
-                      <Trash2 className="size-4" aria-hidden="true" />
-                    </Button>
+                    </label>
                   </li>
                 ))}
               </ul>

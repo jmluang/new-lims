@@ -93,7 +93,58 @@ class PdfSigningTest extends TestCase
         $this->assertSame('检测专用章', $record->metadata['digital_signature_name']);
         $this->assertSame('骑缝章', $record->metadata['perforation_stamp_name']);
         $this->assertSame(['CMA'], $record->metadata['function_stamp_names']);
+        $this->assertSame('cover_extraction', $record->metadata['report_number_source']);
         Storage::disk('pdf')->assertExists($record->file_path);
+    }
+
+    public function test_the_operator_confirmed_report_number_overrides_the_cover_extraction(): void
+    {
+        Storage::fake('pdf');
+
+        // What extraction produced in production: a whole labelled cover line
+        // rather than the number. It reaches the ledger search and the report
+        // recipient, so the operator's confirmation has to win.
+        $this->fakeRendererReturning('%PDF-1.7 signed output', ['report_number' => '产品名称:LED 面板灯'], ['signature_appearance_image']);
+
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $response = $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.7 source'),
+            'original_name' => 'XDP2025120133 民爆 面板灯 委托检测报告.pdf',
+            'report_number' => 'XDP2025120133',
+            'digital_signature_id' => $this->seal(DigitalSignature::class, ['name' => '检测专用章'])->id,
+        ]);
+
+        $response->assertOk();
+        $this->assertSame('XDP2025120133', rawurldecode((string) $response->headers->get('X-Cover-Report-Number')));
+
+        $record = PdfFile::query()->sole();
+        $this->assertSame('XDP2025120133', $record->cover_report_number);
+        $this->assertSame('operator', $record->metadata['report_number_source']);
+
+        // Extraction is still kept whole: a mismatch between the two is worth
+        // being able to look at afterwards.
+        $this->assertSame('产品名称:LED 面板灯', $record->metadata['cover_fields']['report_number']);
+    }
+
+    public function test_a_report_number_left_blank_is_recorded_as_absent_rather_than_empty(): void
+    {
+        Storage::fake('pdf');
+
+        $this->fakeRendererReturning('%PDF-1.7 signed output', ['report_number' => null], ['signature_appearance_image']);
+
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.7 source'),
+            'original_name' => 'report.pdf',
+            'report_number' => '   ',
+            'digital_signature_id' => $this->seal(DigitalSignature::class, ['name' => '检测专用章'])->id,
+        ])->assertOk();
+
+        $record = PdfFile::query()->sole();
+        $this->assertNull($record->cover_report_number);
+        $this->assertSame('none', $record->metadata['report_number_source']);
     }
 
     public function test_signing_without_any_seal_selected_still_records_the_file_unsigned(): void
@@ -278,18 +329,29 @@ class PdfSigningTest extends TestCase
         ])->assertForbidden();
     }
 
-    private function fakeRendererReturning(string $signedBytes, ?array $coverFields = null): void
-    {
+    /**
+     * @param  array<string, mixed>|null  $coverFields
+     * @param  list<string>  $expectedFiles  seal images this request should hand the Java service
+     */
+    private function fakeRendererReturning(
+        string $signedBytes,
+        ?array $coverFields = null,
+        array $expectedFiles = ['signature_appearance_image', 'perforation_image', 'function_stamp_0'],
+    ): void {
         $client = Mockery::mock(PdfRendererClient::class);
         $client->shouldReceive('processPdf')
             ->once()
-            ->andReturnUsing(function (string $pdfPath, array $fields, array $files) use ($signedBytes, $coverFields): array {
+            ->andReturnUsing(function (string $pdfPath, array $fields, array $files) use ($signedBytes, $coverFields, $expectedFiles): array {
                 // Assert the contract the Java service expects.
                 $this->assertSame('custom', $fields['mode']);
-                $this->assertSame(1, $fields['function_stamp_count']);
-                $this->assertArrayHasKey('signature_appearance_image', $files);
-                $this->assertArrayHasKey('perforation_image', $files);
-                $this->assertArrayHasKey('function_stamp_0', $files);
+                $this->assertSame(
+                    count(array_filter($expectedFiles, fn (string $key): bool => str_starts_with($key, 'function_stamp_'))),
+                    $fields['function_stamp_count'],
+                );
+
+                foreach ($expectedFiles as $key) {
+                    $this->assertArrayHasKey($key, $files);
+                }
 
                 $outputPath = storage_path('app/private/pdf-renderer-test-'.Str::uuid().'.pdf');
 

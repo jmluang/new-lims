@@ -8,7 +8,9 @@ import { errorMessage, formatBytes, formatDateTime, inputClass, type ApiCollecti
 import { digestLabels } from './api'
 
 const coverFieldLabels: Record<string, string> = {
-  report_number: '报告编号',
+  // Qualified, because the ledger's own 报告编号 is the confirmed one and these
+  // two can disagree — extraction has returned a whole labelled cover line.
+  report_number: '报告编号（识别）',
   product_name: '产品名称',
   model_specification: '规格型号',
   entrust_company: '委托单位',
@@ -272,6 +274,7 @@ function PdfFileDetail({ file }: { file: PdfFileRow & { metadata?: Record<string
         <dl className="mt-2 space-y-2 text-sm">
           <DetailRow label="文件名" value={file.file_name} />
           <DetailRow label="文件编号" value={file.file_id} />
+          <DetailRow label="报告编号" value={reportNumberLabel(file.cover_report_number, metadata.report_number_source)} />
           <DetailRow label="文件大小" value={formatBytes(file.file_size)} />
           <DetailRow label="签发人" value={file.created_by ?? '-'} />
           <DetailRow label="签发时间" value={formatDateTime(file.signed_at)} />
@@ -320,6 +323,30 @@ function PdfFileDetail({ file }: { file: PdfFileRow & { metadata?: Record<string
       </section>
     </div>
   )
+}
+
+/**
+ * The report number together with where it came from.
+ *
+ * Cover-page extraction has returned a whole labelled line ("产品名称:LED 面板灯")
+ * as the number, so a record that shows one still has to say whether an
+ * operator confirmed it — that is the difference between a number worth
+ * searching the ledger by and a parsing accident. Records signed before the
+ * confirmation field existed carry no source and are shown bare.
+ */
+function reportNumberLabel(reportNumber: string | null | undefined, source: unknown) {
+  if (!reportNumber) {
+    return '未登记'
+  }
+
+  switch (source) {
+    case 'operator':
+      return `${reportNumber}（人工确认）`
+    case 'cover_extraction':
+      return `${reportNumber}（封面识别）`
+    default:
+      return reportNumber
+  }
 }
 
 /** Prefers the snapshotted name, falls back to the id for older records. */

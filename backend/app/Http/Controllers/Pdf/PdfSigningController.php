@@ -106,6 +106,10 @@ class PdfSigningController extends Controller
             'pdf_file' => ['required', 'file', 'mimes:pdf', 'max:'.(int) $signing['max_upload_kb']],
             'file_number' => ['nullable', 'string', 'max:255'],
             'original_name' => ['nullable', 'string', 'max:255'],
+            // Confirmed by the operator on the signing desk. Optional: a report
+            // without a number is still signable, it just is not searchable by
+            // one.
+            'report_number' => ['nullable', 'string', 'max:255'],
             'certificate_id' => ['nullable', 'integer', 'exists:certificate_templates,id'],
             'digital_signature_id' => ['nullable', 'integer', 'exists:digital_signatures,id'],
             'perforation_stamp_id' => ['nullable', 'integer', 'exists:perforation_stamps,id'],
@@ -135,6 +139,7 @@ class PdfSigningController extends Controller
                 'operator_name' => $request->user()?->name ?? 'unknown',
                 'operator_id' => $request->user()?->id,
                 'original_name' => $originalName,
+                'report_number' => $validated['report_number'] ?? null,
                 'certificate_id' => $validated['certificate_id'] ?? null,
                 'certificate_name' => $certificateName,
                 'digital_signature_id' => $validated['digital_signature_id'] ?? null,

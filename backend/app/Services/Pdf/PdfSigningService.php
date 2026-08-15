@@ -281,6 +281,20 @@ class PdfSigningService
 
         $formattedCoverFields = $this->formatCoverFields($coverFields);
 
+        // The operator's value wins. Cover-page extraction has returned a whole
+        // labelled line ("产品名称:LED 面板灯") as the report number, and a wrong
+        // number is worse than none: the ledger is searched by it and report
+        // recipients are shown it. The source is recorded so a suspect number
+        // can be traced to whichever produced it.
+        $confirmedReportNumber = trim((string) ($config['report_number'] ?? ''));
+        $extractedReportNumber = trim((string) ($formattedCoverFields['report_number'] ?? ''));
+        $reportNumber = $confirmedReportNumber !== '' ? $confirmedReportNumber : ($extractedReportNumber ?: null);
+        $reportNumberSource = match (true) {
+            $confirmedReportNumber !== '' => 'operator',
+            $extractedReportNumber !== '' => 'cover_extraction',
+            default => 'none',
+        };
+
         /** @var Collection<int, HomepageFunctionStamp> $functionStamps */
         $functionStamps = $context['function_stamps'];
 
@@ -298,6 +312,7 @@ class PdfSigningService
             'function_stamp_ids' => $functionStamps->pluck('id')->all(),
             'function_stamp_names' => $functionStamps->pluck('name')->all(),
             'cover_fields' => $formattedCoverFields,
+            'report_number_source' => $reportNumberSource,
             'photometric_content_removal' => [
                 'requested' => $context['remove_photometric_content'],
                 'performed' => $context['remove_photometric_content'],
@@ -312,7 +327,7 @@ class PdfSigningService
             'file_path' => $storedPath,
             'sha256_hash' => $sha256,
             'md5_hash' => $md5,
-            'cover_report_number' => $formattedCoverFields['report_number'] ?? null,
+            'cover_report_number' => $reportNumber,
             'file_size' => $fileSize,
             'signed_at' => now(),
             'created_by' => $config['operator_name'],

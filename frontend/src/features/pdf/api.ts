@@ -199,6 +199,22 @@ export function decodeHeaderValue(value?: string | null) {
   }
 }
 
+/**
+ * Report number read from a file name, e.g. "XDP2025120133 民爆 面板灯 委托检测报告.pdf".
+ *
+ * Used to pre-fill the field the operator confirms. The cover-page extractor
+ * cannot be trusted for this on its own: it has returned a whole labelled line
+ * ("产品名称:LED 面板灯") as the report number, and a wrong number is worse than
+ * a missing one — the ledger is searched by it and recipients are shown it.
+ * File names follow the lab's own numbering convention, so they are the better
+ * guess, and the operator still gets the last word.
+ */
+export function reportNumberFromFileName(fileName: string) {
+  const match = /XDP\d+/i.exec(fileName)
+
+  return match ? match[0].toUpperCase() : ''
+}
+
 export function securityLevelLabel(level?: string | null) {
   switch (level) {
     case 'very_high':
