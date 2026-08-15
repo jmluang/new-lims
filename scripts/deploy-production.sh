@@ -102,22 +102,48 @@ remote_quote_args() {
   printf '%s' "$quoted"
 }
 
+# rsync copies the working tree, not `git archive`, so everything Git ignores
+# has to be repeated here or it ships to production anyway. The reference
+# checkouts are the reason this matters: zs-lims alone is 40MB and carries its
+# own signing keys, none of which belong on the production host.
+#
+# Shared by the dry run and the real upload so the two cannot drift apart.
+rsync_excludes=(
+  --exclude='.git/'
+  --exclude='/.claude/'
+  --exclude='/.vite/'
+  --exclude='/example/'
+  --exclude='/zs-lims/'
+  --exclude='/output/'
+  --exclude='/*.doc'
+  --exclude='/*.docx'
+  --exclude='/*.pdf'
+  --exclude='/tmp/'
+  # The renderer is published by scripts/deploy-pdf-renderer-production.sh,
+  # which uploads its own copy and takes the signing keys from the server's
+  # shared directory. Copying them here only scatters the key that signs every
+  # report across release directories, alongside 300MB of Maven output.
+  --exclude='/services/pdf-renderer-java/target/'
+  --exclude='/services/pdf-renderer-java/keys/'
+  --exclude='/services/pdf-renderer-java/tmp/'
+  --exclude='backend/.env'
+  --exclude='backend/storage/'
+  --exclude='backend/vendor/'
+  --exclude='backend/node_modules/'
+  --exclude='backend/bootstrap/cache/*.php'
+  --exclude='backend/public/app/'
+  --exclude='backend/public/storage'
+  --exclude='frontend/node_modules/'
+  --exclude='frontend/dist/'
+)
+
 printf 'Release: %s\nTarget:  %s:%s\n' "$release_sha" "$target" "$deploy_root"
 
 if ((dry_run)); then
   printf '%s\n' 'Dry run: validating SSH access and showing the upload delta only.'
   ssh_run 'sudo -n true'
   rsync -ani --delete \
-    --exclude='.git/' \
-    --exclude='backend/.env' \
-    --exclude='backend/storage/' \
-    --exclude='backend/vendor/' \
-    --exclude='backend/node_modules/' \
-    --exclude='backend/bootstrap/cache/*.php' \
-    --exclude='backend/public/app/' \
-    --exclude='backend/public/storage' \
-    --exclude='frontend/node_modules/' \
-    --exclude='frontend/dist/' \
+    "${rsync_excludes[@]}" \
     -e "$rsync_ssh" \
     ./ "$target:/tmp/new-lims-release-preview-$release_sha/"
   exit 0
@@ -134,16 +160,7 @@ fi
 trap cleanup_remote_release ERR INT TERM
 
 rsync -a --delete --info=name,stats2 \
-  --exclude='.git/' \
-  --exclude='backend/.env' \
-  --exclude='backend/storage/' \
-  --exclude='backend/vendor/' \
-  --exclude='backend/node_modules/' \
-  --exclude='backend/bootstrap/cache/*.php' \
-  --exclude='backend/public/app/' \
-  --exclude='backend/public/storage' \
-  --exclude='frontend/node_modules/' \
-  --exclude='frontend/dist/' \
+  "${rsync_excludes[@]}" \
   -e "$rsync_ssh" \
   ./ "$target:$remote_release/"
 
