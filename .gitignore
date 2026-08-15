@@ -25,3 +25,10 @@
 
 # Generated demo/report output.
 /output/
+
+# Sample reports and paperwork kept next to the code while working on the
+# signing desk. They are not source, and an untracked one at the repo root
+# fails the deploy script's clean-tree check.
+/*.doc
+/*.docx
+/*.pdf
