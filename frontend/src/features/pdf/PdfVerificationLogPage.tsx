@@ -90,7 +90,11 @@ export function PdfVerificationLogPage() {
       anchor.href = url
       anchor.download = row.file_name
       anchor.click()
-      URL.revokeObjectURL(url)
+
+      // Revoked on a timer, not in the same task as the click: a browser that
+      // has not yet taken ownership of the blob ends up with a cancelled
+      // download, which reads as the button doing nothing.
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
     } catch (caught) {
       setDownloadError(errorMessage(caught, '下载失败'))
     }

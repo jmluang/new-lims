@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -178,12 +179,21 @@ class PdfSigningController extends Controller
             ],
         );
 
-        return response()->download($result['path'], $this->signedFileName($originalName), [
+        return response()->download($result['path'], $result['pdf_file']->signedDownloadName(), [
             'Content-Type' => 'application/pdf',
             'X-Final-File-Hash' => $result['metadata']['sha256_hash'],
             'X-Final-File-Md5' => $result['metadata']['md5_hash'],
             'X-Final-File-Size' => (string) $result['metadata']['file_size'],
             'X-Final-File-Id' => $result['pdf_file']->file_id,
+            // A real URL for the same file. The browser is handed the bytes
+            // inline as well, but a `blob:` URL is useless to a browser that
+            // delegates downloads to its own download manager, so the desk
+            // triggers the download from this instead when it is present.
+            'X-Final-Download-Url' => URL::temporarySignedRoute(
+                'pdf.files.temporary-download',
+                now()->addMinutes((int) $signing['download_link_ttl_minutes']),
+                ['pdfFile' => $result['pdf_file']->id],
+            ),
             // These are listed in config/cors.php `exposed_headers` so the SPA
             // can read them cross-origin.
             //
@@ -196,12 +206,5 @@ class PdfSigningController extends Controller
     private function generateFileNumber(): string
     {
         return 'ZST-'.now()->format('YmdHis').'-'.Str::lower(Str::random(6));
-    }
-
-    private function signedFileName(string $originalName): string
-    {
-        $base = pathinfo($originalName, PATHINFO_FILENAME) ?: 'document';
-
-        return $base.'-正本.pdf';
     }
 }

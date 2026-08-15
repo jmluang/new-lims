@@ -97,6 +97,35 @@ class PdfSigningTest extends TestCase
         Storage::disk('pdf')->assertExists($record->file_path);
     }
 
+    public function test_the_response_carries_a_link_the_browser_can_download_without_a_token(): void
+    {
+        Storage::fake('pdf');
+
+        $signedBytes = '%PDF-1.7 signed output';
+        $this->fakeRendererReturning($signedBytes, null, ['signature_appearance_image']);
+
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $response = $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.7 source'),
+            'original_name' => 'report.pdf',
+            'digital_signature_id' => $this->seal(DigitalSignature::class, ['name' => '检测专用章'])->id,
+        ]);
+
+        $response->assertOk();
+
+        // The desk downloads from this rather than the `blob:` URL: a browser
+        // that hands downloads to its own download manager cannot act on a blob,
+        // and the automatic download silently does nothing.
+        $link = (string) $response->headers->get('X-Final-Download-Url');
+        $this->assertNotSame('', $link);
+
+        // Fetched the way the browser will: a plain GET, no bearer token.
+        $downloaded = $this->get($link);
+        $downloaded->assertOk();
+        $this->assertSame($signedBytes, $downloaded->streamedContent());
+    }
+
     public function test_the_operator_confirmed_report_number_overrides_the_cover_extraction(): void
     {
         Storage::fake('pdf');

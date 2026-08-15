@@ -49,6 +49,19 @@ class PdfFile extends Model
         ];
     }
 
+    /**
+     * File name the signed report is delivered under.
+     *
+     * Shared by the signing response and the temporary download link so the
+     * operator gets the same file name whichever of the two the browser used.
+     */
+    public function signedDownloadName(): string
+    {
+        $base = pathinfo((string) $this->file_name, PATHINFO_FILENAME) ?: 'document';
+
+        return $base.'-正本.pdf';
+    }
+
     protected static function booted(): void
     {
         static::creating(function (PdfFile $pdfFile): void {

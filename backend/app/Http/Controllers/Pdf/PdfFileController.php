@@ -60,7 +60,48 @@ class PdfFileController extends Controller
             after: ['file_id' => $pdfFile->file_id, 'file_name' => $pdfFile->file_name],
         );
 
-        return $disk->response($pdfFile->file_path, $pdfFile->file_name, [
+        // download(), not response(): the latter defaults to an inline
+        // disposition, which opens the report in a browser tab instead of
+        // saving it.
+        return $disk->download($pdfFile->file_path, $pdfFile->file_name, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    /**
+     * Serves a signed report through a short-lived signed link.
+     *
+     * The signing desk hands the finished file to the browser as a `blob:` URL,
+     * which browsers that delegate downloads to their own download manager
+     * (360 浏览器 among them) cannot act on — the automatic download silently
+     * does nothing. A real URL works everywhere, but a plain `<a href>` cannot
+     * carry the SPA's bearer token, so the link carries its own authorisation:
+     * the signature is scoped to one file and expires minutes after signing.
+     *
+     * The reference system solved this with an endpoint that had no
+     * authorisation at all, which turned every file id into a public download.
+     */
+    public function temporaryDownload(Request $request, PdfFile $pdfFile, AuditLogger $auditLogger): StreamedResponse
+    {
+        $disk = Storage::disk('pdf');
+
+        abort_unless(filled($pdfFile->file_path) && $disk->exists($pdfFile->file_path), 404);
+
+        // No authenticated actor here — the link is the authorisation — so the
+        // ledger records how the file left rather than who asked for it.
+        $auditLogger->record(
+            actor: $request->user(),
+            action: 'pdf_files.download',
+            module: self::RESOURCE,
+            subject: $pdfFile,
+            after: [
+                'file_id' => $pdfFile->file_id,
+                'file_name' => $pdfFile->file_name,
+                'via' => 'signed_link',
+            ],
+        );
+
+        return $disk->download($pdfFile->file_path, $pdfFile->signedDownloadName(), [
             'Content-Type' => 'application/pdf',
         ]);
     }

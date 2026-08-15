@@ -7,6 +7,7 @@ use App\Models\PdfVerificationLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -43,6 +44,45 @@ class PdfLedgerTest extends TestCase
             ->assertJsonPath('data.0.file_id', 'ZST-1');
 
         $this->getJson("/api/pdf/files/{$wanted->id}/download")->assertOk();
+    }
+
+    public function test_the_temporary_link_downloads_without_a_token_but_only_while_its_signature_holds(): void
+    {
+        Storage::disk('pdf')->put('signed/2026/08/report.pdf', '%PDF signed');
+        $record = $this->ledgerRecord('ZST-9', 'a-report.pdf', 'signed/2026/08/report.pdf');
+
+        // The signing desk hands this to the browser because a `blob:` URL is
+        // useless to a browser with its own download manager. No bearer token
+        // rides on a plain <a href>, so the signature is the authorisation.
+        $url = URL::temporarySignedRoute('pdf.files.temporary-download', now()->addMinutes(30), ['pdfFile' => $record->id]);
+
+        $response = $this->get($url);
+        $response->assertOk();
+        $this->assertStringContainsString('attachment', (string) $response->headers->get('content-disposition'));
+
+        // Unsigned, tampered and expired links must all be refused, or the
+        // ledger becomes a public download site keyed by row id.
+        $this->get("/api/pdf/files/{$record->id}/temporary-download")->assertForbidden();
+        $this->get($url.'x')->assertForbidden();
+
+        $this->travel(31)->minutes();
+        $this->get($url)->assertForbidden();
+    }
+
+    public function test_the_temporary_link_delivers_the_signed_file_name(): void
+    {
+        Storage::disk('pdf')->put('signed/2026/08/report.pdf', '%PDF signed');
+        $record = $this->ledgerRecord('ZST-10', 'XDP2025120133 民爆 面板灯.pdf', 'signed/2026/08/report.pdf');
+
+        $url = URL::temporarySignedRoute('pdf.files.temporary-download', now()->addMinutes(30), ['pdfFile' => $record->id]);
+
+        // The operator must get the same name whichever of the two paths the
+        // browser took, so this shares the signing response's convention.
+        $this->assertSame('XDP2025120133 民爆 面板灯-正本.pdf', $record->signedDownloadName());
+        $this->assertStringContainsString(
+            'filename*=',
+            (string) $this->get($url)->headers->get('content-disposition'),
+        );
     }
 
     public function test_download_is_not_found_when_the_stored_file_is_gone(): void

@@ -24,6 +24,7 @@ return [
         'X-Final-File-Size',
         'X-Final-File-Id',
         'X-Cover-Report-Number',
+        'X-Final-Download-Url',
     ],
 
     'max_age' => 0,

@@ -22,6 +22,12 @@ return [
         // Largest PDF the signing desk accepts, in kilobytes.
         'max_upload_kb' => (int) env('PDF_SIGNING_MAX_UPLOAD_KB', 20480),
 
+        // How long the signing response's download link stays valid. The link
+        // carries its own authorisation so a browser can fetch it without the
+        // SPA's bearer token; it is used seconds after signing, so this only
+        // has to cover an operator who steps away mid-batch.
+        'download_link_ttl_minutes' => (int) env('PDF_SIGNING_DOWNLOAD_LINK_TTL_MINUTES', 30),
+
         // Digest the Java signer computes over the document.
         'hash_algo' => env('PDF_SIGNING_HASH_ALGO', 'SHA256'),
 

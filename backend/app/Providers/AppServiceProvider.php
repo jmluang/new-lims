@@ -33,5 +33,9 @@ class AppServiceProvider extends ServiceProvider
         // Public PDF verification uploads a whole report per call; keep the rate
         // low enough that the endpoint cannot be used to probe the ledger.
         RateLimiter::for('public-pdf-verify', fn (Request $request): Limit => Limit::perMinute(10)->by($request->ip()));
+        // A signing desk operator downloads each finished report once, plus the
+        // odd retry. The signature already scopes a link to one file; this caps
+        // what a leaked link can be used for.
+        RateLimiter::for('pdf-temporary-download', fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
     }
 }

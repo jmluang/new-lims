@@ -71,7 +71,10 @@ class PdfVerificationLogController extends Controller
             after: ['file_name' => $pdfVerificationLog->file_name],
         );
 
-        return $disk->response($pdfVerificationLog->saved_file_path, $pdfVerificationLog->file_name, [
+        // download(), not response(): the latter defaults to an inline
+        // disposition, which opens the file in a browser tab instead of saving
+        // it.
+        return $disk->download($pdfVerificationLog->saved_file_path, $pdfVerificationLog->file_name, [
             'Content-Type' => 'application/pdf',
         ]);
     }

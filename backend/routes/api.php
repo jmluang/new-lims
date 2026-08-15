@@ -67,6 +67,14 @@ Route::post('/public/test-order-submissions', [PublicTestOrderSubmissionControll
 Route::post('/public/pdf/verify', [PdfVerificationController::class, 'publicVerify'])
     ->middleware('throttle:public-pdf-verify');
 
+// 签章完成后的临时下载链接。签名台把成品交给浏览器时用的是 blob: 地址，而把
+// 下载交给自带下载器的浏览器（360 浏览器等）拿它没办法，自动下载会毫无反应。
+// 真实地址处处可用，但普通 <a href> 带不上 SPA 的 bearer token，所以改由链接
+// 自身携带授权：签名只对这一个文件生效，且很快过期。
+Route::get('/pdf/files/{pdfFile}/temporary-download', [PdfFileController::class, 'temporaryDownload'])
+    ->middleware(['signed', 'throttle:pdf-temporary-download'])
+    ->name('pdf.files.temporary-download');
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', function (Request $request) {
         return response()->json([
