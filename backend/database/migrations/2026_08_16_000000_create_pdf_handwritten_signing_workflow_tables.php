@@ -495,9 +495,9 @@ return new class extends Migration
         Schema::dropIfExists('pdf_signing_policy_versions');
 
         Schema::table('pdf_files', function (Blueprint $table): void {
-            $table->dropUnique('pdf_files_document_revision_unique');
             $table->dropForeign(['document_id']);
             $table->dropForeign(['parent_pdf_file_id']);
+            $table->dropUnique('pdf_files_document_revision_unique');
             $table->dropColumn([
                 'document_id', 'revision_uuid', 'parent_pdf_file_id', 'revision_number',
                 'revision_role', 'revision_created_at', 'revision_manifest',

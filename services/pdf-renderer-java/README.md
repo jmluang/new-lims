@@ -8,6 +8,10 @@ This service is an internal signing boundary. Except for `GET /api/pdf/health`,
 every endpoint requires the `PDF-HMAC-V1` request contract. Do not expose it to
 the public network or call it directly from a browser.
 
+Direct local runs bind to `127.0.0.1` by default. Docker Compose binds Spring
+to the container interface while publishing the host port only on `127.0.0.1`;
+do not change the host mapping to a public interface.
+
 Endpoints
 - POST `/api/pdf/process` (multipart/form-data)
   - parts

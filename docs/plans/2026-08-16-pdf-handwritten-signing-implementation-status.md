@@ -1,7 +1,9 @@
 # PDF 手写数字签名实施状态与自审记录
 
 **记录时间：** 2026-08-16
-**实施分支：** `feature/pdf-handwritten-signing`
+**当前分支：** `main`
+**功能提交：** `05371d7`
+**本地合并提交：** `4789480`
 **基线：** `786e3f83940ed695ee83c25914d1d7b6f36aed4e`
 **执行方案：** `2026-08-15-pdf-handwritten-digital-signature-plan-final-v15.md`
 **发布结论：** **NOT READY**。代码纵向切片与自动化证据已形成，但 Gate S、Gate 0A、Gate 0B 和 Phase 2 仍缺真实环境证据，不能上线或宣称具有正式法律效力。
@@ -82,6 +84,7 @@
 30. **source 只按权限校验，其他有权用户可抢先 confirm/finalize；且存在计划外 operation cancel/sign 别名**：在持锁 source/document 上强制 owner 一致，并删除别名，只保留 v15 的 workflow cancel 和 request sign 精确路由。
 31. **HMAC metadata 虽包含 policy UUID，Java execution body/DB policy 查询未消费该值**：`ExecutionOperation`、operation claim、immutable policy lookup 与 HMAC headers 现在必须同时匹配 policy ID/UUID/hash/config，任一不一致都在 execution claim 前拒绝。
 32. **HMAC key rotation 只有实现和运维说明，没有双方可执行回归**：Laravel 现在验证从包含旧/新 key 的 keyring 选择新 active key 并使用其 secret 计算 MAC；Java 验证 active key 已切换时旧/新 key 可在轮换窗口并存，未知 key 会在 nonce claim 和业务链路之前稳定拒绝。
+33. **Java 本地直跑默认监听所有网卡，与 loopback 边界不一致**：Spring 现在默认绑定 `127.0.0.1`；Docker Compose 才显式绑定容器内 `0.0.0.0`，宿主发布端口仍固定为 `127.0.0.1:8080:8081`。本地进程已通过 `lsof` 证明只监听 `127.0.0.1:8081`。
 
 ## 3. 当前验证证据
 
@@ -112,7 +115,13 @@
 
 2026-08-16 约 11:15 CST 曾误执行 `php artisan migrate:fresh --env=testing --force`；当时仓库没有安全的 `.env.testing`，命令命中了远程共享 MariaDB `10.21.1.227/new-lims`。只读取证显示业务表已被清空重建，`log_bin=OFF`，未找到数据库备份；NAS `/vol1` 为 Btrfs，优先从事故前 snapshot 恢复。
 
-事故后没有继续对远程数据库写入。本地已新增 `backend/.env.testing`，强制测试使用 SQLite `:memory:`。在明确选择并完成“可丢弃环境重建”或“NAS snapshot 恢复”前，禁止执行远程 migration、seed、修复写入或端到端数据验收。
+事故后本地已新增 `backend/.env.testing`，强制测试使用 SQLite `:memory:`。用户随后明确选择使用目录 `.env` 指向的 MySQL 进行本地手测。2026-08-16 晚间只执行普通 `migrate --force`，第一条 pending migration 在首个 `CREATE TABLE pdf_documents` 因表已存在而立即失败，没有继续后续 DDL。
+
+只读对账确认：`users/test_orders/pdf_files` 均为 0；新 PDF 表均为 0 行；`pdf_signing_operation_events` 与 `pdf_document_evidence_holds` 缺失；`migrations` 表没有两条新 migration 记录。该状态属于 MariaDB 非事务 DDL 留下的空半成品 schema。
+
+随后执行的受控修复先验证所有目标表和 `pdf_files` 均无业务行、目标 migration 记录不存在且新增列集合完整，再调用修正后的 migration `down()` 清理半成品。第一次清理暴露 `pdf_files_document_revision_unique` 必须在两个外键之后删除，已修正回滚顺序；第二次清理通过。之后普通 `migrate --force` 成功运行两条 pending migration，`migrate:status` 显示两者均为 batch 2。`CanonicalAcceptanceSeeder` 已生成 9 个验收用户和 8 个角色，并额外创建 1 条 `local-manual-v1` B-T 规划策略；当前 `pdf_documents` 与 `pdf_files` 仍为 0 行。
+
+本地手测运行时使用 `QUEUE_CONNECTION=sync`，只同步处理当前页面触发的任务，没有消费远程共享 `default` 队列。前端 `127.0.0.1:5173` 与 Laravel `127.0.0.1:8000` 返回 200；Java 结构检查、未签名定稿和字段预创建接口运行于 `127.0.0.1:8081`。由于尚未装入真实单位 PKCS#12、RFC 3161 TSA 信任配置和 Java 最小权限 execution-ledger 账号，Java health 对完整签名能力返回 503；不得把当前本地手测解释为最终 PAdES-B-T 或法律效力验收。
 
 ## 6. 下一实施门禁
 
@@ -125,6 +134,7 @@
 
 ## 7. 版本控制状态
 
-- 按 `git status --short --untracked-files=all` 统计，当前共有 136 个 changed/untracked file paths，尚未 commit、push 或创建 PR。
-- 未执行 merge、远程部署、远程 migration、证书导入或私钥调用。
-- 任何提交前必须只暂存本功能文件，并再次检查用户已有改动和生成物。
+- 功能提交 `05371d7` 已通过 merge commit `4789480` 合入本地 `main`；当前尚未 push 或创建 PR。
+- 本次 follow-up 修正 migration 回滚顺序并收紧 Java 本地监听边界；提交完成后 `main` 将相对 `origin/main` ahead 3。
+- 两个被 v15 取代的旧方案草稿保持 untracked，未删除、未暂存。
+- 已按用户明确要求使用 `backend/.env` 的 MySQL 连接完成空库迁移与验收数据初始化；未执行远程应用部署、证书导入或私钥调用。
