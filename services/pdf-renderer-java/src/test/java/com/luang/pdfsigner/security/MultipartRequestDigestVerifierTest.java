@@ -41,6 +41,45 @@ class MultipartRequestDigestVerifierTest {
         assertThat(verifier.digest(request)).isEqualTo(expected);
     }
 
+    /**
+     * The signing desk puts its perforation geometry in options[...] parts on every
+     * sealed request. They were missing from the allowlist, so each one was
+     * rejected as an unknown part and surfaced as a body mismatch, which took the
+     * whole legacy flow down.
+     */
+    @Test
+    void acceptsTheGeometryPartsTheLegacySigningDeskAlwaysSends() {
+        MockMultipartHttpServletRequest request = new MockMultipartHttpServletRequest();
+        request.setRequestURI("/api/pdf/process");
+        request.addParameter("mode", "custom");
+        request.addParameter("options[group_size]", "10");
+        request.addParameter("options[stamp_total_height_mm]", "13.5");
+        request.addParameter("options[signature_size_mm]", "13.5");
+        request.addParameter("options[signature_margin_mm]", "10");
+        request.addParameter("signature_contact", "lims@example.invalid");
+        request.addParameter("signature_location", "lab");
+        request.addParameter("signature_reason", "report release");
+        request.addParameter("function_stamp_count", "1");
+        request.addFile(new MockMultipartFile("pdf", "report.pdf", "application/pdf", "%PDF-1.7".getBytes(StandardCharsets.UTF_8)));
+        request.addFile(new MockMultipartFile("signature_appearance_image", "signature.png", "image/png", "png".getBytes(StandardCharsets.UTF_8)));
+        request.addFile(new MockMultipartFile("perforation_image", "stamp.png", "image/png", "png".getBytes(StandardCharsets.UTF_8)));
+        request.addFile(new MockMultipartFile("function_stamp_0", "fn.png", "image/png", "png".getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(verifier.digest(request)).isNotBlank();
+    }
+
+    @Test
+    void stillRejectsAnUnknownPartOnTheLegacyEndpoint() {
+        MockMultipartHttpServletRequest request = new MockMultipartHttpServletRequest();
+        request.setRequestURI("/api/pdf/process");
+        request.addParameter("mode", "custom");
+        request.addParameter("options[not_a_real_option]", "1");
+        request.addFile(new MockMultipartFile("pdf", "report.pdf", "application/pdf", "%PDF-1.7".getBytes(StandardCharsets.UTF_8)));
+
+        assertThatThrownBy(() -> verifier.digest(request))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void rejectsMultipartThatCompletedAfterTheFixedReceiveDeadline() {
         MockMultipartHttpServletRequest request = new MockMultipartHttpServletRequest();

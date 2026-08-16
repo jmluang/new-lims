@@ -126,7 +126,12 @@ public final class MultipartRequestDigestVerifier {
                         "pdf", "perforation_image", "signature_appearance_image",
                         "certificate_query_qr_code", "mode", "signature_contact",
                         "signature_location", "signature_reason", "function_stamp_count",
-                        "certificate_query_qr_code_url"
+                        "certificate_query_qr_code_url",
+                        // The signing desk sends its perforation geometry on every
+                        // sealed request; leaving these out rejected the whole
+                        // legacy flow as a body mismatch.
+                        "options[group_size]", "options[stamp_total_height_mm]",
+                        "options[signature_size_mm]", "options[signature_margin_mm]"
                 );
                 String countValue = request.getParameter("function_stamp_count");
                 int count = 0;
