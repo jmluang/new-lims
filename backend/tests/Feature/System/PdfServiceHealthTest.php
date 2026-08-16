@@ -49,4 +49,27 @@ class PdfServiceHealthTest extends TestCase
             ->assertJsonPath('data.healthy', false)
             ->assertJsonPath('data.message', 'PDF service request failed.');
     }
+
+    public function test_pdf_service_health_reports_a_missing_local_hmac_key_without_calling_the_service(): void
+    {
+        config([
+            'pdf_service.enabled' => true,
+            'pdf_service.hmac.enabled' => true,
+            'pdf_service.hmac.active_key_id' => 'primary',
+            'pdf_service.hmac.keys' => '',
+        ]);
+        Sanctum::actingAs(User::factory()->create());
+        $client = Mockery::mock(PdfRendererClient::class);
+        $client->shouldReceive('activeHmacSecretBytes')
+            ->once()
+            ->andThrow(new RuntimeException('PDF service HMAC active key is not configured: primary'));
+        $client->shouldNotReceive('health');
+        $this->app->instance(PdfRendererClient::class, $client);
+
+        $this->getJson('/api/system/pdf-service/health')
+            ->assertStatus(503)
+            ->assertJsonPath('data.healthy', false)
+            ->assertJsonPath('data.configuration.ok', false)
+            ->assertJsonPath('data.configuration.secret_bytes', null);
+    }
 }

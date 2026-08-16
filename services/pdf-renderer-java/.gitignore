@@ -42,6 +42,9 @@ nohup.out
 application-*.yml
 application-*.properties
 
+# 本地运行时环境变量，含 HMAC 共享密钥，绝不能提交
+.env.local
+
 ./test_*.pdf
 
 *.ttf

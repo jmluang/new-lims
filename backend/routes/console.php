@@ -11,6 +11,7 @@ use App\Services\Pdf\PdfDocumentEvidenceHoldService;
 use App\Services\Pdf\PdfOperationOrphanFileReconciler;
 use App\Services\Pdf\PdfOperationOutboxDispatcher;
 use App\Services\Pdf\PdfRevisionIntegrityService;
+use App\Services\Pdf\PdfRuntimeInspector;
 use App\Services\Pdf\PdfSigningOperationReconciler;
 use App\Services\Pdf\ResolvePdfSigningManualReviewService;
 use Illuminate\Foundation\Inspiring;
@@ -21,6 +22,80 @@ use Illuminate\Support\Facades\Schedule;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('pdf:check-runtime', function (): int {
+    $inspector = app(PdfRuntimeInspector::class);
+    $configuration = $inspector->localConfiguration();
+    $failed = false;
+
+    $this->line('Laravel configuration');
+    $this->line('  pdf_service.enabled       '.($configuration['enabled'] ? 'true' : 'false'));
+    $this->line('  hmac.enabled              '.($configuration['hmac_enabled'] ? 'true' : 'false'));
+    $this->line('  hmac.active_key_id        '.$configuration['active_key_id']);
+    $this->line('  hmac secret               '.($configuration['secret_bytes'] === null
+        ? 'not checked'
+        : $configuration['secret_bytes'].' bytes'));
+
+    if (! $configuration['ok']) {
+        $this->error('  problem                   '.$configuration['problem']);
+        $failed = true;
+    }
+
+    if (! $configuration['enabled']) {
+        $this->warn('PDF service is disabled; skipping signing service checks.');
+
+        return $failed ? 1 : 0;
+    }
+
+    $health = $inspector->signingServiceHealth();
+    $this->newLine();
+    $this->line('Signing service');
+
+    if (! $health['reachable']) {
+        $this->error('  unreachable               '.$health['problem']);
+        $failed = true;
+    } else {
+        $this->line('  status                    '.($health['status'] ?? 'unknown'));
+        foreach ($health['flags'] as $flag => $value) {
+            $this->line(sprintf('  %-25s %s', $flag, $value ? 'true' : 'false'));
+        }
+    }
+
+    $agreement = $inspector->hmacAgreement();
+    $this->newLine();
+    $this->line('HMAC agreement');
+
+    if ($agreement['agreed']) {
+        $this->line('  both sides agree          '.$agreement['detail']);
+    } else {
+        $this->error('  mismatch                  '.$agreement['detail']);
+        $failed = true;
+    }
+
+    $this->newLine();
+
+    if ($failed) {
+        $this->error('PDF runtime is not usable; fix the errors above.');
+
+        return 1;
+    }
+
+    // The signing service reports readiness per capability. The structure and
+    // unsigned-finalize routes work without signing material, so report what is
+    // actually available instead of a flat pass.
+    $unready = array_keys(array_filter($health['flags'], static fn (bool $ready): bool => ! $ready));
+
+    if ($unready !== []) {
+        $this->warn('Wiring is correct, but the signing service is not fully ready: '.implode(', ', $unready).'.');
+        $this->warn('Structure inspection and unsigned finalization work; real signing does not.');
+
+        return 0;
+    }
+
+    $this->info('PDF runtime checks passed.');
+
+    return 0;
+})->purpose('Check that this application and the Java signing service share a working runtime');
 
 Artisan::command('pdf:dispatch-signing-outbox {--limit=100}', function (): int {
     $count = app(PdfOperationOutboxDispatcher::class)

@@ -42,6 +42,60 @@ class PdfRendererClient
     }
 
     /**
+     * Raw readiness payload from the signing service, for operator diagnostics.
+     *
+     * @return array<string, mixed>
+     */
+    public function healthReport(): array
+    {
+        $this->ensureEnabled();
+
+        try {
+            $response = $this->request('GET', 'api/pdf/health');
+        } catch (PdfRendererHttpException $exception) {
+            return $this->jsonPayload($exception->responseBody);
+        }
+
+        return $this->jsonPayload($response['body']);
+    }
+
+    /**
+     * Decoded length of the configured active HMAC secret. Throws the same
+     * actionable error the signing calls would hit, without exposing the secret.
+     */
+    public function activeHmacSecretBytes(): int
+    {
+        return strlen($this->activeHmacSecret((string) config('pdf_service.hmac.active_key_id')));
+    }
+
+    /**
+     * Probe whether this service and the signing service agree on the HMAC key.
+     *
+     * Sends a signed request that the signing service is expected to reject on
+     * business grounds. Reaching that rejection proves the HMAC layer accepted
+     * the signature; a PDF_HMAC_* rejection proves it did not.
+     *
+     * @return array{agreed: bool, detail: string}
+     */
+    public function hmacHandshake(): array
+    {
+        $this->ensureEnabled();
+        $probeUuid = (string) Str::uuid();
+
+        try {
+            $this->request('GET', "internal/pdf/signatures/executions/{$probeUuid}");
+        } catch (PdfRendererHttpException $exception) {
+            if (preg_match('/PDF_HMAC_[A-Z_]+/', $exception->responseBody, $matches) === 1) {
+                return ['agreed' => false, 'detail' => $matches[0]];
+            }
+
+            return ['agreed' => true, 'detail' => 'signing service accepted the signature'];
+        }
+
+        return ['agreed' => true, 'detail' => 'signing service accepted the signature'];
+    }
+
+    /**
      * Stamp and/or sign a PDF.
      *
      * @param  array<string, mixed>  $fields  scalar form fields, null values are skipped
