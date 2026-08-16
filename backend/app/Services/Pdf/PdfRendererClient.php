@@ -75,24 +75,37 @@ class PdfRendererClient
      * business grounds. Reaching that rejection proves the HMAC layer accepted
      * the signature; a PDF_HMAC_* rejection proves it did not.
      *
-     * @return array{agreed: bool, detail: string}
+     * @return array{agreed: bool, blocked: bool, detail: string}
      */
     public function hmacHandshake(): array
     {
         $this->ensureEnabled();
         $probeUuid = (string) Str::uuid();
+        $accepted = ['agreed' => true, 'blocked' => false, 'detail' => 'signing service accepted the signature'];
 
         try {
             $this->request('GET', "internal/pdf/signatures/executions/{$probeUuid}");
         } catch (PdfRendererHttpException $exception) {
-            if (preg_match('/PDF_HMAC_[A-Z_]+/', $exception->responseBody, $matches) === 1) {
-                return ['agreed' => false, 'detail' => $matches[0]];
+            if (preg_match('/PDF_HMAC_[A-Z_]+/', $exception->responseBody, $matches) !== 1) {
+                return $accepted;
             }
 
-            return ['agreed' => true, 'detail' => 'signing service accepted the signature'];
+            // The nonce store is a transport dependency, not a shared secret, so a
+            // store outage says nothing about whether the two sides agree on the
+            // key. Reporting it as a mismatch would send an operator looking for
+            // the wrong problem.
+            if ($matches[0] === 'PDF_HMAC_NONCE_STORE_UNAVAILABLE') {
+                return [
+                    'agreed' => false,
+                    'blocked' => true,
+                    'detail' => 'cannot tell: the signing service nonce store is unavailable',
+                ];
+            }
+
+            return ['agreed' => false, 'blocked' => false, 'detail' => $matches[0]];
         }
 
-        return ['agreed' => true, 'detail' => 'signing service accepted the signature'];
+        return $accepted;
     }
 
     /**

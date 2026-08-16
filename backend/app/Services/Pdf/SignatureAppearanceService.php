@@ -71,7 +71,7 @@ final class SignatureAppearanceService
                     'appearance_uuid' => $appearanceUuid,
                     'request_id' => $locked->id,
                     'created_by_id' => $actor->id,
-                    'artifact_type' => $locked->request_type === 'homepage_seal' ? 'homepage_seal' : 'handwriting',
+                    'artifact_type' => 'handwriting',
                     'canonical_image_sha256' => $stored['sha256'],
                     'appearance_manifest_hash' => hash('sha256', CanonicalJson::encode($manifest)),
                     'slot_manifest' => $slotManifest,

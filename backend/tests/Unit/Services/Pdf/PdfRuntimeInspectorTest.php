@@ -105,6 +105,22 @@ class PdfRuntimeInspectorTest extends TestCase
         $this->assertTrue($agreement['agreed']);
     }
 
+    public function test_hmac_agreement_does_not_blame_the_key_for_a_nonce_store_outage(): void
+    {
+        $inspector = $this->inspector([
+            new Response(503, ['Content-Type' => 'application/json'], (string) json_encode([
+                'error' => 'PDF_HMAC_NONCE_STORE_UNAVAILABLE',
+            ])),
+        ]);
+
+        $agreement = $inspector->hmacAgreement();
+
+        $this->assertFalse($agreement['checked']);
+        $this->assertFalse($agreement['agreed']);
+        $this->assertStringContainsString('nonce store is unavailable', $agreement['detail']);
+        $this->assertStringNotContainsString('mismatch', $agreement['detail']);
+    }
+
     public function test_hmac_agreement_is_skipped_when_the_local_key_is_missing(): void
     {
         config(['pdf_service.hmac.keys' => '']);

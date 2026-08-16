@@ -191,7 +191,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
             Route::post('/signing-sources/{source}/finalize', [PdfHandwrittenSigningController::class, 'finalize']);
             Route::post('/signing-workflows', [PdfHandwrittenSigningController::class, 'createWorkflow']);
             Route::post('/signing-workflows/{workflow}/prepare', [PdfHandwrittenSigningController::class, 'prepareWorkflow']);
-            Route::post('/signing-workflows/{workflow}/activate-homepage-seal', [PdfHandwrittenSigningController::class, 'activateHomepageSeal']);
             Route::post('/signing-workflows/{workflow}/cancel', [PdfHandwrittenSigningController::class, 'cancelWorkflow']);
             Route::get('/signing-workflows/{workflow}', [PdfHandwrittenSigningController::class, 'workflow']);
             Route::get('/signing-requests', [PdfHandwrittenSigningController::class, 'signingRequests']);

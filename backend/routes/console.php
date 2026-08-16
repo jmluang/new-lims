@@ -67,6 +67,9 @@ Artisan::command('pdf:check-runtime', function (): int {
 
     if ($agreement['agreed']) {
         $this->line('  both sides agree          '.$agreement['detail']);
+    } elseif (! $agreement['checked']) {
+        $this->error('  not verified              '.$agreement['detail']);
+        $failed = true;
     } else {
         $this->error('  mismatch                  '.$agreement['detail']);
         $failed = true;

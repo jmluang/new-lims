@@ -10,14 +10,12 @@ const roleLabels: Record<SignatureRole, string> = {
   inspector: '主检签名',
   reviewer: '审核签名',
   issuer: '签发签名',
-  homepage_seal: '首页盖章',
 }
 
 const roleColors: Record<SignatureRole, string> = {
   inspector: 'border-sky-600 bg-sky-500/10 text-sky-800',
   reviewer: 'border-violet-600 bg-violet-500/10 text-violet-800',
   issuer: 'border-emerald-700 bg-emerald-500/10 text-emerald-800',
-  homepage_seal: 'border-amber-600 bg-amber-500/10 text-amber-800',
 }
 
 type DragState = {
@@ -250,7 +248,7 @@ function PdfPage({
                 <span>{roleLabels[placement.semantic_role]}</span>
                 <span>P{pageIndex + 1}</span>
               </div>
-              {signaturePreview && placement.semantic_role !== 'homepage_seal' ? (
+              {signaturePreview ? (
                 <img src={signaturePreview} alt="手写签名实时预览" className="h-full w-full object-contain p-1.5 pt-5" />
               ) : null}
               {editable ? <span data-resize="true" className="absolute bottom-0 right-0 size-4 cursor-se-resize border-l border-t border-current bg-white/90" /> : null}

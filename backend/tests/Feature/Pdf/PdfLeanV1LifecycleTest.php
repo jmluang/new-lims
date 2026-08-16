@@ -13,7 +13,6 @@ use App\Models\PdfSigningField;
 use App\Models\PdfSigningOperation;
 use App\Models\PdfSigningPolicyVersion;
 use App\Models\PdfSigningRequest;
-use App\Models\PdfSigningSlot;
 use App\Models\PdfSigningWorkflow;
 use App\Models\User;
 use App\Services\Pdf\AuthorizeJavaResultRetirementService;
@@ -25,7 +24,6 @@ use App\Services\Pdf\PdfOperationOutboxDispatcher;
 use App\Services\Pdf\PdfRendererClient;
 use App\Services\Pdf\PdfRevisionIntegrityService;
 use App\Services\Pdf\PdfRevisionService;
-use App\Services\Pdf\PdfWorkflowService;
 use App\Services\Pdf\ResolvePdfSigningManualReviewService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,126 +43,6 @@ use Tests\TestCase;
 final class PdfLeanV1LifecycleTest extends TestCase
 {
     use RefreshDatabase;
-
-    public function test_completed_workflow_activates_existing_deferred_homepage_field_without_rewriting_pdf(): void
-    {
-        Storage::fake('pdf');
-        $actor = User::factory()->create();
-        $sealOperator = User::factory()->create();
-        [$document, $published] = $this->publishedDocument($actor);
-        Storage::disk('pdf')->put($published->file_path, '%PDF-1.7 published');
-        $workflow = PdfSigningWorkflow::query()->create([
-            'workflow_uuid' => (string) Str::uuid(),
-            'document_id' => $document->id,
-            'workflow_generation' => 1,
-            'base_revision_id' => $published->id,
-            'planning_revision_id' => $published->id,
-            'prepared_revision_id' => $published->id,
-            'current_revision_id' => $published->id,
-            'expected_publication_version' => 0,
-            'field_plan_hash' => str_repeat('a', 64),
-            'status' => 'completed',
-            'created_by_id' => $actor->id,
-        ]);
-        $act = PdfSigningAct::query()->create([
-            'logical_act_uuid' => (string) Str::uuid(),
-            'document_id' => $document->id,
-            'plan_generation' => 1,
-            'semantic_role' => 'homepage_seal',
-            'pdf_signature_role' => 'approval',
-            'sequence' => 4,
-            'field_name' => 'lims_homepage_seal_g1',
-            'status' => 'deferred',
-        ]);
-        $sourceField = PdfSigningField::query()->create([
-            'field_uuid' => (string) Str::uuid(),
-            'workflow_id' => $workflow->id,
-            'signing_act_id' => $act->id,
-            'field_name' => 'lims_homepage_seal_g1',
-            'field_type' => 'homepage_seal',
-            'activation_mode' => 'deferred',
-            'binding_mode' => 'created_before_first_signature',
-            'lock_policy' => 'include_self_only',
-            'prepared_revision_id' => $published->id,
-            'prepared_object_ref' => '20 0 R',
-            'status' => 'prepared',
-        ]);
-        PdfSigningSlot::query()->create([
-            'slot_uuid' => (string) Str::uuid(),
-            'field_id' => $sourceField->id,
-            'page_index' => 0,
-            'widget_index' => 0,
-            'placement_type' => 'homepage_seal',
-            'normalized_rect' => ['x' => '0.750000', 'y' => '0.080000', 'width' => '0.160000', 'height' => '0.160000'],
-            'geometry_hash' => str_repeat('b', 64),
-            'prepared_widget_object_ref' => '21 0 R',
-            'prepared_appearance_object_refs' => ['22 0 R'],
-            'status' => 'prepared',
-        ]);
-        $renderer = Mockery::mock(PdfRendererClient::class);
-        $renderer->shouldReceive('inspectSignatureBytes')->once()->andReturn([
-            'sha256' => $published->sha256_hash,
-            'encrypted' => false,
-            'signatureCount' => 3,
-            'docMdpPermission' => 2,
-            'fields' => [[
-                'fieldName' => $sourceField->field_name,
-                'signed' => false,
-                'selfOnlyLock' => true,
-                'widgetCount' => 1,
-                'objectRef' => '20 0 R',
-                'widgets' => [[
-                    'widgetIndex' => 0,
-                    'pageIndex' => 0,
-                    'normalizedRectangle' => [
-                        'x' => '0.750000',
-                        'y' => '0.080000',
-                        'width' => '0.160000',
-                        'height' => '0.160000',
-                    ],
-                    'objectRef' => '21 0 R',
-                    'appearanceObjectRefs' => ['22 0 R'],
-                ]],
-            ]],
-        ]);
-        $this->app->instance(PdfRendererClient::class, $renderer);
-
-        $activated = app(PdfWorkflowService::class)->activateHomepageSeal(
-            $workflow,
-            $sealOperator->id,
-            $this->policy(),
-            $actor,
-            'bind-homepage-seal-test-0001',
-            ['request_id' => (string) Str::uuid()],
-        );
-
-        $this->assertSame('ready', $activated->status);
-        $this->assertSame($published->id, $activated->current_revision_id);
-        $this->assertSame($published->id, $activated->prepared_revision_id);
-        $this->assertSame('homepage_seal', $activated->requests->sole()->request_type);
-        $this->assertSame('available', $activated->requests->sole()->status);
-        $this->assertSame('rebound_existing', $activated->fields->sole()->binding_mode);
-        $this->assertSame($sourceField->id, $activated->fields->sole()->source_field_id);
-        $this->assertSame($activated->id, $document->refresh()->active_workflow_id);
-        $this->assertSame(1, PdfFile::query()->count());
-        $this->assertDatabaseHas('pdf_signing_operations', [
-            'action' => 'bind_deferred_field',
-            'state' => 'completed',
-            'result_revision_uuid' => null,
-        ]);
-
-        $replayed = app(PdfWorkflowService::class)->activateHomepageSeal(
-            $workflow,
-            $sealOperator->id,
-            PdfSigningPolicyVersion::query()->sole(),
-            $actor,
-            'bind-homepage-seal-test-0001',
-            ['request_id' => (string) Str::uuid()],
-        );
-
-        $this->assertSame($activated->id, $replayed->id);
-        $this->assertSame(1, PdfSigningOperation::query()->where('action', 'bind_deferred_field')->count());
-    }
 
     public function test_predecessor_request_cannot_cross_workflow_boundary(): void
     {

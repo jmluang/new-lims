@@ -110,8 +110,8 @@ final class PdfHandwrittenSigningController extends Controller
             'assignments.inspector' => ['required', 'integer', 'exists:users,id'],
             'assignments.reviewer' => ['required', 'integer', 'exists:users,id'],
             'assignments.issuer' => ['required', 'integer', 'exists:users,id'],
-            'placements' => ['required', 'array', 'size:4'],
-            'placements.*.semantic_role' => ['required', 'in:inspector,reviewer,issuer,homepage_seal'],
+            'placements' => ['required', 'array', 'size:3'],
+            'placements.*.semantic_role' => ['required', 'in:inspector,reviewer,issuer'],
             'placements.*.page_index' => ['required', 'integer', 'min:0'],
             'placements.*.normalized_rect' => ['required', 'array'],
             'placements.*.normalized_rect.x' => ['required', 'string'],
@@ -150,31 +150,6 @@ final class PdfHandwrittenSigningController extends Controller
 
         return response()->json(['data' => $this->operationData($operation)],
             $operation->state === 'completed' ? 200 : 202);
-    }
-
-    public function activateHomepageSeal(
-        Request $request,
-        PdfSigningWorkflow $workflow,
-        PdfWorkflowService $workflows,
-    ): JsonResponse {
-        $this->authorizePermission($request, 'pdf.workflow.create', 'pdf.workflow');
-        $validated = $request->validate([
-            'assigned_user_id' => ['required', 'integer', 'exists:users,id'],
-            'signing_policy_version_uuid' => ['required', 'uuid', 'exists:pdf_signing_policy_versions,version_uuid'],
-        ]);
-        $policy = PdfSigningPolicyVersion::query()
-            ->where('version_uuid', $validated['signing_policy_version_uuid'])
-            ->firstOrFail();
-        $activated = $workflows->activateHomepageSeal(
-            $workflow,
-            (int) $validated['assigned_user_id'],
-            $policy,
-            $request->user(),
-            $this->idempotencyKey($request),
-            PdfRequestContext::auditContext($request),
-        );
-
-        return response()->json(['data' => $this->workflowData($activated)], 201);
     }
 
     public function cancelWorkflow(

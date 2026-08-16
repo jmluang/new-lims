@@ -11,7 +11,6 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
-  Stamp,
   Upload,
   Users,
   XCircle,
@@ -21,7 +20,6 @@ import { Button, ErrorNotice, PageShell } from '../system/shared'
 import { inputClass } from '../system/utils'
 import { reportNumberFromFileName } from './api'
 import {
-  activateHomepageSeal,
   cancelSigningWorkflow,
   confirmAndFinalizeSigningSource,
   createPreparedSigningWorkflow,
@@ -39,19 +37,17 @@ import {
 import { PdfPlacementWorkspace } from './PdfPlacementWorkspace'
 import { SignaturePad } from './SignaturePad'
 
-const roles: SignatureRole[] = ['inspector', 'reviewer', 'issuer', 'homepage_seal']
+const roles: SignatureRole[] = ['inspector', 'reviewer', 'issuer']
 const roleLabels: Record<SignatureRole, string> = {
   inspector: '主检',
   reviewer: '审核',
   issuer: '签发',
-  homepage_seal: '首页盖章（预留）',
 }
 
 const defaultPlacements: Placement[] = [
   { semantic_role: 'inspector', page_index: 0, normalized_rect: rect('0.12', '0.72') },
   { semantic_role: 'reviewer', page_index: 0, normalized_rect: rect('0.40', '0.72') },
   { semantic_role: 'issuer', page_index: 0, normalized_rect: rect('0.68', '0.72') },
-  { semantic_role: 'homepage_seal', page_index: 0, normalized_rect: rect('0.76', '0.08', '0.16', '0.16') },
 ]
 
 type WorkspaceMode = 'plan' | 'sign'
@@ -82,9 +78,9 @@ export function PdfHandwrittenSigningPage() {
     >
       <div className="rounded-xl border border-emerald-900/10 bg-[radial-gradient(circle_at_top_left,rgb(16_185_129/0.11),transparent_36%),white] p-4 shadow-sm sm:p-5">
         <div className="grid gap-3 text-xs text-slate-600 sm:grid-cols-3">
-          <TrustItem icon={FilePenLine} title="签名字段先冻结" text="主检签名前预创建主检、审核、签发和首页盖章字段" />
+          <TrustItem icon={FilePenLine} title="签名字段先冻结" text="主检签名前一次性预创建主检、审核、签发三个签名字段" />
           <TrustItem icon={FileKey2} title="单位证书签名" text="手写图只是可见外观，法律意义来自 Java 证书签名与时间戳" />
-          <TrustItem icon={ShieldCheck} title="只做增量修订" text="每次签名保留历史 ByteRange，后续首页盖章不覆盖已有签名" />
+          <TrustItem icon={ShieldCheck} title="只做增量修订" text="每次签名保留历史 ByteRange，后续签名不覆盖已有签名" />
         </div>
       </div>
       {mode === 'plan' ? <PlanningWorkspace /> : <SigningWorkspace />}
@@ -104,9 +100,6 @@ function PlanningWorkspace() {
   const [placements, setPlacements] = useState(defaultPlacements)
   const [selectedRole, setSelectedRole] = useState<SignatureRole>('inspector')
   const [result, setResult] = useState<{ workflow_uuid: string; status: string } | null>(null)
-  const [sealWorkflowUuid, setSealWorkflowUuid] = useState('')
-  const [sealAssigneeId, setSealAssigneeId] = useState(0)
-  const [sealIdempotencyKey, setSealIdempotencyKey] = useState(() => `seal-${crypto.randomUUID()}`)
   const effectivePolicyVersionUuid = policyVersionUuid || options.data?.policies[0]?.version_uuid || ''
 
   const inspectSource = useMutation({
@@ -141,10 +134,6 @@ function PlanningWorkspace() {
   const cancel = useMutation({
     mutationFn: ({ workflowUuid }: { workflowUuid: string }) =>
       cancelSigningWorkflow(workflowUuid, 'PLANNER_CANCELLED'),
-    onSuccess: setResult,
-  })
-  const activateSeal = useMutation({
-    mutationFn: activateHomepageSeal,
     onSuccess: setResult,
   })
   const selected = placements.find((placement) => placement.semantic_role === selectedRole)!
@@ -313,10 +302,7 @@ function PlanningWorkspace() {
               <select
                 className={`${inputClass} mt-1`}
                 value={effectivePolicyVersionUuid}
-                onChange={(event) => {
-                  setPolicyVersionUuid(event.target.value)
-                  setSealIdempotencyKey(`seal-${crypto.randomUUID()}`)
-                }}
+                onChange={(event) => setPolicyVersionUuid(event.target.value)}
               >
                 {options.data?.policies.map((policy) => (
                   <option key={policy.version_uuid} value={policy.version_uuid}>
@@ -366,50 +352,6 @@ function PlanningWorkspace() {
           冻结字段并创建任务
         </Button>
 
-        <WorkspaceCard title="启用已预留的首页章" icon={Stamp}>
-          <p className="mb-3 text-xs leading-5 text-slate-500">三人签署发布完成后，只绑定首签前已创建的首页章字段，不改写页面结构。</p>
-          <label className="block text-xs font-medium text-slate-600">
-            已完成工作流 UUID
-            <input
-              className={`${inputClass} mt-1`}
-              value={sealWorkflowUuid}
-              placeholder="请输入已完成工作流 UUID"
-              onChange={(event) => {
-                setSealWorkflowUuid(event.target.value.trim())
-                setSealIdempotencyKey(`seal-${crypto.randomUUID()}`)
-              }}
-            />
-          </label>
-          <label className="mt-3 block text-xs font-medium text-slate-600">
-            盖章操作人
-            <select
-              className={`${inputClass} mt-1`}
-              value={sealAssigneeId || ''}
-              onChange={(event) => {
-                setSealAssigneeId(Number(event.target.value))
-                setSealIdempotencyKey(`seal-${crypto.randomUUID()}`)
-              }}
-            >
-              <option value="">请选择</option>
-              {options.data?.assignees.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
-            </select>
-          </label>
-          {activateSeal.isError ? <div className="mt-3"><ErrorNotice error={activateSeal.error} fallback="首页章任务启用失败" /></div> : null}
-          <Button
-            variant="secondary"
-            className="mt-3 w-full"
-            disabled={!sealWorkflowUuid || !sealAssigneeId || !effectivePolicyVersionUuid || activateSeal.isPending}
-            onClick={() => activateSeal.mutate({
-              workflowUuid: sealWorkflowUuid,
-              assignedUserId: sealAssigneeId,
-              policyVersionUuid: effectivePolicyVersionUuid,
-              idempotencyKey: sealIdempotencyKey,
-            })}
-          >
-            {activateSeal.isPending ? <Loader2 className="size-4 animate-spin" /> : <Stamp className="size-4" />}
-            创建首页盖章任务
-          </Button>
-        </WorkspaceCard>
       </aside>
     </div>
   )
@@ -433,7 +375,6 @@ function SigningWorkspace() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [signatureReady, setSignatureReady] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
-  const [stampFile, setStampFile] = useState<File | null>(null)
   const [rejectReason, setRejectReason] = useState('CONTENT_REVIEW_REJECTED')
   const [operationUuid, setOperationUuid] = useState('')
   const padRef = useRef<{ toBlob: () => Promise<Blob>; clear: () => void } | null>(null)
@@ -450,15 +391,12 @@ function SigningWorkspace() {
   const submit = useMutation({
     mutationFn: async () => {
       if (!effectiveRequestUuid) throw new Error('请先选择签名任务')
-      const homepageSeal = detail.data?.semantic_role === 'homepage_seal'
-      const appearance = homepageSeal
-        ? stampFile
-        : await padRef.current?.toBlob()
-      if (!appearance) throw new Error(homepageSeal ? '请先选择首页章 PNG' : '请先完成手写签名')
+      const appearance = await padRef.current?.toBlob()
+      if (!appearance) throw new Error('请先完成手写签名')
       return submitSignatureAppearance({
         requestUuid: effectiveRequestUuid,
         appearance,
-        fileName: homepageSeal ? 'homepage-seal.png' : 'handwritten-signature.png',
+        fileName: 'handwritten-signature.png',
         currentPassword,
       })
     },
@@ -521,7 +459,6 @@ function SigningWorkspace() {
                 setOperationUuid('')
                 setPreviewUrl(null)
                 setSignatureReady(false)
-                setStampFile(null)
                 padRef.current?.clear()
               }}
             >
@@ -544,39 +481,14 @@ function SigningWorkspace() {
       />
 
       <aside className="space-y-4">
-        <WorkspaceCard title={detail.data?.semantic_role === 'homepage_seal' ? '首页盖章外观' : '手写签名'} icon={detail.data?.semantic_role === 'homepage_seal' ? Stamp : PenTool}>
+        <WorkspaceCard title="手写签名" icon={PenTool}>
           {detail.data ? (
             <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
               <div><span className="text-slate-400">角色</span><div className="mt-1 font-medium">{roleLabels[detail.data.semantic_role]}</div></div>
               <div><span className="text-slate-400">字段</span><div className="mt-1 truncate font-medium">{detail.data.field.field_name}</div></div>
             </div>
           ) : null}
-          {detail.data?.semantic_role === 'homepage_seal' ? (
-            <label className="block cursor-pointer rounded-xl border border-dashed border-emerald-400 bg-emerald-50/60 p-6 text-center">
-              <Stamp className="mx-auto size-7 text-emerald-700" />
-              <span className="mt-2 block text-sm font-medium text-emerald-900">选择规范化首页章 PNG</span>
-              <span className="mt-1 block truncate text-xs text-slate-500">{stampFile?.name ?? '透明背景，最大 5 MB'}</span>
-              <input
-                className="sr-only"
-                type="file"
-                accept="image/png,.png"
-                onChange={(event) => {
-                  const next = event.target.files?.[0] ?? null
-                  setStampFile(next)
-                  setSignatureReady(Boolean(next))
-                  if (!next) {
-                    setPreviewUrl(null)
-                    return
-                  }
-                  const reader = new FileReader()
-                  reader.addEventListener('load', () => setPreviewUrl(typeof reader.result === 'string' ? reader.result : null))
-                  reader.readAsDataURL(next)
-                }}
-              />
-            </label>
-          ) : (
-            <SignaturePad onPreviewChange={setPreviewUrl} onReadyChange={setSignatureReady} padRef={padRef} />
-          )}
+          <SignaturePad onPreviewChange={setPreviewUrl} onReadyChange={setSignatureReady} padRef={padRef} />
         </WorkspaceCard>
 
         <WorkspaceCard title="身份确认与数字签名" icon={LockKeyhole}>

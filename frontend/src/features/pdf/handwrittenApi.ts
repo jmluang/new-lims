@@ -1,7 +1,7 @@
 import { api } from '../../lib/api'
 
 export type NormalizedRect = { x: string; y: string; width: string; height: string }
-export type SignatureRole = 'inspector' | 'reviewer' | 'issuer' | 'homepage_seal'
+export type SignatureRole = 'inspector' | 'reviewer' | 'issuer'
 
 export type Placement = {
   semantic_role: SignatureRole
@@ -212,23 +212,6 @@ export async function rejectSigningRequest(requestUuid: string, reasonCode: stri
   const response = await api.post<{ data: { request_uuid: string; status: string } }>(
     `/api/pdf/signing-requests/${requestUuid}/reject`,
     { reason_code: reasonCode },
-  )
-  return response.data.data
-}
-
-export async function activateHomepageSeal(input: {
-  workflowUuid: string
-  assignedUserId: number
-  policyVersionUuid: string
-  idempotencyKey: string
-}) {
-  const response = await api.post<{ data: { workflow_uuid: string; status: string } }>(
-    `/api/pdf/signing-workflows/${input.workflowUuid}/activate-homepage-seal`,
-    {
-      assigned_user_id: input.assignedUserId,
-      signing_policy_version_uuid: input.policyVersionUuid,
-    },
-    { headers: { 'Idempotency-Key': input.idempotencyKey } },
   )
   return response.data.data
 }

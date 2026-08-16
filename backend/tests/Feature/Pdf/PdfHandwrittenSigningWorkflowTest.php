@@ -57,14 +57,13 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
         $renderer->shouldReceive('finalizeUnsignedPdf')->once()->andReturn('%PDF-1.7 source');
         $renderer->shouldReceive('prepareSignatureFields')->once()->withArgs(function (string $path, array $plan): bool {
             $this->assertFileExists($path);
-            $this->assertCount(4, $plan);
+            $this->assertCount(3, $plan);
             $deferred = collect($plan)->mapWithKeys(
                 static fn (array $field): array => [$field['fieldName'] => $field['deferred']],
             );
             $this->assertFalse($deferred['lims_inspector_g1']);
             $this->assertFalse($deferred['lims_reviewer_g1']);
             $this->assertFalse($deferred['lims_issuer_g1']);
-            $this->assertTrue($deferred['lims_homepage_seal_g1']);
 
             return true;
         })->andReturn('%PDF-1.7 prepared immutable revision');
@@ -141,11 +140,10 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
             ->assertJsonPath('data.workflow_uuid', $create->json('data.workflow_uuid'));
         $workflowUuid = $create->json('data.workflow_uuid');
         $this->assertCount(3, $create->json('data.requests'));
-        $this->assertCount(4, $create->json('data.fields'));
+        $this->assertCount(3, $create->json('data.fields'));
         $this->assertSame(1, PdfDocument::query()->sole()->active_workflow_id);
         $this->assertSame(3, PdfSigningRequest::query()->count());
-        $this->assertSame(4, PdfSigningField::query()->count());
-        $this->assertSame('deferred', PdfSigningAct::query()->where('semantic_role', 'homepage_seal')->value('status'));
+        $this->assertSame(3, PdfSigningField::query()->count());
         $this->assertSame([
             'x' => '0.080000',
             'y' => '0.700000',
@@ -172,10 +170,10 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
         $this->assertSame('pending', $prepared->json('data.requests.1.status'));
         $this->assertSame(2, PdfFile::query()->count());
         $this->assertSame('prepared', PdfFile::query()->orderByDesc('revision_number')->value('revision_role'));
-        $this->assertSame(4, PdfSigningField::query()->where('status', 'prepared')->count());
-        $this->assertSame(4, PdfSigningField::query()->whereNotNull('prepared_object_ref')->count());
-        $this->assertSame(4, PdfSigningSlot::query()->whereNotNull('prepared_widget_object_ref')->count());
-        $this->assertSame(4, PdfSigningSlot::query()->whereNotNull('prepared_appearance_object_refs')->count());
+        $this->assertSame(3, PdfSigningField::query()->where('status', 'prepared')->count());
+        $this->assertSame(3, PdfSigningField::query()->whereNotNull('prepared_object_ref')->count());
+        $this->assertSame(3, PdfSigningSlot::query()->whereNotNull('prepared_widget_object_ref')->count());
+        $this->assertSame(3, PdfSigningSlot::query()->whereNotNull('prepared_appearance_object_refs')->count());
 
         $this->grantPermissions($inspector, [
             'pdf.request.read',
@@ -401,7 +399,7 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
             ->value('id');
         $this->assertSame('signed', PdfSigningField::query()->findOrFail($signedFieldId)->status);
         $this->assertSame('rendered', PdfSigningSlot::query()->where('field_id', $signedFieldId)->value('status'));
-        $this->assertSame(3, PdfSigningSlot::query()->where('status', 'cancelled')->count());
+        $this->assertSame(2, PdfSigningSlot::query()->where('status', 'cancelled')->count());
         $this->assertSame('cancelled', PdfDocument::query()->sole()->status);
         $this->assertNull(PdfDocument::query()->sole()->active_workflow_id);
         $this->assertSame('cancelled', PdfOperationOutbox::query()->orderByDesc('id')->value('state'));
@@ -431,9 +429,9 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('data.status', 'cancelled');
 
         $this->assertSame(3, PdfSigningRequest::query()->where('status', 'cancelled')->count());
-        $this->assertSame(4, PdfSigningField::query()->where('status', 'cancelled')->count());
-        $this->assertSame(4, PdfSigningSlot::query()->where('status', 'cancelled')->count());
-        $this->assertSame(4, PdfSigningAct::query()->where('status', 'cancelled')->count());
+        $this->assertSame(3, PdfSigningField::query()->where('status', 'cancelled')->count());
+        $this->assertSame(3, PdfSigningSlot::query()->where('status', 'cancelled')->count());
+        $this->assertSame(3, PdfSigningAct::query()->where('status', 'cancelled')->count());
         $this->assertNotNull(PdfSigningChallenge::query()->sole()->cancelled_at);
         $unusedAppearance = PdfSignatureAppearanceArtifact::query()->sole();
         $this->assertSame('available', $unusedAppearance->state);
@@ -468,7 +466,7 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
         $this->assertSame('done', $operation->stage);
         $this->assertSame('cancelled', PdfOperationOutbox::query()->where('operation_id', $operation->id)->value('state'));
         $this->assertSame('quarantined', PdfSignatureAppearanceArtifact::query()->sole()->state);
-        $this->assertSame(4, PdfSigningField::query()->where('status', 'cancelled')->count());
+        $this->assertSame(3, PdfSigningField::query()->where('status', 'cancelled')->count());
         $this->assertNull(PdfDocument::query()->sole()->active_workflow_id);
         $this->assertNull(PdfDocument::query()->sole()->active_operation_id);
     }
@@ -519,7 +517,7 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
         $this->assertNull($workflow->prepared_revision_id);
         $this->assertSame(0, PdfFile::query()->where('revision_role', 'prepared')->count());
         $this->assertSame('cancelled', PdfSigningOperation::query()->where('action', 'prepare_fields')->value('state'));
-        $this->assertSame(4, PdfSigningField::query()->where('status', 'cancelled')->count());
+        $this->assertSame(3, PdfSigningField::query()->where('status', 'cancelled')->count());
         $this->assertNull(PdfDocument::query()->sole()->active_workflow_id);
         $this->assertNull(PdfDocument::query()->sole()->active_operation_id);
     }
@@ -547,9 +545,9 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
 
         $this->assertSame('rejected', PdfSigningRequest::query()->where('request_uuid', $requestUuid)->value('status'));
         $this->assertSame(2, PdfSigningRequest::query()->where('status', 'cancelled')->count());
-        $this->assertSame(4, PdfSigningField::query()->where('status', 'cancelled')->count());
-        $this->assertSame(4, PdfSigningSlot::query()->where('status', 'cancelled')->count());
-        $this->assertSame(4, PdfSigningAct::query()->where('status', 'cancelled')->count());
+        $this->assertSame(3, PdfSigningField::query()->where('status', 'cancelled')->count());
+        $this->assertSame(3, PdfSigningSlot::query()->where('status', 'cancelled')->count());
+        $this->assertSame(3, PdfSigningAct::query()->where('status', 'cancelled')->count());
         $this->assertNotNull(PdfSigningChallenge::query()->sole()->cancelled_at);
         $this->assertSame('rejected', PdfSigningWorkflow::query()->sole()->status);
         $this->assertNull(PdfDocument::query()->sole()->active_workflow_id);
@@ -932,7 +930,6 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
             ['semantic_role' => 'inspector', 'page_index' => 0, 'normalized_rect' => $this->rect('0.08', '0.70')],
             ['semantic_role' => 'reviewer', 'page_index' => 0, 'normalized_rect' => $this->rect('0.36', '0.70')],
             ['semantic_role' => 'issuer', 'page_index' => 1, 'normalized_rect' => $this->rect('0.08', '0.15')],
-            ['semantic_role' => 'homepage_seal', 'page_index' => 0, 'normalized_rect' => $this->rect('0.76', '0.08', '0.16', '0.16')],
         ];
     }
 

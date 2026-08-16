@@ -80,6 +80,9 @@ final class PdfRuntimeInspector
     }
 
     /**
+     * `checked` is false whenever the probe could not reach a verdict, so a
+     * transport outage is never reported as the two sides disagreeing.
+     *
      * @return array{checked: bool, agreed: bool, detail: string}
      */
     public function hmacAgreement(): array
@@ -94,6 +97,10 @@ final class PdfRuntimeInspector
             return ['checked' => false, 'agreed' => false, 'detail' => $exception->getMessage()];
         }
 
-        return ['checked' => true, 'agreed' => $handshake['agreed'], 'detail' => $handshake['detail']];
+        return [
+            'checked' => ! $handshake['blocked'],
+            'agreed' => $handshake['agreed'],
+            'detail' => $handshake['detail'],
+        ];
     }
 }
