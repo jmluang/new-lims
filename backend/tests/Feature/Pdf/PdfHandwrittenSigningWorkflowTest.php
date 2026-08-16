@@ -47,6 +47,9 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
     public function test_unsigned_source_becomes_a_prepared_persistent_three_person_workflow(): void
     {
         Storage::fake('pdf');
+        // Claiming an operation now queues its worker immediately; fake the queue so
+        // this test keeps driving the outbox and the worker itself.
+        Queue::fake();
         config(['pdf_service.enabled' => true, 'pdf_service.organization_scope' => 'lims-test']);
         $renderer = Mockery::mock(PdfRendererClient::class);
         $sourceInspection = $this->inspection([]);
@@ -559,6 +562,9 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
     public function test_finalize_operation_replays_promoted_bytes_after_transaction_b_failure(): void
     {
         Storage::fake('pdf');
+        // Claiming an operation now queues its worker immediately; fake the queue so
+        // this test keeps driving the outbox and the worker itself.
+        Queue::fake();
         config(['pdf_service.enabled' => true, 'pdf_service.organization_scope' => 'lims-test']);
         $sourceBytes = '%PDF control finalization crash fixture';
         $renderer = Mockery::mock(PdfRendererClient::class);
@@ -715,6 +721,9 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
     private function preparedWorkflowForCancellation(bool $cancelDuringPrepare = false): array
     {
         Storage::fake('pdf');
+        // Claiming an operation now queues its worker immediately; fake the queue so
+        // these tests keep controlling exactly when the worker runs.
+        Queue::fake();
         config(['pdf_service.enabled' => true, 'pdf_service.organization_scope' => 'lims-test']);
         $actor = null;
         $workflowUuid = null;

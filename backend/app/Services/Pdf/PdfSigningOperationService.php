@@ -2,6 +2,7 @@
 
 namespace App\Services\Pdf;
 
+use App\Jobs\ExecutePdfSigningOperation;
 use App\Models\PdfDocument;
 use App\Models\PdfFile;
 use App\Models\PdfOperationOutbox;
@@ -51,8 +52,13 @@ final class PdfSigningOperationService
             return $this->returnIdempotentOrConflict($existing, $idempotencyFingerprint);
         }
 
+        // Only a freshly created operation owns a pending outbox row and therefore
+        // needs dispatching; a raced or replayed one is already owned by whoever
+        // created it. Reset per attempt because DB::transaction retries the closure.
+        $created = false;
+
         try {
-            return DB::transaction(function () use (
+            $operation = DB::transaction(function () use (
                 $request,
                 $challengeUuid,
                 $idempotencyKey,
@@ -61,7 +67,9 @@ final class PdfSigningOperationService
                 $authContextId,
                 $auditContext,
                 $actor,
+                &$created,
             ): PdfSigningOperation {
+                $created = false;
                 $raced = PdfSigningOperation::query()
                     ->where('idempotency_scope_key', $scopeKey)
                     ->where('idempotency_key', $idempotencyKey)
@@ -225,6 +233,7 @@ final class PdfSigningOperationService
                     'state' => 'pending',
                     'available_at' => now(),
                 ]);
+                $created = true;
 
                 return $operation;
             }, 3);
@@ -239,6 +248,18 @@ final class PdfSigningOperationService
 
             throw $exception;
         }
+
+        // Queue the work immediately instead of waiting for the every-minute outbox
+        // sweep. The outbox row stays pending and remains the crash-recovery path,
+        // so a lost dispatch still degrades to the sweep; a duplicate dispatch is
+        // fenced out by the worker's lease CAS, which only activates an operation
+        // still in claimed/awaiting_dispatch. afterCommit() is a no-op here unless a
+        // caller wrapped this in its own transaction.
+        if ($created) {
+            ExecutePdfSigningOperation::dispatch($operation->operation_uuid)->afterCommit();
+        }
+
+        return $operation;
     }
 
     private function returnIdempotentOrConflict(
