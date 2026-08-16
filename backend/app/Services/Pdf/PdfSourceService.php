@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -29,9 +30,22 @@ final class PdfSourceService
         $stored = $this->files->copyFromPath($upload->getRealPath(), $targetPath);
 
         try {
-            if (PdfSourceUpload::query()->where('sha256', $stored['sha256'])->exists()
-                || PdfFile::query()->where('sha256_hash', $stored['sha256'])->exists()) {
-                throw new ConflictHttpException('PDF_SOURCE_SHA_ALREADY_REGISTERED');
+            // Identical bytes are not a business conflict: the same report can be
+            // re-uploaded after a failed attempt, and one file can legitimately
+            // back more than one document. Business identity is enforced by the
+            // report number at confirm time. Record the overlap so an operator can
+            // still see it.
+            $duplicateOf = PdfSourceUpload::query()->where('sha256', $stored['sha256'])->pluck('source_uuid')->all();
+            $duplicateRevisions = PdfFile::query()->where('sha256_hash', $stored['sha256'])->pluck('revision_uuid')->all();
+
+            if ($duplicateOf !== [] || $duplicateRevisions !== []) {
+                Log::info('duplicate_content_detected', [
+                    'sha256' => $stored['sha256'],
+                    'existing_source_uuids' => $duplicateOf,
+                    'existing_revision_uuids' => array_values(array_filter($duplicateRevisions)),
+                    'actor_user_id' => $actor->id,
+                    'new_source_uuid' => $sourceUuid,
+                ]);
             }
 
             $inspection = $this->renderer->inspectSignaturePdf($stored['absolute_path']);

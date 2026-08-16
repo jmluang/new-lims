@@ -660,6 +660,54 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
         $this->assertCount(2, Storage::disk('pdf')->allFiles('workflow/sources'));
     }
 
+    /**
+     * Identical bytes used to be rejected globally and forever, so one abandoned
+     * upload permanently blocked that file for every user and every report.
+     * Business identity belongs to the report number, which is still enforced.
+     */
+    public function test_identical_bytes_can_be_uploaded_again_under_a_different_report_number(): void
+    {
+        Storage::fake('pdf');
+        Queue::fake();
+        config(['pdf_service.enabled' => true, 'pdf_service.organization_scope' => 'lims-test']);
+        $renderer = Mockery::mock(PdfRendererClient::class);
+        $renderer->shouldReceive('inspectSignaturePdf')->times(3)->andReturn($this->inspection([]));
+        $this->app->instance(PdfRendererClient::class, $renderer);
+        $actor = $this->userWithPermissions(['pdf.workflow.create']);
+        Sanctum::actingAs($actor);
+        $bytes = '%PDF identical bytes';
+
+        $first = $this->post('/api/pdf/signing-sources/inspect', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', $bytes),
+        ])->assertCreated();
+        $this->postJson('/api/pdf/signing-sources/'.$first->json('data.source_uuid').'/confirm', [
+            'report_number' => 'DUP-1',
+        ])->assertCreated();
+
+        // Same bytes, second upload: allowed, and a distinct source.
+        $second = $this->post('/api/pdf/signing-sources/inspect', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report-again.pdf', $bytes),
+        ])->assertCreated();
+        $this->assertNotSame($first->json('data.source_uuid'), $second->json('data.source_uuid'));
+        $this->assertSame($first->json('data.sha256'), $second->json('data.sha256'));
+
+        // A different report number gives it its own document identity.
+        $this->postJson('/api/pdf/signing-sources/'.$second->json('data.source_uuid').'/confirm', [
+            'report_number' => 'DUP-2',
+        ])->assertCreated();
+
+        // The same report number is still a conflict.
+        $third = $this->post('/api/pdf/signing-sources/inspect', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report-third.pdf', $bytes),
+        ])->assertCreated();
+        $this->postJson('/api/pdf/signing-sources/'.$third->json('data.source_uuid').'/confirm', [
+            'report_number' => 'DUP-1',
+        ])->assertConflict();
+
+        $this->assertSame(2, PdfDocument::query()->count());
+        $this->assertSame(3, PdfSourceUpload::query()->count());
+    }
+
     public function test_only_the_source_owner_can_confirm_or_finalize_an_upload(): void
     {
         Storage::fake('pdf');
