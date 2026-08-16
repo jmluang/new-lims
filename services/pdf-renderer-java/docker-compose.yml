@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     image: pdf-signer:local
     ports:
-      - "8080:8081"
+      - "127.0.0.1:8080:8081"
 
     # 内存限额。没有这一项时 JVM 的 MaxRAMPercentage 是按*宿主机*内存算的，
     # 于是在与数据库共用的小主机上它会一路涨到把整机拖进 swap —— 生产曾因此
@@ -34,7 +34,22 @@ services:
       SIGNATURE_RESERVED_SIZE: ${PDF_SIGNER_SIGNATURE_RESERVED_SIZE:-32768}
 
       DEFAULT_PFX_PATH: ${DEFAULT_PFX_PATH:-/keys/signer.pfx}
-      DEFAULT_PFX_PASS: ${DEFAULT_PFX_PASS:-changeit}
+      DEFAULT_PFX_PASS: ${DEFAULT_PFX_PASS:?DEFAULT_PFX_PASS is required}
+      PDF_SERVICE_HMAC_ENABLED: "true"
+      PDF_SERVICE_HMAC_ACTIVE_KEY_ID: ${PDF_SERVICE_HMAC_ACTIVE_KEY_ID:-primary}
+      PDF_SERVICE_HMAC_KEYS: ${PDF_SERVICE_HMAC_KEYS:?PDF_SERVICE_HMAC_KEYS is required}
+      PDF_SERVICE_HMAC_NONCE_STORE: redis
+      PDF_SERVICE_REDIS_HOST: redis
+      PDF_SIGNING_HASH_ALGO: SHA256
+      PDF_PADES_TSA_URL: ${PDF_PADES_TSA_URL:?PDF_PADES_TSA_URL is required}
+      PDF_PADES_TSA_POLICY_OID: ${PDF_PADES_TSA_POLICY_OID:-}
+      PDF_PADES_TSA_TRUSTED_CERT_SHA256: ${PDF_PADES_TSA_TRUSTED_CERT_SHA256:?PDF_PADES_TSA_TRUSTED_CERT_SHA256 is required}
+      PDF_PADES_SIGNER_TRUSTED_ROOT_SHA256: ${PDF_PADES_SIGNER_TRUSTED_ROOT_SHA256:?PDF_PADES_SIGNER_TRUSTED_ROOT_SHA256 is required}
+      PDF_EXECUTION_LEDGER_ENABLED: "true"
+      PDF_EXECUTION_DB_URL: ${PDF_EXECUTION_DB_URL:?PDF_EXECUTION_DB_URL is required}
+      PDF_EXECUTION_DB_USERNAME: ${PDF_EXECUTION_DB_USERNAME:?PDF_EXECUTION_DB_USERNAME is required}
+      PDF_EXECUTION_DB_PASSWORD: ${PDF_EXECUTION_DB_PASSWORD:?PDF_EXECUTION_DB_PASSWORD is required}
+      PDF_EXECUTION_RESULT_ROOT: /data/signing-results
       FUNCTION_STAMP_TOP_MARGIN_MM: ${FUNCTION_STAMP_TOP_MARGIN_MM:-32}
       FUNCTION_STAMP_LEFT_MARGIN_MM: ${FUNCTION_STAMP_LEFT_MARGIN_MM:-25}
       FRONT_SEAL_OFFSET_LEFT_MM: ${FRONT_SEAL_OFFSET_LEFT_MM:-45}
@@ -59,4 +74,23 @@ services:
     volumes:
       - ./keys:/keys:ro
       - ./fonts:/fonts:ro
+      - ${PDF_EXECUTION_RESULT_ROOT_HOST:?PDF_EXECUTION_RESULT_ROOT_HOST is required}:/data/signing-results
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "yes", "--appendfsync", "always"]
+    volumes:
+      - pdf-hmac-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pdf-hmac-redis:

@@ -156,20 +156,11 @@ class PdfSigningService
         $fields = [
             // custom keeps every option on one code path inside the Java service.
             'mode' => 'custom',
-            'hash_algo' => $signing['hash_algo'],
             'options[group_size]' => $signing['group_size'],
             'options[stamp_total_height_mm]' => $signing['stamp_total_height_mm'],
             'options[signature_size_mm]' => $signing['signature_size_mm'],
             'options[signature_margin_mm]' => $signing['signature_margin_mm'],
         ];
-
-        if ($signing['tsa_enabled']) {
-            $fields['tsa_enabled'] = true;
-
-            if (filled($signing['tsa_url'])) {
-                $fields['tsa_url'] = $signing['tsa_url'];
-            }
-        }
 
         $files = [];
 

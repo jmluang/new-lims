@@ -373,6 +373,9 @@ class PdfSigningTest extends TestCase
             ->andReturnUsing(function (string $pdfPath, array $fields, array $files) use ($signedBytes, $coverFields, $expectedFiles): array {
                 // Assert the contract the Java service expects.
                 $this->assertSame('custom', $fields['mode']);
+                $this->assertArrayNotHasKey('hash_algo', $fields);
+                $this->assertArrayNotHasKey('tsa_enabled', $fields);
+                $this->assertArrayNotHasKey('tsa_url', $fields);
                 $this->assertSame(
                     count(array_filter($expectedFiles, fn (string $key): bool => str_starts_with($key, 'function_stamp_'))),
                     $fields['function_stamp_count'],

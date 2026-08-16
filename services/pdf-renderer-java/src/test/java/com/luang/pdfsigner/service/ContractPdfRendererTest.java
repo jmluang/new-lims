@@ -12,12 +12,12 @@ class ContractPdfRendererTest {
     private final ContractPdfRenderer renderer = new ContractPdfRenderer();
 
     @Test
-    void renderProducesMultiPageContract() throws Exception {
+    void renderSampleOmitsTheEmptyPhotoPageAndKeepsRequiredSections() throws Exception {
         byte[] pdf = renderer.render(ContractPdfPayload.sample());
         assertThat(pdf).isNotEmpty();
 
         try (PDDocument document = Loader.loadPDF(pdf)) {
-            assertThat(document.getNumberOfPages()).isGreaterThanOrEqualTo(7);
+            assertThat(document.getNumberOfPages()).isEqualTo(6);
             PDFTextStripper stripper = new PDFTextStripper();
             String text = stripper.getText(document);
             assertThat(text).contains("检测报告");

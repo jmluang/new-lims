@@ -1,0 +1,45 @@
+package com.luang.pdfsigner.execution;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public record ExecutionRecord(
+        UUID operationUuid,
+        String operationInputManifestHash,
+        String inputFingerprint,
+        String policyHash,
+        int attemptNumber,
+        int attemptCount,
+        int maxAttempts,
+        String state,
+        String retryability,
+        long authorizedLeaseEpoch,
+        long lockVersion,
+        Instant claimedAt,
+        Instant executionStartedAt,
+        Instant privateKeyStartedAt,
+        Instant executionDeadlineAt,
+        Instant nextRetryAt,
+        Instant retryExhaustedAt,
+        Instant completedAt,
+        Instant terminalAt,
+        String errorCode,
+        String resultPath,
+        String resultSha256,
+        long resultSize,
+        String resultFileKey,
+        String validationReportHash,
+        String resultIntegrityState,
+        Instant resultLastVerifiedAt,
+        String resultIntegrityErrorCode,
+        Instant retentionUntil,
+        String retirementPhase,
+        long retirementEpoch,
+        String retirementStagedPath,
+        Instant retirementStartedAt,
+        Instant retirementPurgeNotBefore,
+        long evidenceHoldMask,
+        String evidenceHoldState,
+        Instant legalHoldUntil,
+        Instant bytesDeletedAt
+) {}

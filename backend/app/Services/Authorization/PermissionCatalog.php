@@ -43,6 +43,12 @@ class PermissionCatalog
             'pdf_perforation_stamps' => ['read', 'create', 'update', 'delete'],
             'pdf_function_stamps' => ['read', 'create', 'update', 'delete'],
             'pdf_certificate_templates' => ['read', 'create', 'update', 'delete'],
+            'pdf.workflow' => ['read', 'create', 'cancel'],
+            'pdf.request' => ['read', 'sign_assigned', 'reject'],
+            'pdf.organization_key' => ['use'],
+            'pdf.revision' => ['download'],
+            'pdf.manual_review' => ['resolve'],
+            'pdf.evidence_hold' => ['manage'],
         ];
     }
 

@@ -29,7 +29,7 @@ services:
       dockerfile: Dockerfile
     image: pdf-signer:local
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8081"
     environment:
       # ... 其他配置 ...
 
@@ -169,14 +169,7 @@ INFO  c.e.pdfsigner.service.SignerService - Generating QR code for data: https:/
 
 ### 2. 测试 API
 
-发送测试请求验证二维码生成：
-
-```bash
-curl -X POST http://localhost:8080/api/pdf/process \
-  -F "pdf=@sample.pdf" \
-  -F "perforation_image=@stamp.png" \
-  -F "mode=stamp"
-```
+接口启用固定十行 `PDF-HMAC-V1` 协议，metadata 与 part manifest 使用受限 RFC 8785 JCS，nonce 以 Redis AOF 持久化并固定保留 300 秒，body 接收门限为 120 秒。调用方必须使用与 Laravel `PdfRendererClient` 相同的签名协议；禁止使用未认证的裸 `curl` 触发 PDF 写入或私钥调用。
 
 检查返回的 JSON 响应中的 `cover_fields` 字段。
 
@@ -194,11 +187,12 @@ services:
       dockerfile: Dockerfile
     image: pdf-signer:local
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8081"
     environment:
       # 证书配置
       DEFAULT_PFX_PATH: ${DEFAULT_PFX_PATH:-/keys/signer.pfx}
-      DEFAULT_PFX_PASS: ${DEFAULT_PFX_PASS:-changeit}
+      DEFAULT_PFX_PASS: ${DEFAULT_PFX_PASS:?DEFAULT_PFX_PASS is required}
+      PDF_SERVICE_HMAC_KEYS: ${PDF_SERVICE_HMAC_KEYS:?PDF_SERVICE_HMAC_KEYS is required}
 
       # 功能章配置
       FUNCTION_STAMP_TOP_MARGIN_MM: ${FUNCTION_STAMP_TOP_MARGIN_MM:-32}

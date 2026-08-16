@@ -7,6 +7,14 @@ import com.luang.pdfsigner.service.ContractPdfRenderer;
 import com.luang.pdfsigner.service.PdfCoverExtractor;
 import com.luang.pdfsigner.service.EntrustOrderRenderer;
 import com.luang.pdfsigner.service.SignerService;
+import com.luang.pdfsigner.security.PdfHmacProperties;
+import com.luang.pdfsigner.security.SigningPolicy;
+import com.luang.pdfsigner.execution.ExecutionStorage;
+import com.luang.pdfsigner.execution.SigningExecutionRepository;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ByteArrayResource;
@@ -22,6 +30,7 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.Set;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 @RestController
@@ -32,21 +41,52 @@ public class PdfController {
     private final EntrustOrderRenderer entrustOrderRenderer;
     private final ContractPdfRenderer contractPdfRenderer;
     private final PdfCoverExtractor pdfCoverExtractor;
+    private final PdfHmacProperties hmacProperties;
+    private final SigningPolicy signingPolicy;
+    private final ExecutionStorage executionStorage;
+    private final SigningExecutionRepository executionRepository;
     private static final Logger log = LoggerFactory.getLogger(PdfController.class);
+    private static final Set<String> FORBIDDEN_SIGNING_POLICY_PARAMETERS = Set.of(
+            "signing_key_id", "hash_algo", "tsa_enabled", "tsa_url"
+    );
 
-    public PdfController(SignerService signerService, EntrustOrderRenderer entrustOrderRenderer, ContractPdfRenderer contractPdfRenderer) {
+    public PdfController(
+            SignerService signerService,
+            EntrustOrderRenderer entrustOrderRenderer,
+            ContractPdfRenderer contractPdfRenderer,
+            PdfHmacProperties hmacProperties,
+            SigningPolicy signingPolicy,
+            ExecutionStorage executionStorage,
+            SigningExecutionRepository executionRepository
+    ) {
         this.signerService = signerService;
         this.entrustOrderRenderer = entrustOrderRenderer;
         this.contractPdfRenderer = contractPdfRenderer;
         this.pdfCoverExtractor = new PdfCoverExtractor();
+        this.hmacProperties = hmacProperties;
+        this.signingPolicy = signingPolicy;
+        this.executionStorage = executionStorage;
+        this.executionRepository = executionRepository;
     }
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
-        return ResponseEntity.ok(Map.of(
-                "status", "ok",
-                "service", "pdf-renderer-java"
-        ));
+        boolean hmacReady = hmacProperties.ready();
+        boolean signingMaterialReady = signerService.signingMaterialReady();
+        boolean executionDatabaseReady = executionRepository.readinessProbe();
+        boolean executionStorageReady = executionStorage.readinessProbe();
+        boolean ready = hmacReady && signingMaterialReady && executionDatabaseReady && executionStorageReady;
+        Map<String, Object> body = Map.of(
+                "status", ready ? "ok" : "not_ready",
+                "service", "pdf-renderer-java",
+                "hmac_ready", hmacReady,
+                "signing_material_ready", signingMaterialReady,
+                "execution_database_ready", executionDatabaseReady,
+                "execution_storage_ready", executionStorageReady
+        );
+        return ready
+                ? ResponseEntity.ok(body)
+                : ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
     }
 
     @PostMapping(value = "/process", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -56,17 +96,28 @@ public class PdfController {
             @RequestPart(value = "signature_appearance_image", required = false) MultipartFile sigImg,
             @RequestPart(value = "certificate_query_qr_code", required = false) MultipartFile qrCodeImg,
             @RequestParam(name = "mode") String mode,
-            @RequestParam(required = false, name = "signing_key_id") String signingKeyId,
             @RequestParam(required = false, name = "signature_contact") String contact,
             @RequestParam(required = false, name = "signature_location") String location,
             @RequestParam(required = false, name = "signature_reason") String reason,
-            @RequestParam(required = false, name = "hash_algo") String hashAlgo,
-            @RequestParam(required = false, name = "tsa_enabled") Boolean tsaEnabled,
-            @RequestParam(required = false, name = "tsa_url") String tsaUrl,
             @RequestParam(required = false, name = "function_stamp_count") Integer functionStampCount,
             @RequestParam(required = false, name = "certificate_query_qr_code_url") String qrCodeUrl,
             HttpServletRequest request
     ) throws Exception {
+        for (String parameter : FORBIDDEN_SIGNING_POLICY_PARAMETERS) {
+            if (request.getParameterMap().containsKey(parameter)) {
+                return ResponseEntity.unprocessableEntity().body(Map.of(
+                        "success", false,
+                        "error", "PDF_SIGNING_POLICY_OVERRIDE_FORBIDDEN"
+                ));
+            }
+        }
+        if (containsExistingSignature(pdf)) {
+            return ResponseEntity.unprocessableEntity().body(Map.of(
+                    "success", false,
+                    "error", "PDF_LEGACY_PROCESS_SIGNED_INPUT_FORBIDDEN"
+            ));
+        }
+
         // 收集功能章图片
         List<MultipartFile> functionStamps = new ArrayList<>();
         if (functionStampCount != null && functionStampCount > 0) {
@@ -86,23 +137,20 @@ public class PdfController {
         }
         
         // 请求日志
-        log.info("/api/pdf/process called: mode={}, pdfSize={}, perfSize={}, sigImgSize={}, qrCodeSize={}, functionStamps={}, hashAlgo={}, tsaEnabled={}, tsaUrl={}",
+        log.info("/api/pdf/process called: mode={}, pdfSize={}, perfSize={}, sigImgSize={}, qrCodeSize={}, functionStamps={}",
                 mode,
                 safeSize(pdf),
                 safeSize(perforation),
                 safeSize(sigImg),
                 safeSize(qrCodeImg),
-                functionStamps.size(),
-                hashAlgo,
-                tsaEnabled,
-                tsaUrl);
+                functionStamps.size());
 
         SignerService.ProcessResult result = signerService.process(pdf, perforation, sigImg, functionStamps,
                 mode,
-                signingKeyId, contact, location, reason,
-                hashAlgo != null ? hashAlgo : "SHA256",
-                tsaEnabled != null && tsaEnabled,
-                tsaUrl,
+                null, contact, location, reason,
+                signingPolicy.hashAlgorithm(),
+                false,
+                null,
                 qrCodeImg,
                 qrCodeUrl);
 
@@ -149,6 +197,17 @@ public class PdfController {
 
     private Long safeSize(MultipartFile f) {
         try { return (f == null || f.isEmpty()) ? null : f.getSize(); } catch (Exception e) { return null; }
+    }
+
+    private boolean containsExistingSignature(MultipartFile pdf) throws Exception {
+        try (PDDocument document = Loader.loadPDF(pdf.getBytes())) {
+            if (!document.getSignatureDictionaries().isEmpty()) {
+                return true;
+            }
+            COSDictionary permissions = document.getDocumentCatalog().getCOSObject()
+                    .getCOSDictionary(COSName.getPDFName("Perms"));
+            return permissions != null && permissions.containsKey(COSName.getPDFName("DocMDP"));
+        }
     }
 
     /**

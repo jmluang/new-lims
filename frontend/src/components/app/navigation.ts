@@ -6,6 +6,7 @@ import {
   DatabaseBackup,
   FileCheck2,
   FileSignature,
+  FilePenLine,
   FileStack,
   LayoutDashboard,
   MapPinned,
@@ -31,6 +32,7 @@ export type NavItem = {
   icon: LucideIcon
   resource?: string
   action?: string
+  anyPermissions?: Array<{ resource: string; action?: string }>
 }
 
 export type NavGroup = {
@@ -79,6 +81,15 @@ export const navGroups: NavGroup[] = [
   {
     label: 'PDF 防篡改',
     items: [
+      {
+        label: '手写数字签名',
+        to: '/pdf/handwritten-signing',
+        icon: FilePenLine,
+        anyPermissions: [
+          { resource: 'pdf.request', action: 'read' },
+          { resource: 'pdf.workflow', action: 'create' },
+        ],
+      },
       { label: 'PDF 签章', to: '/pdf/signing', icon: FileSignature, resource: 'pdf_signing', action: 'read' },
       { label: '文件验证', to: '/pdf/verify', icon: FileCheck2, resource: 'pdf_verification', action: 'read' },
       { label: '签章台账', to: '/pdf/files', icon: FileStack, resource: 'pdf_files', action: 'read' },
@@ -122,6 +133,12 @@ export function visibleNavGroups(permissions?: NavPermissions): NavGroup[] {
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => {
+        if (item.anyPermissions) {
+          return item.anyPermissions.some(({ resource, action = 'read' }) =>
+            Boolean(permissions.resources[resource]?.actions[action]),
+          )
+        }
+
         if (!item.resource) {
           return hasAnyGrantedAction
         }

@@ -1,19 +1,50 @@
 server:
   port: 8081
   shutdown: immediate
+  max-http-request-header-size: 16KB
   tomcat:
-    # -1 means unlimited swallow size; avoid 413 on large multipart
-    max-swallow-size: -1
-    # Increase max form POST size (affects multipart form size parsing)
-    max-http-form-post-size: 200MB
+    connection-timeout: 15s
+    max-swallow-size: 24MB
+    max-http-form-post-size: 24MB
 
 spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 200MB
-      max-request-size: 200MB
+      max-file-size: 20MB
+      max-request-size: 24MB
+  data:
+    redis:
+      host: ${PDF_SERVICE_REDIS_HOST:127.0.0.1}
+      port: ${PDF_SERVICE_REDIS_PORT:6379}
+      connect-timeout: 2s
+      timeout: 2s
+
+pdf:
+  security:
+    hmac:
+      enabled: ${PDF_SERVICE_HMAC_ENABLED:true}
+      active-key-id: ${PDF_SERVICE_HMAC_ACTIVE_KEY_ID:primary}
+      keys: ${PDF_SERVICE_HMAC_KEYS:}
+      max-clock-skew-seconds: ${PDF_SERVICE_HMAC_MAX_CLOCK_SKEW_SECONDS:60}
+      nonce-store: ${PDF_SERVICE_HMAC_NONCE_STORE:redis}
+  signing-policy:
+    hash-algorithm: ${PDF_SIGNING_HASH_ALGO:SHA256}
+    tsa-enabled: false
+  pades-bt:
+    tsa-url: ${PDF_PADES_TSA_URL:}
+    tsa-policy-oid: ${PDF_PADES_TSA_POLICY_OID:}
+    tsa-trusted-certificate-sha256: ${PDF_PADES_TSA_TRUSTED_CERT_SHA256:}
+    tsa-timeout-seconds: ${PDF_PADES_TSA_TIMEOUT_SECONDS:10}
+    document-signer-trusted-root-sha256: ${PDF_PADES_SIGNER_TRUSTED_ROOT_SHA256:}
+  execution-ledger:
+    enabled: ${PDF_EXECUTION_LEDGER_ENABLED:false}
+    jdbc-url: ${PDF_EXECUTION_DB_URL:}
+    username: ${PDF_EXECUTION_DB_USERNAME:}
+    password: ${PDF_EXECUTION_DB_PASSWORD:}
+    result-root: ${PDF_EXECUTION_RESULT_ROOT:./data/signing-results}
+    retirement-sweep-interval-ms: ${PDF_EXECUTION_RETIREMENT_SWEEP_INTERVAL_MS:60000}
 
 logging:
   level:
-    com.luang.pdfsigner.service: DEBUG
+    com.luang.pdfsigner: INFO

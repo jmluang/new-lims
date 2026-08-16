@@ -11,7 +11,20 @@ export function allowsRoute(permissions: EffectivePermissions, resource: string,
   return Boolean(permissions.resources[resource]?.actions[action])
 }
 
+export type RoutePermissionRequirement = {
+  resource: string
+  action?: string
+}
+
+export function allowsAnyRoute(permissions: EffectivePermissions, requirements: RoutePermissionRequirement[]) {
+  return requirements.some(({ resource, action = 'read' }) => allowsRoute(permissions, resource, action))
+}
+
 export async function requireRoutePermission(resource: string, action = 'read') {
+  return requireAnyRoutePermission([{ resource, action }])
+}
+
+export async function requireAnyRoutePermission(requirements: RoutePermissionRequirement[]) {
   let permissions: EffectivePermissions
 
   try {
@@ -29,7 +42,7 @@ export async function requireRoutePermission(resource: string, action = 'read') 
     throw error
   }
 
-  if (!allowsRoute(permissions, resource, action)) {
+  if (!allowsAnyRoute(permissions, requirements)) {
     throw redirect({ to: '/' })
   }
 }

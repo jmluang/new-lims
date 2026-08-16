@@ -1,0 +1,35 @@
+-- Replace the database, host pattern, and password before execution.
+-- This account deliberately cannot read workflows, requests, documents,
+-- revisions, publication events, users, challenges, or appearance paths.
+
+CREATE USER IF NOT EXISTS 'pdf_java'@'172.18.%' IDENTIFIED BY 'REPLACE_WITH_RANDOM_SECRET';
+
+GRANT SELECT (
+    operation_uuid, java_gate_version, lease_epoch, state, stage, action,
+    lease_expires_at, cancellation_requested_at,
+    operation_input_manifest_hash, input_fingerprint, expected_source_sha256,
+    signing_policy_version_id, policy_hash, config_bundle_hash,
+    appearance_manifest_hash, appearance_sha256, pdf_signature_role,
+    target_field_name, expected_certificate_fingerprint,
+    field_lock_policy_hash, result_retirement_not_before,
+    result_retirement_authorized_at,
+    result_retirement_authorization_expires_at,
+    result_retirement_authorization_manifest,
+    result_retirement_authorization_hash
+) ON `new-lims`.pdf_signing_operations TO 'pdf_java'@'172.18.%';
+
+GRANT UPDATE (java_gate_version)
+    ON `new-lims`.pdf_signing_operations TO 'pdf_java'@'172.18.%';
+GRANT SELECT
+    ON `new-lims`.pdf_signing_policy_versions TO 'pdf_java'@'172.18.%';
+GRANT SELECT, INSERT, UPDATE
+    ON `new-lims`.pdf_java_signing_executions TO 'pdf_java'@'172.18.%';
+GRANT INSERT
+    ON `new-lims`.pdf_java_signing_execution_events TO 'pdf_java'@'172.18.%';
+
+SHOW GRANTS FOR 'pdf_java'@'172.18.%';
+
+-- Connect as pdf_java and confirm SELECT is denied for pdf_documents,
+-- pdf_files, pdf_signing_workflows, pdf_signing_requests,
+-- pdf_document_publication_events, users, pdf_signing_challenges, and
+-- pdf_signature_appearance_artifacts.

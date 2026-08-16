@@ -22,11 +22,11 @@ import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.util.List;
-import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import javax.imageio.ImageIO;
@@ -47,6 +47,16 @@ import java.util.UUID;
 @Service
 public class SignerService {
     private static final Logger log = LoggerFactory.getLogger(SignerService.class);
+    private final Pkcs12SigningKeyProvider signingKeyProvider;
+
+    public SignerService() {
+        this(new Pkcs12SigningKeyProvider());
+    }
+
+    @Autowired
+    public SignerService(Pkcs12SigningKeyProvider signingKeyProvider) {
+        this.signingKeyProvider = signingKeyProvider;
+    }
 
     // 图像缓存
     private static final Map<String, BufferedImage> imageCache = new ConcurrentHashMap<>();
@@ -1467,29 +1477,16 @@ public class SignerService {
                 || normalized.equals("0"));
     }
 
-    private static String resolveDefaultPfxPath() {
-        File dockerPath = new File("/keys/signer.pfx");
-        if (dockerPath.exists()) return dockerPath.getPath();
-        File localPath = new File("keys/signer.pfx");
-        if (localPath.exists()) return localPath.getPath();
-        return "/keys/signer.pfx";
-    }
-
     private KeyMaterial loadPfxMaterial(String pfxEnvPath) throws Exception {
-        KeyStore ks = KeyStore.getInstance("PKCS12");
-        String pfxPath = (pfxEnvPath != null && !pfxEnvPath.isBlank()) ? pfxEnvPath : resolveDefaultPfxPath();
-        String pfxPass = getCfg("DEFAULT_PFX_PASS");
-        if (pfxPass == null) pfxPass = "changeit";
-        try (InputStream is = new FileInputStream(pfxPath)) {
-            ks.load(is, pfxPass.toCharArray());
-        }
-        String alias = ks.aliases().nextElement();
-        PrivateKey privateKey = (PrivateKey) ks.getKey(alias, pfxPass.toCharArray());
-        Certificate[] chain = ks.getCertificateChain(alias);
-        return new KeyMaterial(privateKey, chain);
+        Pkcs12SigningKeyProvider.SigningKeyMaterial material = signingKeyProvider.load();
+        return new KeyMaterial(material.privateKey(), material.certificateChain());
     }
 
     private record KeyMaterial(PrivateKey privateKey, Certificate[] certificateChain) {}
+
+    public boolean signingMaterialReady() {
+        return signingKeyProvider.ready();
+    }
 
     // 可见签名外观将于后续版本完善
 
