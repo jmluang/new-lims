@@ -27,21 +27,34 @@ export type ApiError = {
 }
 
 export function errorMessage(error: unknown, fallback = 'Request failed') {
+  // Axios rejections are Error instances too, so the response has to be read
+  // before the generic Error branch. Otherwise every backend error code is
+  // replaced by axios' own "Request failed with status code NNN".
+  const response = (error as ApiError | null | undefined)?.response
+
+  if (response) {
+    const missingPermission = response.status === 403 ? response.data?.permission : undefined
+
+    if (missingPermission) {
+      return `没有权限执行该操作：缺少 ${missingPermission}`
+    }
+
+    const validationErrors = response.data?.errors
+    const firstValidationError = validationErrors ? Object.values(validationErrors).flat()[0] : undefined
+    const serverMessage = firstValidationError ?? response.data?.message
+
+    if (serverMessage) {
+      return zhErrorText(serverMessage) ?? serverMessage
+    }
+
+    return zhErrorText(fallback) ?? fallback
+  }
+
   if (error instanceof Error) {
     return zhErrorText(error.message) ?? error.message
   }
 
-  const apiError = error as ApiError
-  const missingPermission = apiError.response?.status === 403 ? apiError.response?.data?.permission : undefined
-
-  if (missingPermission) {
-    return `没有权限执行该操作：缺少 ${missingPermission}`
-  }
-
-  const validationErrors = apiError.response?.data?.errors
-  const firstValidationError = validationErrors ? Object.values(validationErrors).flat()[0] : undefined
-
-  return zhErrorText(firstValidationError ?? apiError.response?.data?.message ?? fallback) ?? fallback
+  return zhErrorText(fallback) ?? fallback
 }
 
 export function formatDateTime(value?: string | null) {
