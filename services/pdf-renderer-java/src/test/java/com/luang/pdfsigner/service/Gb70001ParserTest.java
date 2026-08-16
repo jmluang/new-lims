@@ -1,11 +1,6 @@
 package com.luang.pdfsigner.service;
 
-import com.luang.pdfsigner.service.renderer.Gb70001FormRenderer;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Objects;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -15,13 +10,14 @@ import org.junit.jupiter.api.Test;
 public class Gb70001ParserTest {
 
     @Test
-    void parseExtraPdf() throws Exception {
-        Path pdf = Path.of("../../extra.pdf").normalize();
-        Assertions.assertTrue(Files.exists(pdf), "extra.pdf not found");
-        try (PDDocument doc = Loader.loadPDF(pdf.toFile())) {
+    void parseVersionedSamplePdf() throws Exception {
+        byte[] pdf = Objects.requireNonNull(
+                getClass().getClassLoader().getResourceAsStream("samples/sample.pdf"),
+                "Versioned sample PDF is missing"
+        ).readAllBytes();
+        try (PDDocument doc = Loader.loadPDF(pdf)) {
             PDFTextStripper stripper = new PDFTextStripper();
             String text = stripper.getText(doc);
-            System.out.println(text);
             Assertions.assertFalse(text.isBlank(), "extracted text should not be blank");
         }
     }

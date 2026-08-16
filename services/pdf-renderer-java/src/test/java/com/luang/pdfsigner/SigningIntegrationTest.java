@@ -36,7 +36,6 @@ class SigningIntegrationTest {
             var result = mockMvc.perform(multipart("/api/pdf/process")
                             .file(pdfPart)
                             .param("mode", "sign")
-                            .param("hash_algo", "SHA256")
                             .contentType(MediaType.MULTIPART_FORM_DATA))
                     .andExpect(status().isOk())
                     .andReturn();

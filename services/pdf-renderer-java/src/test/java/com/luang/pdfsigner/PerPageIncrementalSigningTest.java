@@ -51,7 +51,6 @@ class PerPageIncrementalSigningTest {
                         .file(perfPart)
                         .file(sigPart)
                         .param("mode", "stamp_and_sign")
-                        .param("hash_algo", "SHA256")
                         .contentType(MediaType.MULTIPART_FORM_DATA))
                 .andExpect(status().isOk())
                 .andReturn();

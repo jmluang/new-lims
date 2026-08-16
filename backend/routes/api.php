@@ -16,6 +16,8 @@ use App\Http\Controllers\Pdf\CertificateTemplateController;
 use App\Http\Controllers\Pdf\DigitalSignatureController;
 use App\Http\Controllers\Pdf\HomepageFunctionStampController;
 use App\Http\Controllers\Pdf\PdfFileController;
+use App\Http\Controllers\Pdf\PdfHandwrittenSigningController;
+use App\Http\Controllers\Pdf\PdfPublicRevisionController;
 use App\Http\Controllers\Pdf\PdfSigningController;
 use App\Http\Controllers\Pdf\PdfVerificationController;
 use App\Http\Controllers\Pdf\PdfVerificationLogController;
@@ -65,6 +67,12 @@ Route::post('/public/test-order-submissions', [PublicTestOrderSubmissionControll
 
 // PDF 防篡改公开验证：报告持有人上传 PDF 核验真伪，无需登录。
 Route::post('/public/pdf/verify', [PdfVerificationController::class, 'publicVerify'])
+    ->middleware('throttle:public-pdf-verify');
+Route::get('/public/pdf/revisions/{revisionUuid}', [PdfPublicRevisionController::class, 'revision'])
+    ->middleware('throttle:public-pdf-verify');
+Route::post('/public/pdf/revisions/{revisionUuid}/verify', [PdfPublicRevisionController::class, 'verify'])
+    ->middleware('throttle:public-pdf-verify');
+Route::get('/public/pdf/documents/{publicId}', [PdfPublicRevisionController::class, 'document'])
     ->middleware('throttle:public-pdf-verify');
 
 // 签章完成后的临时下载链接。签名台把成品交给浏览器时用的是 blob: 地址，而把
@@ -177,6 +185,25 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
         // PDF 防篡改系统
         Route::prefix('pdf')->group(function (): void {
+            Route::get('/handwritten-signing/options', [PdfHandwrittenSigningController::class, 'planningOptions']);
+            Route::post('/signing-sources/inspect', [PdfHandwrittenSigningController::class, 'inspect']);
+            Route::post('/signing-sources/{source}/confirm', [PdfHandwrittenSigningController::class, 'confirm']);
+            Route::post('/signing-sources/{source}/finalize', [PdfHandwrittenSigningController::class, 'finalize']);
+            Route::post('/signing-workflows', [PdfHandwrittenSigningController::class, 'createWorkflow']);
+            Route::post('/signing-workflows/{workflow}/prepare', [PdfHandwrittenSigningController::class, 'prepareWorkflow']);
+            Route::post('/signing-workflows/{workflow}/activate-homepage-seal', [PdfHandwrittenSigningController::class, 'activateHomepageSeal']);
+            Route::post('/signing-workflows/{workflow}/cancel', [PdfHandwrittenSigningController::class, 'cancelWorkflow']);
+            Route::get('/signing-workflows/{workflow}', [PdfHandwrittenSigningController::class, 'workflow']);
+            Route::get('/signing-requests', [PdfHandwrittenSigningController::class, 'signingRequests']);
+            Route::get('/signing-requests/{signingRequest}', [PdfHandwrittenSigningController::class, 'signingRequest']);
+            Route::post('/signing-requests/{signingRequest}/reject', [PdfHandwrittenSigningController::class, 'rejectSigningRequest']);
+            Route::post('/signing-requests/{signingRequest}/appearances', [PdfHandwrittenSigningController::class, 'createAppearance']);
+            Route::post('/signing-requests/{signingRequest}/challenge', [PdfHandwrittenSigningController::class, 'createChallenge']);
+            Route::post('/signing-requests/{signingRequest}/sign', [PdfHandwrittenSigningController::class, 'claimSigningOperation']);
+            Route::get('/signing-operations/{operation}', [PdfHandwrittenSigningController::class, 'signingOperation']);
+            Route::get('/revisions/{revisionUuid}/download', [PdfHandwrittenSigningController::class, 'downloadRevision'])
+                ->name('pdf.revisions.download');
+
             Route::get('/signing/options', [PdfSigningController::class, 'options']);
             Route::get('/signing/certificate-templates/{certificateTemplate}/file', [PdfSigningController::class, 'certificateTemplate']);
             Route::post('/signing/process', [PdfSigningController::class, 'process']);

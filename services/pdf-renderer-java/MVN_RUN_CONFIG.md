@@ -133,7 +133,8 @@ export QR_CODE_HEIGHT_PX=300
 
 # 其他配置
 export DEFAULT_PFX_PATH=/keys/signer.pfx
-export DEFAULT_PFX_PASS=changeit
+export DEFAULT_PFX_PASS='<required-secret>'
+export PDF_SERVICE_HMAC_KEYS='<key-id:base64-secret>'
 
 # 启动应用
 mvn spring-boot:run
@@ -153,7 +154,8 @@ set QR_CODE_WIDTH_PX=300
 
 REM 其他配置
 set DEFAULT_PFX_PATH=/keys/signer.pfx
-set DEFAULT_PFX_PASS=changeit
+set DEFAULT_PFX_PASS=<required-secret>
+set PDF_SERVICE_HMAC_KEYS=<key-id:base64-secret>
 
 REM 启动应用
 mvn spring-boot:run

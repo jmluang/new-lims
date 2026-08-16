@@ -26,6 +26,7 @@ import { PublicPdfVerifyPage } from '../features/public/PublicPdfVerifyPage'
 import { PublicTestOrderSubmissionPage } from '../features/public/PublicTestOrderSubmissionPage'
 import { PdfFileListPage } from '../features/pdf/PdfFileListPage'
 import { PdfSigningPage } from '../features/pdf/PdfSigningPage'
+import { PdfHandwrittenSigningPage } from '../features/pdf/PdfHandwrittenSigningPage'
 import { PdfVerificationLogPage } from '../features/pdf/PdfVerificationLogPage'
 import { PdfVerifyPage } from '../features/pdf/PdfVerifyPage'
 import {
@@ -48,7 +49,7 @@ import { GroupListPage } from '../features/system/groups/GroupListPage'
 import { UserFormPage } from '../features/system/users/UserFormPage'
 import { UserListPage } from '../features/system/users/UserListPage'
 import { ProtectedLayout } from './ProtectedLayout'
-import { requireRoutePermission } from './routePermissions'
+import { requireAnyRoutePermission, requireRoutePermission } from './routePermissions'
 
 export const rootRoute = createRootRoute({
   component: Outlet,
@@ -369,6 +370,16 @@ const pdfSigningRoute = createRoute({
   component: PdfSigningPage,
 })
 
+const pdfHandwrittenSigningRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/handwritten-signing',
+  beforeLoad: () => requireAnyRoutePermission([
+    { resource: 'pdf.request' },
+    { resource: 'pdf.workflow', action: 'create' },
+  ]),
+  component: PdfHandwrittenSigningPage,
+})
+
 const pdfVerifyRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/pdf/verify',
@@ -465,6 +476,7 @@ export const routeTree = rootRoute.addChildren([
     auditLogsRoute,
     backupsRoute,
     pdfSigningRoute,
+    pdfHandwrittenSigningRoute,
     pdfVerifyRoute,
     pdfFilesRoute,
     pdfVerificationLogsRoute,

@@ -24,7 +24,8 @@ class PermissionCatalogTest extends TestCase
     {
         Sanctum::actingAs(User::factory()->create());
 
-        $this->getJson('/api/system/permissions/catalog')
+        $response = $this->getJson('/api/system/permissions/catalog');
+        $response
             ->assertOk()
             ->assertJsonPath('data.resources.customers.actions', ['read', 'create', 'update', 'delete', 'export'])
             ->assertJsonPath('data.resources.customers.fields.phone', ['read', 'update', 'export'])
@@ -38,6 +39,11 @@ class PermissionCatalogTest extends TestCase
             ->assertJsonPath('data.resources.equipment_systems.actions', ['read', 'create', 'update', 'delete'])
             ->assertJsonMissingPath('data.resources.equipment.fields.legacy_placement')
             ->assertJsonMissingPath('data.resources.system.dictionaries');
+        $resources = $response->json('data.resources');
+        $this->assertSame(['read', 'create', 'cancel'], $resources['pdf.workflow']['actions']);
+        $this->assertSame(['read', 'sign_assigned', 'reject'], $resources['pdf.request']['actions']);
+        $this->assertSame(['resolve'], $resources['pdf.manual_review']['actions']);
+        $this->assertSame(['manage'], $resources['pdf.evidence_hold']['actions']);
     }
 
     /**
@@ -203,6 +209,16 @@ class PermissionCatalogTest extends TestCase
             'pdf_certificate_templates.create',
             'pdf_certificate_templates.update',
             'pdf_certificate_templates.delete',
+            'pdf.workflow.read',
+            'pdf.workflow.create',
+            'pdf.workflow.cancel',
+            'pdf.request.read',
+            'pdf.request.sign_assigned',
+            'pdf.request.reject',
+            'pdf.organization_key.use',
+            'pdf.revision.download',
+            'pdf.manual_review.resolve',
+            'pdf.evidence_hold.manage',
         ];
     }
 }

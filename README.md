@@ -127,7 +127,7 @@ For local PDF integration, set these in `backend/.env`:
 
 ```dotenv
 PDF_SERVICE_ENABLED=true
-PDF_SERVICE_BASE_URL=http://localhost:8081
+PDF_SERVICE_BASE_URL=http://127.0.0.1:8080
 PDF_SERVICE_TIMEOUT=120
 ```
 

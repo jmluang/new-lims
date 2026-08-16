@@ -109,9 +109,10 @@ y = clamp(QR_CODE_MARGIN_MM点 + QR_CODE_OFFSET_TOP_MM点, 0, 页面高度 - QR_
 ## Docker部署示例
 
 ```bash
-docker run --rm -p 8080:8080 \
+docker run --rm -p 127.0.0.1:8080:8081 \
   -e DEFAULT_PFX_PATH=/keys/signer.pfx \
-  -e DEFAULT_PFX_PASS=changeit \
+  -e DEFAULT_PFX_PASS="$DEFAULT_PFX_PASS" \
+  -e PDF_SERVICE_HMAC_KEYS="$PDF_SERVICE_HMAC_KEYS" \
   -e QR_CODE_SIZE_MM=20.0 \
   -e QR_CODE_MARGIN_MM=12.0 \
   -e QR_CODE_OFFSET_LEFT_MM=5.0 \
@@ -135,7 +136,8 @@ QR_CODE_HEIGHT_PX=250
 
 # 签章配置
 DEFAULT_PFX_PATH=/keys/signer.pfx
-DEFAULT_PFX_PASS=changeit
+DEFAULT_PFX_PASS=<required-secret>
+PDF_SERVICE_HMAC_KEYS=<key-id:base64-secret>
 ```
 
 ## 验证配置

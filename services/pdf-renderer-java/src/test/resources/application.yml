@@ -1,0 +1,5 @@
+pdf:
+  security:
+    hmac:
+      enabled: false
+      nonce-store: memory

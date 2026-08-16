@@ -58,6 +58,18 @@ describe('navigation active path matching', () => {
     expect(groups).toEqual([])
   })
 
+  it('shows handwritten signing to either signers or workflow planners', () => {
+    const resourceSets: Array<Record<string, { actions: Record<string, boolean> }>> = [
+      { 'pdf.request': { actions: { read: true } } },
+      { 'pdf.workflow': { actions: { create: true } } },
+    ]
+
+    for (const resources of resourceSets) {
+      const labels = visibleNavGroups({ resources }).flatMap((group) => group.items.map((item) => item.label))
+      expect(labels).toContain('手写数字签名')
+    }
+  })
+
   it('shows department management inside the system management navigation group', () => {
     const groups = visibleNavGroups({
       resources: {

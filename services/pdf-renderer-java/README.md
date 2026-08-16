@@ -1,4 +1,12 @@
-# PDF Signer Java Service (Skeleton)
+# PDF Signer Java Service
+
+The execution ledger must use a dedicated least-privilege database account.
+Start from `deploy/mysql/pdf_execution_ledger_grants.sql.example`; never reuse
+the Laravel application account or a database owner account.
+
+This service is an internal signing boundary. Except for `GET /api/pdf/health`,
+every endpoint requires the `PDF-HMAC-V1` request contract. Do not expose it to
+the public network or call it directly from a browser.
 
 Endpoints
 - POST `/api/pdf/process` (multipart/form-data)
@@ -7,16 +15,24 @@ Endpoints
     - `perforation_image` (image/png|jpeg) - optional
     - `signature_appearance_image` (image/png|jpeg) - optional
     - `mode`: stamp | sign | stamp_and_sign
-    - `signing_key_id`: managed by server-side mapping (ID-based)
     - `signature_contact` / `signature_location` / `signature_reason`
-    - `hash_algo`: SHA256 (default)
-    - `tsa_enabled`: boolean
-    - `tsa_url`: string
 
 Notes
-- This is a skeleton for integration & load tests.
-- Implement incremental visible signature and TSA in `SignerService`.
-- Replace PKCS#12 loading with your key management based on `signing_key_id`.
+- SHA-256, the PKCS#12 identity and all signing policy are server-controlled.
+- Caller-provided `signing_key_id`, `hash_algo`, `tsa_enabled` and `tsa_url`
+  are rejected. RFC 3161 remains disabled until a real timestamp token is
+  embedded and independently verified.
+- `DEFAULT_PFX_PASS` has no fallback and is mandatory.
+- Every authenticated request uses the fixed ten-line `PDF-HMAC-V1` canonical
+  string. RFC 8785-compatible restricted JCS binds request metadata and a
+  canonical part manifest; JSON bodies are represented as the `body` part and
+  multipart boundaries are never signed.
+- Redis claims `pdf-hmac:{version}:{key-id}:{nonce}` for exactly 300 seconds
+  after the header/MAC check and before body parsing. The Compose service uses
+  durable AOF storage and the signer fails closed when Redis is unavailable.
+- Body receipt is limited to 120 seconds. Multipart part names are endpoint
+  allowlisted, unique, complete, and verified centrally before any controller,
+  PDF writer, execution claim, or private-key path runs.
 - Function-stamp top offset can be configured with env `FUNCTION_STAMP_TOP_MARGIN_MM` (default 25, in millimeters).
 - Function-stamp left margin can be configured with env `FUNCTION_STAMP_LEFT_MARGIN_MM` (default ~7, in millimeters).
 - First-page seal offsets can be configured with env `FRONT_SEAL_OFFSET_LEFT_MM` (default 40) and `FRONT_SEAL_OFFSET_UP_MM` (default 10).
@@ -36,11 +52,14 @@ docker compose up --build
 Docker / Local Keys
 ```bash
 docker build -t pdf-signer:0.1.0 .
-# Docker: mount your local keys into /keys (read-only)
-docker run --rm -p 8080:8080 \
+# Docker: bind only to loopback and mount local keys read-only.
+docker run --rm -p 127.0.0.1:8080:8081 \
   -v $(pwd)/keys:/keys:ro \
-  -e DEFAULT_PFX_PASS=changeit \
+  -e DEFAULT_PFX_PASS='<strong-random-pfx-password>' \
   -e DEFAULT_PFX_PATH=/keys/signer.pfx \
+  -e PDF_SERVICE_HMAC_ACTIVE_KEY_ID=primary \
+  -e PDF_SERVICE_HMAC_KEYS='primary:<base64-32-byte-secret>' \
+  -e PDF_SERVICE_REDIS_HOST=host.docker.internal \
   -e FUNCTION_STAMP_TOP_MARGIN_MM=50 \
   -e FUNCTION_STAMP_LEFT_MARGIN_MM=8 \
   -e FRONT_SEAL_OFFSET_LEFT_MM=42 \
@@ -60,7 +79,9 @@ Key Resolution
 
 Local usage examples
 ```bash
-# Default (auto-detect ./keys/signer.pfx)
+# Auto-detect ./keys/signer.pfx, but never a password.
+DEFAULT_PFX_PASS='<strong-random-pfx-password>' \
+PDF_SERVICE_HMAC_KEYS='primary:<base64-32-byte-secret>' \
 java -jar target/pdf-signer-*.jar
 
 # Customize function-stamp top/left margins (in mm)
@@ -85,10 +106,12 @@ DEFAULT_PFX_PATH=./keys/custom.pfx DEFAULT_PFX_PASS=secret \
 
 # Docker with memory cap and disk-backed buffers
 # (prevents OOM on small hosts, e.g. 2c2g)
-docker run --rm -p 8080:8080 \
+docker run --rm -p 127.0.0.1:8080:8081 \
   -v $(pwd)/keys:/keys:ro \
-  -e DEFAULT_PFX_PASS=changeit \
+  -e DEFAULT_PFX_PASS='<strong-random-pfx-password>' \
   -e DEFAULT_PFX_PATH=/keys/signer.pfx \
+  -e PDF_SERVICE_HMAC_KEYS='primary:<base64-32-byte-secret>' \
+  -e PDF_SERVICE_REDIS_HOST=host.docker.internal \
   -e FUNCTION_STAMP_TOP_MARGIN_MM=38 \
   -e FRONT_SEAL_OFFSET_LEFT_MM=45 \
   -e FRONT_SEAL_OFFSET_UP_MM=8 \
@@ -107,4 +130,15 @@ Hot Reload & Debugging
   mvn spring-boot:run \
     -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
   ```
-- Access the service at `http://localhost:8080` after the server starts.
+- Access the Docker service at `http://127.0.0.1:8080`; a direct mutating
+  request without valid HMAC must return `401 PDF_HMAC_REQUIRED`.
+
+## HMAC key rotation
+
+1. Generate a new random 32-byte-or-longer secret and assign a new key id.
+2. Add both old and new `key-id:base64-secret` entries to Java.
+3. Restart Java, then switch Laravel `PDF_SERVICE_HMAC_ACTIVE_KEY_ID` to the new id.
+4. Confirm the old key is no longer used, remove it from both services, and restart Java.
+
+The Java service accepts every configured key during the overlap; Laravel signs
+only with the active id. Never reuse a PDF HMAC secret for another subsystem.

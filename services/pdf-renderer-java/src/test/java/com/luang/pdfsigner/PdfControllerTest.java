@@ -1,6 +1,10 @@
 package com.luang.pdfsigner;
 
 import org.junit.jupiter.api.Test;
+import org.apache.pdfbox.cos.COSDictionary;
+import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,6 +19,7 @@ import org.json.JSONObject;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -22,6 +27,38 @@ class PdfControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Test
+    void processRejectsCallerControlledSigningPolicy() throws Exception {
+        try (InputStream pdf = getClass().getResourceAsStream("/samples/sample.pdf")) {
+            assertThat(pdf).isNotNull();
+            MockMultipartFile pdfPart = new MockMultipartFile("pdf", "sample.pdf", "application/pdf", pdf);
+
+            mockMvc.perform(multipart("/api/pdf/process")
+                            .file(pdfPart)
+                            .param("mode", "sign")
+                            .param("hash_algo", "SHA512")
+                            .contentType(MediaType.MULTIPART_FORM_DATA))
+                    .andExpect(status().isUnprocessableEntity());
+        }
+    }
+
+    @Test
+    void processRejectsPdfThatAlreadyCarriesDocMdpSignatureState() throws Exception {
+        MockMultipartFile pdfPart = new MockMultipartFile(
+                "pdf",
+                "already-signed.pdf",
+                "application/pdf",
+                pdfWithDocMdpMarker()
+        );
+
+        mockMvc.perform(multipart("/api/pdf/process")
+                        .file(pdfPart)
+                        .param("mode", "stamp")
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error").value("PDF_LEGACY_PROCESS_SIGNED_INPUT_FORBIDDEN"));
+    }
 
     @Test
     void stampAndSign_shouldReturnPdf() throws Exception {
@@ -45,7 +82,6 @@ class PdfControllerTest {
                             .file(pdfPart)
                             .file(perfPart)
                             .param("mode", "stamp")
-                            .param("hash_algo", "SHA256")
                             .contentType(MediaType.MULTIPART_FORM_DATA))
                     .andExpect(status().isOk())
                     .andReturn();
@@ -127,9 +163,6 @@ class PdfControllerTest {
                             .file(func2Part)
                             .param("mode", "custom")
                             .param("function_stamp_count", "2")
-                            .param("hash_algo", "SHA256")
-                            .param("tsa_enabled", "true")
-                            .param("tsa_url", "http://timestamp.digicert.com")
                             .contentType(MediaType.MULTIPART_FORM_DATA))
                     .andExpect(status().isOk())
                     .andReturn();
@@ -184,7 +217,6 @@ class PdfControllerTest {
                             .file(pdfPart)
                             .file(qrPart)
                             .param("mode", "sign")
-                            .param("hash_algo", "SHA256")
                             .param("certificate_query_qr_code_url", "http://example.com/certificate-query?query=TEST123")
                             .contentType(MediaType.MULTIPART_FORM_DATA))
                     .andExpect(status().isOk())
@@ -211,6 +243,18 @@ class PdfControllerTest {
             assertThat(jsonResponse.has("cover_fields")).isTrue();
             JSONObject coverFields = jsonResponse.getJSONObject("cover_fields");
             assertThat(coverFields).isNotNull();
+        }
+    }
+
+    private static byte[] pdfWithDocMdpMarker() throws Exception {
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage());
+            COSDictionary permissions = new COSDictionary();
+            permissions.setItem(COSName.getPDFName("DocMDP"), new COSDictionary());
+            document.getDocumentCatalog().getCOSObject().setItem(COSName.getPDFName("Perms"), permissions);
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+            document.save(output);
+            return output.toByteArray();
         }
     }
 }

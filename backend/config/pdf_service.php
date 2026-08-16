@@ -1,9 +1,20 @@
 <?php
 
 return [
-    'base_url' => env('PDF_SERVICE_BASE_URL', 'http://localhost:8080'),
+    'base_url' => env('PDF_SERVICE_BASE_URL', 'http://127.0.0.1:8080'),
     'timeout' => (float) env('PDF_SERVICE_TIMEOUT', 120),
     'enabled' => (bool) env('PDF_SERVICE_ENABLED', false),
+    'organization_scope' => env('PDF_SIGNING_ORGANIZATION_SCOPE', 'default'),
+    'hmac' => [
+        'enabled' => (bool) env('PDF_SERVICE_HMAC_ENABLED', true),
+        'active_key_id' => env('PDF_SERVICE_HMAC_ACTIVE_KEY_ID', 'primary'),
+        'keys' => env('PDF_SERVICE_HMAC_KEYS', ''),
+    ],
+    'workflow' => [
+        'source_max_bytes' => (int) env('PDF_WORKFLOW_SOURCE_MAX_BYTES', 20_971_520),
+        'generated_revision_max_bytes' => (int) env('PDF_WORKFLOW_GENERATED_REVISION_MAX_BYTES', 33_554_432),
+        'operation_lease_seconds' => (int) env('PDF_WORKFLOW_OPERATION_LEASE_SECONDS', 300),
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -28,18 +39,11 @@ return [
         // has to cover an operator who steps away mid-batch.
         'download_link_ttl_minutes' => (int) env('PDF_SIGNING_DOWNLOAD_LINK_TTL_MINUTES', 30),
 
-        // Digest the Java signer computes over the document.
-        'hash_algo' => env('PDF_SIGNING_HASH_ALGO', 'SHA256'),
-
         // Perforation seal geometry, forwarded to the Java service verbatim.
         'group_size' => (int) env('PDF_SIGNING_GROUP_SIZE', 10),
         'stamp_total_height_mm' => (float) env('PDF_SIGNING_STAMP_TOTAL_HEIGHT_MM', 13.5),
         'signature_size_mm' => (float) env('PDF_SIGNING_SIGNATURE_SIZE_MM', 13.5),
         'signature_margin_mm' => (float) env('PDF_SIGNING_SIGNATURE_MARGIN_MM', 10),
-
-        // RFC 3161 timestamping.
-        'tsa_enabled' => (bool) env('PDF_SIGNING_TSA_ENABLED', true),
-        'tsa_url' => env('PDF_SIGNING_TSA_URL', ''),
 
         // How long a signing working directory may sit before it is treated as
         // abandoned. Per-job cleanup runs in a finally block, which a killed

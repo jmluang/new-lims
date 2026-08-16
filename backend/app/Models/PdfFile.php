@@ -25,6 +25,17 @@ use Illuminate\Support\Str;
     'created_by',
     'created_by_id',
     'metadata',
+    'document_id',
+    'revision_uuid',
+    'parent_pdf_file_id',
+    'revision_number',
+    'revision_role',
+    'revision_created_at',
+    'revision_manifest',
+    'revision_manifest_hash',
+    'integrity_state',
+    'disposition',
+    'first_published_at',
 ])]
 class PdfFile extends Model
 {
@@ -45,6 +56,10 @@ class PdfFile extends Model
         return [
             'signed_at' => 'datetime',
             'metadata' => 'array',
+            'revision_manifest' => 'array',
+            'revision_created_at' => 'datetime',
+            'first_published_at' => 'datetime',
+            'revision_number' => 'integer',
             'file_size' => 'integer',
         ];
     }
@@ -74,6 +89,11 @@ class PdfFile extends Model
     public function createdByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_id');
+    }
+
+    public function document(): BelongsTo
+    {
+        return $this->belongsTo(PdfDocument::class);
     }
 
     public static function statusDescription(int $status): string
