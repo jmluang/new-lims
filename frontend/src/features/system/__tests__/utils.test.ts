@@ -32,9 +32,29 @@ describe('system utils', () => {
     })
 
   it('translates the backend error code carried by an axios rejection', () => {
-    expect(errorMessage(axiosError(409, { message: 'PDF_SOURCE_SHA_ALREADY_REGISTERED' }), 'PDF 结构检查失败')).toBe(
-      '该 PDF 文件已上传过，请勿重复上传或更换文件',
+    expect(errorMessage(axiosError(409, { message: 'PDF_SOURCE_ENCRYPTED' }), 'PDF 结构检查失败')).toBe(
+      'PDF 已加密，请上传未加密的文件',
     )
+  })
+
+  // api/pdf/* wraps its stable codes in {error: {code, message}} rather than a
+  // top-level message, so reading only data.message missed every PDF code.
+  it('reads the PDF error envelope, not just a top-level message', () => {
+    expect(
+      errorMessage(
+        axiosError(409, { error: { code: 'PDF_REPORT_NUMBER_ALREADY_REGISTERED', message: 'PDF_REPORT_NUMBER_ALREADY_REGISTERED' } }),
+        'PDF 定稿失败',
+      ),
+    ).toBe('该报告编号已存在')
+  })
+
+  it('prefers the envelope code over a generic top-level message', () => {
+    expect(
+      errorMessage(
+        axiosError(409, { message: 'Conflict', error: { code: 'PDF_DOCUMENT_ALREADY_HAS_ACTIVE_WORK' } }),
+        '失败',
+      ),
+    ).toBe('该文档已有进行中的任务，请先完成或取消')
   })
 
   it('keeps an untranslated backend code visible instead of the axios message', () => {

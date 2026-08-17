@@ -558,7 +558,7 @@ export const textMap: Record<string, string> = {
   'Server Error': '服务器错误',
 
   // PDF 手写签名工作流错误码（后端以 message 形式返回）
-  PDF_SOURCE_SHA_ALREADY_REGISTERED: '该 PDF 文件已上传过，请勿重复上传或更换文件',
+  PDF_HMAC_NONCE_STORE_UNAVAILABLE: '签名服务的防重放存储不可用，请联系管理员',
   PDF_SOURCE_ENCRYPTED: 'PDF 已加密，请上传未加密的文件',
   PDF_SOURCE_ALREADY_SIGNED: 'PDF 已包含签名或权限锁定，无法作为签署源',
   PDF_SOURCE_HAS_NO_PAGES: 'PDF 没有可用页面',
@@ -596,13 +596,6 @@ export const textMap: Record<string, string> = {
   PDF_APPEARANCE_IMAGE_INVALID: '手写签名图像格式无效',
   PDF_APPEARANCE_DIMENSIONS_INVALID: '手写签名图像尺寸无效',
   PDF_APPEARANCE_NOT_CHALLENGEABLE: '该手写签名当前状态不允许发起签名确认',
-
-  PDF_HOMEPAGE_SEAL_WORKFLOW_NOT_ACTIVATABLE: '该工作流当前状态不允许启用首页章任务',
-  PDF_HOMEPAGE_SEAL_ASSIGNEE_INVALID: '首页章任务的指派人无效',
-  PDF_HOMEPAGE_SEAL_FIELD_NOT_BINDABLE: '首页章字段无法绑定',
-  PDF_HOMEPAGE_SEAL_PUBLISHED_REVISION_INVALID: '已发布版本无效，无法启用首页章',
-  PDF_HOMEPAGE_SEAL_PUBLISHED_FIELD_CHANGED: '已发布版本的签名字段发生变化，无法启用首页章',
-  PDF_HOMEPAGE_SEAL_PUBLISHED_WIDGET_CHANGED: '已发布版本的签名控件发生变化，无法启用首页章',
 
   PDF_IDEMPOTENCY_KEY_INVALID: '请求幂等键无效',
   PDF_IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_INPUT: '相同请求标识对应的内容已变化，请重新发起操作',

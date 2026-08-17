@@ -22,6 +22,12 @@ export type ApiError = {
       message?: string
       errors?: Record<string, string[]>
       permission?: string
+      // PDF routes wrap their stable codes in an envelope instead of using the
+      // top-level message; see the api/pdf/* renderer in bootstrap/app.php.
+      error?: {
+        code?: string
+        message?: string
+      }
     }
   }
 }
@@ -41,7 +47,11 @@ export function errorMessage(error: unknown, fallback = 'Request failed') {
 
     const validationErrors = response.data?.errors
     const firstValidationError = validationErrors ? Object.values(validationErrors).flat()[0] : undefined
-    const serverMessage = firstValidationError ?? response.data?.message
+    const envelope = response.data?.error
+    const serverMessage = firstValidationError
+      ?? envelope?.code
+      ?? envelope?.message
+      ?? response.data?.message
 
     if (serverMessage) {
       return zhErrorText(serverMessage) ?? serverMessage
