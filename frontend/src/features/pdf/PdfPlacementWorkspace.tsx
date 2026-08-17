@@ -323,12 +323,17 @@ const PdfPage = memo(function PdfPage({
               onPointerMove={onDrag}
               onPointerUp={onDragEnd}
             >
-              <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold">
-                <span>{roleLabels[placement.semantic_role]}</span>
-                <span>P{pageIndex + 1}</span>
-              </div>
+              {/* The label is a planning aid. Leaving it over a signature would
+                  push the ink down and shrink it, showing something the document
+                  will not contain. */}
+              {editable || !signaturePreview ? (
+                <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold">
+                  <span>{roleLabels[placement.semantic_role]}</span>
+                  <span>P{pageIndex + 1}</span>
+                </div>
+              ) : null}
               {signaturePreview ? (
-                <img src={signaturePreview} alt="手写签名实时预览" className="h-full w-full object-contain p-1.5 pt-5" />
+                <img src={signaturePreview} alt="手写签名实时预览" className="h-full w-full object-contain" />
               ) : null}
               {editable ? (
                 <span

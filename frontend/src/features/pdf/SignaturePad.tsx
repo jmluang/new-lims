@@ -1,6 +1,7 @@
 import { Eraser, PenLine, RotateCcw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '../system/shared'
+import { inkBounds } from './inkCrop'
 
 export function SignaturePad({
   onPreviewChange,
@@ -90,12 +91,32 @@ export function SignaturePad({
     publishPreview()
   }
 
+  /** Null when the canvas cannot be read or holds no ink. */
+  function croppedToInk(canvas: HTMLCanvasElement): string | null {
+    const context = canvas.getContext('2d')
+    if (!context) return null
+    const bounds = inkBounds(context.getImageData(0, 0, canvas.width, canvas.height))
+    if (!bounds) return null
+
+    const cropped = document.createElement('canvas')
+    cropped.width = Math.max(1, bounds.width)
+    cropped.height = Math.max(1, bounds.height)
+    const target = cropped.getContext('2d')
+    if (!target) return null
+    target.drawImage(canvas, bounds.left, bounds.top, bounds.width, bounds.height, 0, 0, cropped.width, cropped.height)
+
+    return cropped.toDataURL('image/png')
+  }
+
   function publishPreview() {
     if (previewFrame.current !== null) return
     previewFrame.current = requestAnimationFrame(() => {
       previewFrame.current = null
       const canvas = canvasRef.current
-      if (canvas && hasInk.current) onPreviewChange(canvas.toDataURL('image/png'))
+      if (!canvas || !hasInk.current) return
+      // The server keeps only the ink and a margin around it, so previewing the
+      // whole pad would show whitespace the document will never contain.
+      onPreviewChange(croppedToInk(canvas) ?? canvas.toDataURL('image/png'))
     })
   }
 
