@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\Pdf\PdfImmutableFileStore;
 use App\Services\Pdf\PdfRendererClient;
 use App\Services\Pdf\PdfRevisionService;
+use App\Services\Pdf\PdfSigningNotifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -370,6 +371,9 @@ final class ExecutePdfWorkflowControlOperation implements ShouldQueue
                     'expected_source_revision_id' => $revision->id,
                     'expected_source_sha256' => $revision->sha256_hash,
                 ]);
+                // Only the first signer can act yet; the rest hear from us when
+                // the signature in front of them lands.
+                app(PdfSigningNotifier::class)->notifyAvailable($firstRequest);
                 $workflow->update([
                     'prepared_revision_id' => $revision->id,
                     'current_revision_id' => $revision->id,

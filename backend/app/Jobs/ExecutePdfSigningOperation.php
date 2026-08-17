@@ -19,6 +19,7 @@ use App\Services\Pdf\PdfImmutableFileStore;
 use App\Services\Pdf\PdfRendererClient;
 use App\Services\Pdf\PdfRendererHttpException;
 use App\Services\Pdf\PdfRevisionService;
+use App\Services\Pdf\PdfSigningNotifier;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -525,6 +526,8 @@ final class ExecutePdfSigningOperation implements ShouldQueue
                         'expected_source_sha256' => $revision->sha256_hash,
                     ]);
                     $workflow->update(['status' => 'ready']);
+                    // The turn has moved on; tell whoever it moved to.
+                    app(PdfSigningNotifier::class)->notifyAvailable($next);
                 } else {
                     if ($document->published_revision_id !== $workflow->publication_base_revision_id
                         || (int) $document->publication_version !== (int) $workflow->expected_publication_version) {

@@ -91,6 +91,9 @@ final class RejectPdfSigningRequestService
                 'rejected_at' => now(),
                 'rejected_by_id' => $actor->id,
             ]);
+            // The workflow stops here, so whoever planned it needs to know
+            // rather than waiting on a signature that is not coming.
+            app(PdfSigningNotifier::class)->notifyRejected($lockedRequest, $reasonCode);
             PdfSigningRequest::query()
                 ->where('workflow_id', $workflow->id)
                 ->whereIn('status', ['pending', 'available'])
