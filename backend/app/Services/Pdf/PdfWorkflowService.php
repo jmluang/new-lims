@@ -62,8 +62,21 @@ final class PdfWorkflowService
         }
 
         foreach (['inspector', 'reviewer', 'issuer'] as $role) {
-            if (! isset($assignments[$role]) || ! User::query()->whereKey($assignments[$role])->exists()) {
+            if (! isset($assignments[$role])) {
                 throw new UnprocessableEntityHttpException("PDF_{$role}_ASSIGNMENT_REQUIRED");
+            }
+
+            $assignee = User::query()->find($assignments[$role]);
+
+            if ($assignee === null || $assignee->status !== 'active') {
+                throw new UnprocessableEntityHttpException("PDF_{$role}_ASSIGNMENT_REQUIRED");
+            }
+
+            // Freezing the fields commits the document to these three people. One
+            // who cannot sign would leave the workflow waiting on a signature
+            // they are not able to give, and only a cancel could undo it.
+            if (! $assignee->can('pdf.request.sign_assigned')) {
+                throw new UnprocessableEntityHttpException('PDF_ASSIGNEE_CANNOT_SIGN');
             }
         }
 

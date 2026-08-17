@@ -83,9 +83,11 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
             'pdf.request.read',
             'pdf.revision.download',
         ]);
-        $inspector = User::factory()->create();
-        $reviewer = User::factory()->create();
-        $issuer = User::factory()->create();
+        // Assignees must be able to sign; the workflow refuses to commit itself
+        // to someone who cannot.
+        $inspector = $this->signer();
+        $reviewer = $this->signer();
+        $issuer = $this->signer();
         Sanctum::actingAs($actor);
 
         $inspect = $this->post('/api/pdf/signing-sources/inspect', [
@@ -805,9 +807,11 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
             'pdf.workflow.create',
             'pdf.workflow.cancel',
         ]);
-        $inspector = User::factory()->create();
-        $reviewer = User::factory()->create();
-        $issuer = User::factory()->create();
+        // Assignees must be able to sign; the workflow refuses to commit itself
+        // to someone who cannot.
+        $inspector = $this->signer();
+        $reviewer = $this->signer();
+        $issuer = $this->signer();
         Sanctum::actingAs($actor);
         $source = $this->post('/api/pdf/signing-sources/inspect', [
             'pdf_file' => UploadedFile::fake()->createWithContent('cancel.pdf', '%PDF cancellation source'),
@@ -984,6 +988,14 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
     }
 
     /** @param  list<string>  $names */
+    private function signer(): User
+    {
+        $user = User::factory()->create();
+        $this->grantPermissions($user, ['pdf.request.sign_assigned']);
+
+        return $user->fresh();
+    }
+
     private function grantPermissions(User $user, array $names): void
     {
         foreach ($names as $name) {

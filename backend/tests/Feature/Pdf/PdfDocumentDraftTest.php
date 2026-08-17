@@ -5,8 +5,10 @@ namespace Tests\Feature\Pdf;
 use App\Models\PdfDocument;
 use App\Models\PdfFile;
 use App\Models\PdfSigningOperation;
+use App\Models\PdfSigningPolicyVersion;
 use App\Models\PdfSourceUpload;
 use App\Models\User;
+use App\Services\Pdf\CanonicalJson;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -154,6 +156,41 @@ class PdfDocumentDraftTest extends TestCase
             ->assertOk();
     }
 
+    public function test_a_workflow_refuses_an_assignee_who_cannot_sign(): void
+    {
+        $actor = $this->actor(['pdf.workflow.create']);
+        $document = $this->document($actor, 'ASSIGNEE-1');
+        $revision = PdfFile::query()->where('document_id', $document->id)->sole();
+        Permission::findOrCreate('pdf.request.sign_assigned', 'web');
+        $canSign = User::factory()->create();
+        $canSign->givePermissionTo('pdf.request.sign_assigned');
+        $cannotSign = User::factory()->create();
+
+        $this->withHeader('Idempotency-Key', 'assignee-guard-1')
+            ->postJson('/api/pdf/signing-workflows', [
+                'planning_revision_uuid' => $revision->revision_uuid,
+                'signing_policy_version_uuid' => $this->policy()->version_uuid,
+                'assignments' => [
+                    'inspector' => $canSign->id,
+                    'reviewer' => $cannotSign->id,
+                    'issuer' => $canSign->id,
+                ],
+                'placements' => [
+                    ['semantic_role' => 'inspector', 'page_index' => 0, 'normalized_rect' => $this->rect()],
+                    ['semantic_role' => 'reviewer', 'page_index' => 0, 'normalized_rect' => $this->rect()],
+                    ['semantic_role' => 'issuer', 'page_index' => 0, 'normalized_rect' => $this->rect()],
+                ],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'PDF_ASSIGNEE_CANNOT_SIGN');
+    }
+
+    /** @return array{x: string, y: string, width: string, height: string} */
+    private function rect(): array
+    {
+        return ['x' => '0.100000', 'y' => '0.700000', 'width' => '0.160000', 'height' => '0.055000'];
+    }
+
     public function test_a_published_document_is_protected(): void
     {
         $actor = $this->actor(['pdf.document.delete']);
@@ -295,5 +332,39 @@ class PdfDocumentDraftTest extends TestCase
         ]);
 
         return $document->refresh();
+    }
+
+    private function policy(): PdfSigningPolicyVersion
+    {
+        $manifest = ['profile' => 'B-T', 'version' => 1];
+
+        return PdfSigningPolicyVersion::query()->create([
+            'version_uuid' => (string) Str::uuid(),
+            'policy_hash' => hash('sha256', CanonicalJson::encode($manifest)),
+            'immutable_at' => now(),
+            'pades_profile' => 'B-T',
+            'digest_algorithm_oid' => '2.16.840.1.101.3.4.2.1',
+            'signature_algorithm_oid' => '1.2.840.113549.1.1.11',
+            'organization_certificate_fingerprints' => [str_repeat('b', 64)],
+            'signing_material_version' => 'test-v1',
+            'key_locator' => 'test',
+            'tsa_url_set' => ['http://tsa.invalid'],
+            'tsa_policy_oid' => '1.2.3.4',
+            'tsa_timeout_seconds' => 10,
+            'trust_bundle_hash' => str_repeat('c', 64),
+            'revocation_policy' => ['mode' => 'required'],
+            'reserved_size' => 32768,
+            'pre_private_key_retry_backoff_seconds' => [2, 5],
+            'pre_private_key_retryable_error_codes' => ['DB_UNAVAILABLE'],
+            'java_execution_registration_timeout_seconds' => 15,
+            'java_execution_timeout_seconds' => 90,
+            'java_status_poll_policy' => ['initial' => 2, 'max' => 10],
+            'java_result_min_bytes_per_second' => 1048576,
+            'java_result_read_timeout_seconds' => 60,
+            'generated_revision_max_bytes' => 33554432,
+            'max_signature_increment_bytes' => 2097152,
+            'policy_manifest' => $manifest,
+            'config_bundle_hash' => hash('sha256', CanonicalJson::encode($manifest)),
+        ]);
     }
 }

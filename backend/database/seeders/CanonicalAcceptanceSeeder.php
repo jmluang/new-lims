@@ -44,6 +44,15 @@ class CanonicalAcceptanceSeeder extends Seeder
             'system.backups.create',
             'system.backups.restore',
         ]);
+        // Signing a report is its own responsibility, separate from the business
+        // domain roles; without it an assignee cannot open the signing page.
+        $pdfSigner = $this->group('pdf_signer', [
+            'pdf.request.read',
+            'pdf.request.sign_assigned',
+            'pdf.request.reject',
+            'pdf.organization_key.use',
+            'pdf.revision.download',
+        ]);
         $customerViewer = $this->group('customer_viewer', [
             'customers.read',
             'customer_contacts.read',
@@ -149,8 +158,8 @@ class CanonicalAcceptanceSeeder extends Seeder
 
         $this->user('super_admin@example.test', 'Super Admin', 'active', $superAdmin);
         $this->user('system_admin@example.test', 'System Admin', 'active', $systemAdmin);
-        $this->user('customer_viewer@example.test', 'Customer Viewer', 'active', $customerViewer);
-        $this->user('customer_editor@example.test', 'Customer Editor', 'active', $customerEditor);
+        $this->user('customer_viewer@example.test', 'Customer Viewer', 'active', $customerViewer, extraRoles: [$pdfSigner]);
+        $this->user('customer_editor@example.test', 'Customer Editor', 'active', $customerEditor, extraRoles: [$pdfSigner]);
         $this->user('equipment_manager@example.test', 'Equipment Manager', 'active', $equipmentManager);
         $this->user('test_order_manager@example.test', 'Test Order Manager', 'active', $testOrderManager);
         $this->user('sample_manager@example.test', 'Sample Manager', 'active', $sampleManager);
@@ -188,7 +197,8 @@ class CanonicalAcceptanceSeeder extends Seeder
         return $role;
     }
 
-    private function user(string $email, string $name, string $status, Role $role, bool $locked = false): User
+    /** @param list<Role> $extraRoles */
+    private function user(string $email, string $name, string $status, Role $role, bool $locked = false, array $extraRoles = []): User
     {
         $user = User::query()->updateOrCreate(
             ['email' => $email],
@@ -202,7 +212,7 @@ class CanonicalAcceptanceSeeder extends Seeder
             ],
         );
 
-        $user->syncRoles([$role]);
+        $user->syncRoles([$role, ...$extraRoles]);
 
         return $user;
     }

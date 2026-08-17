@@ -34,10 +34,15 @@ final class PdfHandwrittenSigningController extends Controller
         $this->authorizePermission($request, 'pdf.workflow.create', 'pdf.workflow');
 
         return response()->json(['data' => [
+            // Only people who can actually sign. Offering everyone let a report
+            // be assigned to someone who cannot open the signing page at all,
+            // and the workflow then waited on a signature they could not give.
             'assignees' => User::query()
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'name'])
+                ->filter(fn (User $user): bool => $user->can('pdf.request.sign_assigned'))
+                ->values()
                 ->map(fn (User $user): array => ['id' => $user->id, 'name' => $user->name]),
             'policies' => PdfSigningPolicyVersion::query()
                 ->whereNotNull('immutable_at')
