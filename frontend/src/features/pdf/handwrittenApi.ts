@@ -76,6 +76,59 @@ export type SigningRequestDetail = {
   certificate_subject: string
 }
 
+export type DocumentSigner = {
+  sequence: number
+  semantic_role: SignatureRole | null
+  assigned_user_id: number
+  assigned_user_name: string | null
+  status: string
+  act_status: string | null
+}
+
+export type SigningDocument = {
+  document_uuid: string
+  report_number: string
+  status: string
+  stage: string
+  integrity_state: string
+  evidence_hold_state: string
+  has_running_work: boolean
+  workflow_uuid: string | null
+  workflow_status: string | null
+  signers: DocumentSigner[]
+  revisions: Array<{
+    revision_uuid: string
+    revision_number: number | null
+    revision_role: string | null
+    integrity_state: string
+  }>
+  created_by_id: number
+  is_owner: boolean
+  created_at: string
+}
+
+export async function fetchSigningDocuments(params: { search?: string; page?: number; perPage?: number } = {}) {
+  const response = await api.get<{ data: SigningDocument[]; meta: { current_page: number; per_page: number; total: number } }>(
+    '/api/pdf/documents',
+    { params: { search: params.search || undefined, page: params.page || undefined, per_page: params.perPage || undefined } },
+  )
+  return response.data
+}
+
+export async function renameSigningDocument(documentUuid: string, reportNumber: string) {
+  const response = await api.patch<{ data: SigningDocument }>(`/api/pdf/documents/${documentUuid}`, {
+    report_number: reportNumber,
+  })
+  return response.data.data
+}
+
+export async function deleteSigningDocument(documentUuid: string) {
+  const response = await api.delete<{ data: { document_uuid: string; report_number: string; deleted_files: number } }>(
+    `/api/pdf/documents/${documentUuid}`,
+  )
+  return response.data.data
+}
+
 export async function fetchPlanningOptions() {
   const response = await api.get<{ data: PlanningOptions }>('/api/pdf/handwritten-signing/options')
   return response.data.data

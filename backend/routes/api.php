@@ -15,6 +15,7 @@ use App\Http\Controllers\EquipmentUsageRecordController;
 use App\Http\Controllers\Pdf\CertificateTemplateController;
 use App\Http\Controllers\Pdf\DigitalSignatureController;
 use App\Http\Controllers\Pdf\HomepageFunctionStampController;
+use App\Http\Controllers\Pdf\PdfDocumentController;
 use App\Http\Controllers\Pdf\PdfFileController;
 use App\Http\Controllers\Pdf\PdfHandwrittenSigningController;
 use App\Http\Controllers\Pdf\PdfPublicRevisionController;
@@ -186,6 +187,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
         // PDF 防篡改系统
         Route::prefix('pdf')->group(function (): void {
             Route::get('/handwritten-signing/options', [PdfHandwrittenSigningController::class, 'planningOptions']);
+            Route::get('/documents', [PdfDocumentController::class, 'index']);
+            Route::patch('/documents/{document:document_uuid}', [PdfDocumentController::class, 'update']);
+            Route::delete('/documents/{document:document_uuid}', [PdfDocumentController::class, 'destroy']);
             Route::post('/signing-sources/inspect', [PdfHandwrittenSigningController::class, 'inspect']);
             Route::post('/signing-sources/{source}/confirm', [PdfHandwrittenSigningController::class, 'confirm']);
             Route::post('/signing-sources/{source}/finalize', [PdfHandwrittenSigningController::class, 'finalize']);

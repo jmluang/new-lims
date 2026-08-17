@@ -70,6 +70,16 @@ describe('navigation active path matching', () => {
     }
   })
 
+  it('shows the signing document list only to holders of its own permission', () => {
+    const withoutIt = visibleNavGroups({ resources: { 'pdf.workflow': { actions: { create: true } } } })
+      .flatMap((group) => group.items.map((item) => item.label))
+    const withIt = visibleNavGroups({ resources: { 'pdf.document': { actions: { read: true } } } })
+      .flatMap((group) => group.items.map((item) => item.label))
+
+    expect(withoutIt).not.toContain('签署文档')
+    expect(withIt).toContain('签署文档')
+  })
+
   it('shows department management inside the system management navigation group', () => {
     const groups = visibleNavGroups({
       resources: {

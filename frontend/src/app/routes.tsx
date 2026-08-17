@@ -24,6 +24,7 @@ import { LoginPage } from '../features/auth/LoginPage'
 import { RegisterPage } from '../features/auth/RegisterPage'
 import { PublicPdfVerifyPage } from '../features/public/PublicPdfVerifyPage'
 import { PublicTestOrderSubmissionPage } from '../features/public/PublicTestOrderSubmissionPage'
+import { PdfDocumentListPage } from '../features/pdf/PdfDocumentListPage'
 import { PdfFileListPage } from '../features/pdf/PdfFileListPage'
 import { PdfSigningPage } from '../features/pdf/PdfSigningPage'
 import { PdfHandwrittenSigningPage } from '../features/pdf/PdfHandwrittenSigningPage'
@@ -387,6 +388,13 @@ const pdfVerifyRoute = createRoute({
   component: PdfVerifyPage,
 })
 
+const pdfDocumentsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/documents',
+  beforeLoad: () => requireRoutePermission('pdf.document'),
+  component: PdfDocumentListPage,
+})
+
 const pdfFilesRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/pdf/files',
@@ -478,6 +486,7 @@ export const routeTree = rootRoute.addChildren([
     pdfSigningRoute,
     pdfHandwrittenSigningRoute,
     pdfVerifyRoute,
+    pdfDocumentsRoute,
     pdfFilesRoute,
     pdfVerificationLogsRoute,
     pdfDigitalSignaturesRoute,
