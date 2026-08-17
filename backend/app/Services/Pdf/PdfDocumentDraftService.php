@@ -33,6 +33,9 @@ final class PdfDocumentDraftService
      */
     private const SETTLED_OPERATION_STATES = ['completed', 'failed', 'irreversible_failed', 'cancelled'];
 
+    /** Revision roles that carry no signature; everything else is evidence of one. */
+    private const UNSIGNED_REVISION_ROLES = ['finalized_unsigned', 'prepared'];
+
     public function __construct(private readonly ReportNumberNormalizer $reportNumbers) {}
 
     public function rename(PdfDocument $document, string $reportNumber, User $actor): PdfDocument
@@ -148,9 +151,11 @@ final class PdfDocumentDraftService
             throw new ConflictHttpException('PDF_DOCUMENT_HAS_RUNNING_WORK');
         }
 
+        // `prepared` holds the empty signature fields created before the first
+        // signature, so it is not evidence of one. Every other role is.
         $signed = PdfFile::query()
             ->where('document_id', $document->id)
-            ->where('revision_role', '!=', 'finalized_unsigned')
+            ->whereNotIn('revision_role', self::UNSIGNED_REVISION_ROLES)
             ->exists();
 
         if ($signed) {

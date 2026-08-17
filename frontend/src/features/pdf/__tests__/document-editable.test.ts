@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editableReason } from '../documentEditable'
+import { editableReason, planReason } from '../documentEditable'
 import type { SigningDocument } from '../handwrittenApi'
 
 // The backend is the authority on this; the list only mirrors it so the buttons
@@ -54,10 +54,39 @@ describe('editableReason', () => {
       revisions: [...draft.revisions, {
         revision_uuid: 'r2',
         revision_number: 2,
-        revision_role: 'handwritten_signature',
+        revision_role: 'approval_signature',
         integrity_state: 'ready',
       }],
     })).toBe('文档已有签名')
+  })
+
+  // prepare_fields adds the empty signature fields before the first signature.
+  // Reading that as "signed" locked documents nobody had signed.
+  it('does not mistake a prepared revision for a signature', () => {
+    const prepared = {
+      ...draft,
+      revisions: [...draft.revisions, {
+        revision_uuid: 'r2',
+        revision_number: 2,
+        revision_role: 'prepared',
+        integrity_state: 'ready',
+      }],
+    }
+
+    expect(editableReason(prepared)).toBeNull()
+    expect(planReason(prepared)).toBeNull()
+  })
+
+  it('holds renaming back while a workflow still owns the document', () => {
+    const live = { ...draft, workflow_uuid: 'wf-1', workflow_status: 'ready' }
+
+    expect(editableReason(live)).toBe('文档有进行中的工作流，请先在编排页取消')
+    // Planning stays open: cancelling it is done from there.
+    expect(planReason(live)).toBeNull()
+  })
+
+  it('frees renaming again once that workflow is cancelled', () => {
+    expect(editableReason({ ...draft, workflow_uuid: 'wf-1', workflow_status: 'cancelled' })).toBeNull()
   })
 
   it('blocks documents where a signer has already signed', () => {

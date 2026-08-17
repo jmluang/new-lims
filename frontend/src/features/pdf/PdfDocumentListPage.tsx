@@ -11,7 +11,7 @@ import {
   type DocumentSigner,
   type SigningDocument,
 } from './handwrittenApi'
-import { editableReason } from './documentEditable'
+import { editableReason, planReason } from './documentEditable'
 
 const stageLabels: Record<string, string> = {
   confirmed_awaiting_finalize: '待定稿',
@@ -154,8 +154,8 @@ export function PdfDocumentListPage() {
                     <PermissionGate resource="pdf.workflow" action="create">
                       <Button
                         variant="ghost"
-                        title={editableReason(document) ?? '编排签名位置与签署人'}
-                        disabled={editableReason(document) !== null}
+                        title={planReason(document) ?? '编排签名位置与签署人'}
+                        disabled={planReason(document) !== null}
                         onClick={() => planDocument(document)}
                       >
                         <PenLine className="size-4" />
@@ -216,7 +216,7 @@ export function PdfDocumentListPage() {
                 <PermissionGate resource="pdf.workflow" action="create">
                   <Button
                     variant="secondary"
-                    disabled={editableReason(document) !== null}
+                    disabled={planReason(document) !== null}
                     onClick={() => planDocument(document)}
                   >
                     <PenLine className="size-4" />
@@ -248,8 +248,8 @@ export function PdfDocumentListPage() {
                   </Button>
                 </PermissionGate>
               </div>
-              {editableReason(document) ? (
-                <p className="mt-2 text-xs text-slate-400">{editableReason(document)}</p>
+              {planReason(document) ?? editableReason(document) ? (
+                <p className="mt-2 text-xs text-slate-400">{planReason(document) ?? editableReason(document)}</p>
               ) : null}
             </article>
           ))}

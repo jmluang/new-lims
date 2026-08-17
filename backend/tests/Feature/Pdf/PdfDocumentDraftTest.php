@@ -127,6 +127,33 @@ class PdfDocumentDraftTest extends TestCase
             ->assertJsonPath('data.report_number', 'CANCELLED-2');
     }
 
+    public function test_a_prepared_revision_is_not_mistaken_for_a_signature(): void
+    {
+        $actor = $this->actor(['pdf.document.update']);
+        $document = $this->document($actor, 'PREPARED-1');
+        // prepare_fields adds the empty signature fields; nothing is signed yet.
+        PdfFile::query()->create([
+            'document_id' => $document->id,
+            'revision_uuid' => (string) Str::uuid(),
+            'revision_number' => 2,
+            'revision_role' => 'prepared',
+            'revision_created_at' => now(),
+            'integrity_state' => 'ready',
+            'file_id' => 'REV-prepared-1',
+            'file_name' => 'report.pdf',
+            'file_path' => 'workflow/revisions/prepared-1/document.pdf',
+            'file_size' => 13,
+            'sha256_hash' => hash('sha256', 'prepared-1'),
+            'md5_hash' => md5('prepared-1'),
+            'signed_at' => now(),
+            'created_by' => $actor->name,
+            'created_by_id' => $actor->id,
+        ]);
+
+        $this->patchJson("/api/pdf/documents/{$document->document_uuid}", ['report_number' => 'PREPARED-2'])
+            ->assertOk();
+    }
+
     public function test_a_published_document_is_protected(): void
     {
         $actor = $this->actor(['pdf.document.delete']);
