@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Clock, FileText, Loader2, Pencil, Search, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, FileText, Loader2, PenLine, Pencil, Search, Trash2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { Button, DataTable, EmptyState, ErrorNotice, LoadingState, Modal, PageShell, PaginationControls, Panel } from '../system/shared'
@@ -71,6 +71,12 @@ export function PdfDocumentListPage() {
   })
 
   const rows = documents.data?.data ?? []
+
+  // Hand the document to the planning workspace, which reloads its finalized
+  // revision and previous plan instead of starting from another upload.
+  function planDocument(document: SigningDocument) {
+    window.location.href = `/pdf/handwritten-signing?document=${encodeURIComponent(document.document_uuid)}#plan`
+  }
 
   return (
     <PageShell
@@ -145,6 +151,16 @@ export function PdfDocumentListPage() {
                 <td className="whitespace-nowrap px-3 py-2 text-slate-700">{formatDateTime(document.created_at)}</td>
                 <td className="px-3 py-2">
                   <div className="flex justify-end gap-1">
+                    <PermissionGate resource="pdf.workflow" action="create">
+                      <Button
+                        variant="ghost"
+                        title={editableReason(document) ?? '编排签名位置与签署人'}
+                        disabled={editableReason(document) !== null}
+                        onClick={() => planDocument(document)}
+                      >
+                        <PenLine className="size-4" />
+                      </Button>
+                    </PermissionGate>
                     <PermissionGate resource="pdf.document" action="update">
                       <Button
                         variant="ghost"
@@ -196,7 +212,17 @@ export function PdfDocumentListPage() {
               <p className="mt-2 text-xs text-slate-400">
                 {document.revisions.length} 个版本 · {formatDateTime(document.created_at)}
               </p>
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
+                <PermissionGate resource="pdf.workflow" action="create">
+                  <Button
+                    variant="secondary"
+                    disabled={editableReason(document) !== null}
+                    onClick={() => planDocument(document)}
+                  >
+                    <PenLine className="size-4" />
+                    编排签名
+                  </Button>
+                </PermissionGate>
                 <PermissionGate resource="pdf.document" action="update">
                   <Button
                     variant="secondary"

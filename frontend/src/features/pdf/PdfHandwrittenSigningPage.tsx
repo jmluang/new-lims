@@ -35,6 +35,7 @@ import {
   type SignatureRole,
 } from './handwrittenApi'
 import { PdfPlacementWorkspace } from './PdfPlacementWorkspace'
+import { resumeDocumentUuid, resumePlanning } from './resumePlanning'
 import { SignaturePad } from './SignaturePad'
 
 const roles: SignatureRole[] = ['inspector', 'reviewer', 'issuer']
@@ -100,7 +101,30 @@ function PlanningWorkspace() {
   const [placements, setPlacements] = useState(defaultPlacements)
   const [selectedRole, setSelectedRole] = useState<SignatureRole>('inspector')
   const [result, setResult] = useState<{ workflow_uuid: string; status: string } | null>(null)
+  const [resumedDocument] = useState(resumeDocumentUuid)
+  const resumeStarted = useRef(false)
   const effectivePolicyVersionUuid = policyVersionUuid || options.data?.policies[0]?.version_uuid || ''
+
+  // Continue an existing document: upload, confirm and finalize already happened,
+  // so planning picks up from the stored revision and the previous plan.
+  const resume = useMutation({
+    mutationFn: resumePlanning,
+    onSuccess: (resumed) => {
+      setFinalized({ revision: resumed.revision, file: resumed.file })
+      setReportNumber(resumed.reportNumber)
+      setWorkflowIdempotencyKey(`workflow-${crypto.randomUUID()}`)
+      setResult(resumed.activeWorkflow)
+      if (resumed.assignments) setAssignments((current) => ({ ...current, ...resumed.assignments }))
+      if (resumed.placements) setPlacements(resumed.placements)
+    },
+  })
+
+  useEffect(() => {
+    if (resumedDocument && !resumeStarted.current) {
+      resumeStarted.current = true
+      resume.mutate(resumedDocument)
+    }
+  }, [resume, resumedDocument])
 
   const inspectSource = useMutation({
     mutationFn: async () => {
@@ -160,8 +184,27 @@ function PlanningWorkspace() {
         emptyMessage={inspected ? '确认报告编号并完成定稿后，将加载定稿 PDF 供位置规划' : '上传并检查 PDF 后，再对定稿版本规划签名位置'}
       />
       <aside className="space-y-4">
+        {resumedDocument ? (
+          <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-5 text-sky-900">
+            {resume.isPending ? (
+              <span className="flex items-center gap-2"><Loader2 className="size-4 animate-spin" />正在载入已有文档…</span>
+            ) : resume.isError ? (
+              <ErrorNotice error={resume.error} fallback="已有文档载入失败" />
+            ) : (
+              <>
+                <p className="font-medium">正在编辑已有文档 · {reportNumber}</p>
+                <p className="mt-1 text-sky-800">
+                  {result
+                    ? '该文档已有工作流。修改签名位置或签署人前，需要先取消当前这一代。'
+                    : '定稿版本已载入，直接调整签名位置和签署人即可。'}
+                </p>
+                <a className="mt-1 inline-block underline" href="/pdf/documents">返回签署文档列表</a>
+              </>
+            )}
+          </div>
+        ) : null}
         <WorkspaceCard title="1. 上传并检查原始 PDF" icon={Upload}>
-          <label className={`block rounded-lg border border-dashed border-emerald-400 bg-emerald-50/60 p-4 text-center transition ${finalized ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-emerald-50'}`}>
+          <label className={`block cursor-pointer rounded-lg border border-dashed border-emerald-400 bg-emerald-50/60 p-4 text-center transition hover:bg-emerald-50 ${finalized ? 'cursor-not-allowed opacity-70' : ''}`}>
             <Upload className="mx-auto size-5 text-emerald-700" />
             <span className="mt-2 block text-sm font-medium text-emerald-900">上传未签名 PDF</span>
             <span className="mt-1 block truncate text-xs text-slate-500">{file?.name ?? '最大 20 MB，不支持加密或已有签名的文件'}</span>
@@ -597,7 +640,8 @@ function ModeButton({ active, href, icon: Icon, children }: { active: boolean; h
 }
 
 function modeFromHash(): WorkspaceMode {
-  return window.location.hash === '#plan' ? 'plan' : 'sign'
+  // Arriving with a document to continue always means planning, whatever the hash.
+  return window.location.hash === '#plan' || resumeDocumentUuid() !== null ? 'plan' : 'sign'
 }
 
 function rect(x: string, y: string, width = '0.24', height = '0.08') {

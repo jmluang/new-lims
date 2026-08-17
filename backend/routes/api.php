@@ -188,6 +188,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::prefix('pdf')->group(function (): void {
             Route::get('/handwritten-signing/options', [PdfHandwrittenSigningController::class, 'planningOptions']);
             Route::get('/documents', [PdfDocumentController::class, 'index']);
+            Route::get('/documents/{document:document_uuid}', [PdfDocumentController::class, 'show']);
             Route::patch('/documents/{document:document_uuid}', [PdfDocumentController::class, 'update']);
             Route::delete('/documents/{document:document_uuid}', [PdfDocumentController::class, 'destroy']);
             Route::post('/signing-sources/inspect', [PdfHandwrittenSigningController::class, 'inspect']);

@@ -59,6 +59,13 @@ class PdfDocumentController extends Controller
         ]);
     }
 
+    public function show(Request $request, PdfDocument $document): JsonResponse
+    {
+        $this->authorizePermission($request, 'pdf.document.read', self::RESOURCE);
+
+        return response()->json(['data' => $this->serialize($document, $request->user())]);
+    }
+
     public function update(
         Request $request,
         PdfDocument $document,

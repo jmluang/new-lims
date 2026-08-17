@@ -45,6 +45,18 @@ class PdfDocumentDraftTest extends TestCase
         $this->assertSame('XDP-BBB', $response->json('data.0.report_number'));
     }
 
+    public function test_a_single_document_can_be_fetched_for_resuming_its_plan(): void
+    {
+        $actor = $this->actor(['pdf.document.read']);
+        $document = $this->document($actor, 'RESUME-1');
+
+        $this->getJson("/api/pdf/documents/{$document->document_uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.report_number', 'RESUME-1')
+            // The planning workspace reloads this revision instead of a new upload.
+            ->assertJsonPath('data.revisions.0.revision_role', 'finalized_unsigned');
+    }
+
     public function test_a_draft_report_number_can_be_corrected(): void
     {
         $actor = $this->actor(['pdf.document.read', 'pdf.document.update']);

@@ -115,6 +115,27 @@ export async function fetchSigningDocuments(params: { search?: string; page?: nu
   return response.data
 }
 
+export async function fetchSigningDocument(documentUuid: string) {
+  const response = await api.get<{ data: SigningDocument }>(`/api/pdf/documents/${documentUuid}`)
+  return response.data.data
+}
+
+export async function fetchSigningWorkflow(workflowUuid: string) {
+  const response = await api.get<{
+    data: {
+      workflow_uuid: string
+      status: string
+      requests: Array<{ sequence: number; semantic_role: SignatureRole; assigned_user_id: number; status: string }>
+      fields: Array<{
+        field_name: string
+        status: string
+        slots: Array<{ page_index: number; normalized_rect: NormalizedRect }>
+      }>
+    }
+  }>(`/api/pdf/signing-workflows/${workflowUuid}`)
+  return response.data.data
+}
+
 export async function renameSigningDocument(documentUuid: string, reportNumber: string) {
   const response = await api.patch<{ data: SigningDocument }>(`/api/pdf/documents/${documentUuid}`, {
     report_number: reportNumber,
