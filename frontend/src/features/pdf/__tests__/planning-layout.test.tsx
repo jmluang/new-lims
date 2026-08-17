@@ -10,6 +10,7 @@ vi.stubGlobal('window', { location: { hash: '#plan', search: '' } })
 
 vi.mock('../resumePlanning', () => ({
   resumeDocumentUuid: () => new URLSearchParams(state.search).get('document'),
+  requestedSigningUuid: () => new URLSearchParams(state.search).get('request'),
   resumePlanning: vi.fn(),
 }))
 
@@ -102,6 +103,15 @@ describe('planning workspace layout', () => {
     expect(canFreeze(null)).toBe(true)
     expect(canFreeze('cancelled')).toBe(true)
     expect(canFreeze('ready')).toBe(false)
+  })
+
+  // A notification links to one task; landing on the planning tab, or on
+  // whichever task happens to be first, would defeat the link.
+  it('opens the signing tab when a notification names a task', async () => {
+    const html = await planningMarkup('?request=req-1')
+
+    expect(html).toContain('手写签名')
+    expect(html).not.toContain('上传并检查原始 PDF')
   })
 
   it('lets the sidebar scroll on its own so the page does not', async () => {

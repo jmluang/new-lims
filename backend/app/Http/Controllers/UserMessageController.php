@@ -47,12 +47,29 @@ class UserMessageController extends Controller
     /**
      * @return array<string, mixed>
      */
+    /**
+     * Only ever hand the client an in-app path.
+     *
+     * The client navigates with this, so a value that turned out to be an
+     * absolute URL — or a protocol-relative one — would send a reader off the
+     * application entirely. Anything that is not a single-slash path is dropped.
+     */
+    private static function safeLinkPath(?string $path): ?string
+    {
+        if ($path === null || ! str_starts_with($path, '/') || str_starts_with($path, '//')) {
+            return null;
+        }
+
+        return $path;
+    }
+
     private function serializeMessage(UserMessage $message): array
     {
         return [
             'id' => $message->id,
             'title' => $message->title,
             'content' => $message->content,
+            'link_path' => self::safeLinkPath($message->link_path),
             'read' => $message->read_at !== null,
             'read_at' => $message->read_at?->toDateTimeString(),
             'created_at' => $message->created_at?->toDateTimeString(),

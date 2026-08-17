@@ -75,7 +75,7 @@ export function PdfDocumentListPage() {
   // Hand the document to the planning workspace, which reloads its finalized
   // revision and previous plan instead of starting from another upload.
   function planDocument(document: SigningDocument) {
-    window.location.href = `/pdf/handwritten-signing?document=${encodeURIComponent(document.document_uuid)}#plan`
+    window.location.assign(`/pdf/handwritten-signing?document=${encodeURIComponent(document.document_uuid)}#plan`)
   }
 
   return (

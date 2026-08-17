@@ -35,7 +35,7 @@ import {
   type SignatureRole,
 } from './handwrittenApi'
 import { PdfPlacementWorkspace } from './PdfPlacementWorkspace'
-import { resumeDocumentUuid, resumePlanning } from './resumePlanning'
+import { requestedSigningUuid, resumeDocumentUuid, resumePlanning } from './resumePlanning'
 import { canFreeze, workflowIdempotencyKey as buildWorkflowIdempotencyKey } from './workflowAttempt'
 import { SignaturePad } from './SignaturePad'
 
@@ -454,7 +454,9 @@ function PlanningWorkspace() {
 function SigningWorkspace() {
   const queryClient = useQueryClient()
   const requests = useQuery({ queryKey: ['pdf', 'handwritten', 'requests'], queryFn: fetchAssignedSigningRequests })
-  const [selectedRequestUuid, setSelectedRequestUuid] = useState('')
+  // A notification links to one task; without this it would open on whichever
+  // happens to be first in the list.
+  const [selectedRequestUuid, setSelectedRequestUuid] = useState(() => requestedSigningUuid() ?? '')
   const effectiveRequestUuid = selectedRequestUuid || requests.data?.[0]?.request_uuid || ''
   const detail = useQuery({
     queryKey: ['pdf', 'handwritten', 'request', effectiveRequestUuid],
@@ -683,6 +685,8 @@ function ModeButton({ active, href, icon: Icon, children }: { active: boolean; h
 
 function modeFromHash(): WorkspaceMode {
   // Arriving with a document to continue always means planning, whatever the hash.
+  if (requestedSigningUuid() !== null) return 'sign'
+
   return window.location.hash === '#plan' || resumeDocumentUuid() !== null ? 'plan' : 'sign'
 }
 

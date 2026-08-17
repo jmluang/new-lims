@@ -38,7 +38,7 @@ final class PdfSigningNotifier
         $already = UserMessage::query()
             ->where('recipient_user_id', $request->assigned_user_id)
             ->where('title', '手写签名待处理')
-            ->where('content', 'like', "%{$request->request_uuid}%")
+            ->where('link_path', 'like', "%{$request->request_uuid}%")
             ->exists();
 
         if ($already) {
@@ -49,7 +49,9 @@ final class PdfSigningNotifier
             'recipient_user_id' => $request->assigned_user_id,
             'sender_user_id' => null,
             'title' => '手写签名待处理',
-            'content' => "报告 {$reportNumber} 需要你完成{$role}手写签名（第 {$request->sequence} 步）。任务编号 {$request->request_uuid}。",
+            'content' => "报告 {$reportNumber} 需要你完成{$role}手写签名（第 {$request->sequence} 步）。",
+            // Straight to the task rather than the list it sits in.
+            'link_path' => '/pdf/handwritten-signing?request='.$request->request_uuid.'#sign',
         ]);
     }
 
@@ -88,6 +90,7 @@ final class PdfSigningNotifier
             'sender_user_id' => $request->assigned_user_id,
             'title' => '手写签名被拒绝',
             'content' => "报告 {$document->authoritative_report_number} 的{$role}签名被拒绝，原因代码 {$reasonCode}。",
+            'link_path' => '/pdf/documents?search='.rawurlencode($document->authoritative_report_number),
         ]);
     }
 

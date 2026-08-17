@@ -93,6 +93,11 @@ export function resumeDocumentUuid(): string | null {
   return new URLSearchParams(window.location.search).get('document')
 }
 
+/** Signing task handed over by a notification, so it opens on the right one. */
+export function requestedSigningUuid(): string | null {
+  return new URLSearchParams(window.location.search).get('request')
+}
+
 /** Field names are generated server-side as lims_{role}_g{generation}. */
 export function roleFromFieldName(fieldName: string): SignatureRole | null {
   const match = /^lims_(inspector|reviewer|issuer)_g\d+$/.exec(fieldName)

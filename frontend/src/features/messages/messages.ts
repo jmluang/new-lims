@@ -16,6 +16,8 @@ export type UserMessage = {
   id: number
   title: string
   content: string
+  /** In-app path this message points at; the server rejects anything else. */
+  link_path?: string | null
   read: boolean
   read_at?: string | null
   created_at?: string | null

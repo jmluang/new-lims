@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'test_order_id',
     'title',
     'content',
+    'link_path',
     'read_at',
 ])]
 class UserMessage extends Model

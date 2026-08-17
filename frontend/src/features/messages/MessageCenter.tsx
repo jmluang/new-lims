@@ -33,6 +33,19 @@ export function MessageCenter() {
     }
   }
 
+  // A full load rather than a router navigation: these paths carry the query and
+  // hash the destination reads on mount to open on the right task.
+  async function openLinked(message: UserMessage) {
+    if (!message.link_path) return
+
+    if (!message.read) {
+      await markRead.mutateAsync(message.id)
+    }
+
+    setOpen(false)
+    window.location.assign(message.link_path)
+  }
+
   return (
     <div className="relative">
       <button
@@ -81,6 +94,16 @@ export function MessageCenter() {
                     {!message.read ? <span className="mt-1 size-2 shrink-0 rounded-full bg-red-500" aria-label="未读" /> : null}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
+                    {message.link_path ? (
+                      <button
+                        className="inline-flex h-8 items-center gap-1 rounded-md border border-emerald-900/15 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-800"
+                        type="button"
+                        onClick={() => void openLinked(message)}
+                      >
+                        <ExternalLink className="size-3.5" aria-hidden="true" />
+                        前往处理
+                      </button>
+                    ) : null}
                     {message.test_order ? (
                       <button
                         className="inline-flex h-8 items-center gap-1 rounded-md border border-emerald-900/15 bg-white px-2 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-800"

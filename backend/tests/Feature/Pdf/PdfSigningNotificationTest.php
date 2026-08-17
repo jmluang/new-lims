@@ -13,6 +13,7 @@ use App\Services\Pdf\CanonicalJson;
 use App\Services\Pdf\PdfSigningNotifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class PdfSigningNotificationTest extends TestCase
@@ -41,7 +42,34 @@ class PdfSigningNotificationTest extends TestCase
         $this->assertSame('手写签名待处理', $message->title);
         $this->assertStringContainsString('XDP-NOTIFY-1', $message->content);
         $this->assertStringContainsString('主检', $message->content);
-        $this->assertStringContainsString($requests[0]->request_uuid, $message->content);
+        // The task id lives in the link now, not in the sentence.
+        $this->assertStringContainsString($requests[0]->request_uuid, (string) $message->link_path);
+    }
+
+    public function test_the_message_links_straight_to_the_task(): void
+    {
+        [, $requests] = $this->workflow();
+
+        app(PdfSigningNotifier::class)->notifyAvailable($requests[0]);
+
+        $this->assertSame(
+            "/pdf/handwritten-signing?request={$requests[0]->request_uuid}#sign",
+            UserMessage::query()->sole()->link_path,
+        );
+    }
+
+    public function test_the_api_refuses_to_hand_out_an_offsite_link(): void
+    {
+        [, $requests] = $this->workflow();
+        app(PdfSigningNotifier::class)->notifyAvailable($requests[0]);
+        $recipient = User::query()->findOrFail($requests[0]->assigned_user_id);
+        // Whatever put it there, the client navigates with this value.
+        UserMessage::query()->sole()->update(['link_path' => '//evil.example/phish']);
+        Sanctum::actingAs($recipient);
+
+        $this->getJson('/api/messages')
+            ->assertOk()
+            ->assertJsonPath('data.0.link_path', null);
     }
 
     public function test_a_replayed_transition_does_not_notify_twice(): void
