@@ -9,7 +9,11 @@ import type { SigningDocument } from './handwrittenApi'
  */
 export function editableReason(document: SigningDocument): string | null {
   if (!document.is_owner) return '只有创建者可以修改或删除'
-  if (document.stage === 'published' || document.status !== 'draft') return '已发布的文档不可修改'
+  // A cancelled document had its workflow abandoned before anything was signed,
+  // so it is still as open as a draft.
+  if (document.stage === 'published' || !['draft', 'cancelled'].includes(document.status)) {
+    return '已发布的文档不可修改'
+  }
   if (document.evidence_hold_state !== 'none') return '文档处于证据保全中'
   if (document.integrity_state !== 'ok') return '文档处于完整性保护中'
   if (document.has_running_work) return '文档有进行中的任务'

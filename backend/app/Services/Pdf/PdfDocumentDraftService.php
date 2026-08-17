@@ -124,7 +124,11 @@ final class PdfDocumentDraftService
             throw new ConflictHttpException('PDF_DOCUMENT_NOT_OWNED');
         }
 
-        if ($document->status !== 'draft' || $document->published_revision_id !== null
+        // A cancelled document is as uncommitted as a fresh one: its workflow was
+        // abandoned before anything was signed, and the signed-revision and
+        // active-work checks below still stand guard.
+        if (! in_array($document->status, ['draft', 'cancelled'], true)
+            || $document->published_revision_id !== null
             || (int) $document->publication_version !== 0) {
             throw new ConflictHttpException('PDF_DOCUMENT_NOT_A_DRAFT');
         }

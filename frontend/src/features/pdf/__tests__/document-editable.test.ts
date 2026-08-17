@@ -30,6 +30,12 @@ describe('editableReason', () => {
     expect(editableReason({ ...draft, is_owner: false })).toBe('只有创建者可以修改或删除')
   })
 
+  // Cancelling a workflow marks the document cancelled, but nothing was signed,
+  // so it must stay open for a new plan.
+  it('still allows a document whose workflow was cancelled', () => {
+    expect(editableReason({ ...draft, status: 'cancelled', stage: 'cancelled' })).toBeNull()
+  })
+
   it('blocks published documents', () => {
     expect(editableReason({ ...draft, status: 'published', stage: 'published' })).toBe('已发布的文档不可修改')
   })

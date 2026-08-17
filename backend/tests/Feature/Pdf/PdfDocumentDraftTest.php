@@ -115,6 +115,18 @@ class PdfDocumentDraftTest extends TestCase
         $this->assertSame(1, PdfDocument::query()->count());
     }
 
+    public function test_a_cancelled_document_can_still_be_corrected_or_removed(): void
+    {
+        $actor = $this->actor(['pdf.document.update']);
+        $document = $this->document($actor, 'CANCELLED-1');
+        // Cancelling a workflow leaves the document cancelled with nothing signed.
+        $document->update(['status' => 'cancelled']);
+
+        $this->patchJson("/api/pdf/documents/{$document->document_uuid}", ['report_number' => 'CANCELLED-2'])
+            ->assertOk()
+            ->assertJsonPath('data.report_number', 'CANCELLED-2');
+    }
+
     public function test_a_published_document_is_protected(): void
     {
         $actor = $this->actor(['pdf.document.delete']);

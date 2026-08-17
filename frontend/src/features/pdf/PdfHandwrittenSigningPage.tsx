@@ -36,6 +36,7 @@ import {
 } from './handwrittenApi'
 import { PdfPlacementWorkspace } from './PdfPlacementWorkspace'
 import { resumeDocumentUuid, resumePlanning } from './resumePlanning'
+import { canFreeze, workflowIdempotencyKey as buildWorkflowIdempotencyKey } from './workflowAttempt'
 import { SignaturePad } from './SignaturePad'
 
 const roles: SignatureRole[] = ['inspector', 'reviewer', 'issuer']
@@ -100,6 +101,7 @@ function PlanningWorkspace() {
   const [editedPlacements, setPlacements] = useState<Placement[] | null>(null)
   const [selectedRole, setSelectedRole] = useState<SignatureRole>('inspector')
   const [showCoordinates, setShowCoordinates] = useState(false)
+  const [attemptKey, setAttemptKey] = useState<string | null>(null)
   const [workflowResult, setResult] = useState<{ workflow_uuid: string; status: string } | null>(null)
   const [resumedDocument] = useState(resumeDocumentUuid)
   const effectivePolicyVersionUuid = policyVersionUuid || options.data?.policies[0]?.version_uuid || ''
@@ -125,8 +127,12 @@ function PlanningWorkspace() {
     ?? resume.data?.assignments
     ?? { inspector: 0, reviewer: 0, issuer: 0 }
   const result = workflowResult ?? resume.data?.activeWorkflow ?? null
-  const workflowIdempotencyKey = uploadedIdempotencyKey
-    || (resume.data ? `workflow-${resumedDocument}-${resume.data.revision.revision_uuid}` : '')
+  const workflowIdempotencyKey = buildWorkflowIdempotencyKey({
+    uploaded: uploadedIdempotencyKey,
+    attempt: attemptKey,
+    documentUuid: resumedDocument,
+    revisionUuid: resume.data?.revision.revision_uuid ?? null,
+  })
 
   const inspectSource = useMutation({
     mutationFn: async () => {
@@ -160,7 +166,12 @@ function PlanningWorkspace() {
   const cancel = useMutation({
     mutationFn: ({ workflowUuid }: { workflowUuid: string }) =>
       cancelSigningWorkflow(workflowUuid, 'PLANNER_CANCELLED'),
-    onSuccess: setResult,
+    onSuccess: (cancelled) => {
+      setResult(cancelled)
+      // The next freeze must be a new generation. Reusing the key would replay
+      // the cancelled workflow instead of creating one.
+      setAttemptKey(`workflow-${crypto.randomUUID()}`)
+    },
   })
   const selected = placements.find((placement) => placement.semantic_role === selectedRole)!
   const ready = Boolean(
@@ -417,6 +428,10 @@ function PlanningWorkspace() {
           </div>
         ) : null}
         {cancel.isError ? <ErrorNotice error={cancel.error} fallback="工作流取消失败" /> : null}
+        {/* Already frozen: the fields are committed and there is nothing left to
+            freeze. It comes back once the workflow is cancelled, since that
+            leaves the document free for a new generation. */}
+        {canFreeze(result?.status) ? (
         <Button
           variant="primary"
           className="w-full"
@@ -433,8 +448,9 @@ function PlanningWorkspace() {
           }
         >
           {create.isPending ? <Loader2 className="size-4 animate-spin" /> : <LockKeyhole className="size-4" />}
-          冻结字段并创建任务
+          {result?.status === 'cancelled' ? '重新冻结字段并创建任务' : '冻结字段并创建任务'}
         </Button>
+        ) : null}
 
       </aside>
     </div>
