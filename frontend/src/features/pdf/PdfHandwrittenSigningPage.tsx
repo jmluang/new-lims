@@ -93,38 +93,40 @@ function PlanningWorkspace() {
   const options = useQuery({ queryKey: ['pdf', 'handwritten', 'options'], queryFn: fetchPlanningOptions })
   const [file, setFile] = useState<File | null>(null)
   const [inspected, setInspected] = useState<Awaited<ReturnType<typeof inspectSigningSource>> | null>(null)
-  const [finalized, setFinalized] = useState<Awaited<ReturnType<typeof confirmAndFinalizeSigningSource>> | null>(null)
-  const [workflowIdempotencyKey, setWorkflowIdempotencyKey] = useState('')
-  const [reportNumber, setReportNumber] = useState('')
+  const [uploadedFinalized, setFinalized] = useState<Awaited<ReturnType<typeof confirmAndFinalizeSigningSource>> | null>(null)
+  const [uploadedIdempotencyKey, setWorkflowIdempotencyKey] = useState('')
+  const [editedReportNumber, setReportNumber] = useState<string | null>(null)
   const [policyVersionUuid, setPolicyVersionUuid] = useState('')
-  const [assignments, setAssignments] = useState({ inspector: 0, reviewer: 0, issuer: 0 })
-  const [placements, setPlacements] = useState(defaultPlacements)
+  const [editedAssignments, setAssignments] = useState<Record<SignatureRole, number> | null>(null)
+  const [editedPlacements, setPlacements] = useState<Placement[] | null>(null)
   const [selectedRole, setSelectedRole] = useState<SignatureRole>('inspector')
-  const [result, setResult] = useState<{ workflow_uuid: string; status: string } | null>(null)
+  const [workflowResult, setResult] = useState<{ workflow_uuid: string; status: string } | null>(null)
   const [resumedDocument] = useState(resumeDocumentUuid)
-  const resumeStarted = useRef(false)
   const effectivePolicyVersionUuid = policyVersionUuid || options.data?.policies[0]?.version_uuid || ''
 
-  // Continue an existing document: upload, confirm and finalize already happened,
-  // so planning picks up from the stored revision and the previous plan.
-  const resume = useMutation({
-    mutationFn: resumePlanning,
-    onSuccess: (resumed) => {
-      setFinalized({ revision: resumed.revision, file: resumed.file })
-      setReportNumber(resumed.reportNumber)
-      setWorkflowIdempotencyKey(`workflow-${crypto.randomUUID()}`)
-      setResult(resumed.activeWorkflow)
-      if (resumed.assignments) setAssignments((current) => ({ ...current, ...resumed.assignments }))
-      if (resumed.placements) setPlacements(resumed.placements)
-    },
+  // Continuing an existing document is a read, not a mutation: upload, confirm
+  // and finalize already happened. A query also keys the work to the document,
+  // so StrictMode's remount cannot fire it — or re-download the PDF — twice.
+  const resume = useQuery({
+    queryKey: ['pdf', 'documents', resumedDocument, 'resume'],
+    queryFn: () => resumePlanning(resumedDocument as string),
+    enabled: resumedDocument !== null,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
   })
 
-  useEffect(() => {
-    if (resumedDocument && !resumeStarted.current) {
-      resumeStarted.current = true
-      resume.mutate(resumedDocument)
-    }
-  }, [resume, resumedDocument])
+  // Local edits win; otherwise fall back to what was resumed, then to defaults.
+  const finalized = uploadedFinalized
+    ?? (resume.data ? { revision: resume.data.revision, file: resume.data.file } : null)
+  const reportNumber = editedReportNumber ?? resume.data?.reportNumber ?? ''
+  const placements = editedPlacements ?? resume.data?.placements ?? defaultPlacements
+  const assignments = editedAssignments
+    ?? resume.data?.assignments
+    ?? { inspector: 0, reviewer: 0, issuer: 0 }
+  const result = workflowResult ?? resume.data?.activeWorkflow ?? null
+  const workflowIdempotencyKey = uploadedIdempotencyKey
+    || (resume.data ? `workflow-${resumedDocument}-${resume.data.revision.revision_uuid}` : '')
 
   const inspectSource = useMutation({
     mutationFn: async () => {
@@ -166,9 +168,10 @@ function PlanningWorkspace() {
       && assignments.inspector && assignments.reviewer && assignments.issuer,
   )
 
+  // Edits start from the effective plan, which may still be the resumed one.
   function updateSelected(patch: Partial<Placement>) {
-    setPlacements((current) =>
-      current.map((placement) => (placement.semantic_role === selectedRole ? { ...placement, ...patch } : placement)),
+    setPlacements(
+      placements.map((placement) => (placement.semantic_role === selectedRole ? { ...placement, ...patch } : placement)),
     )
   }
 
@@ -329,7 +332,7 @@ function PlanningWorkspace() {
                 <select
                   className={`${inputClass} mt-1`}
                   value={assignments[role] || ''}
-                  onChange={(event) => setAssignments((current) => ({ ...current, [role]: Number(event.target.value) }))}
+                  onChange={(event) => setAssignments({ ...assignments, [role]: Number(event.target.value) })}
                 >
                   <option value="">请选择</option>
                   {options.data?.assignees.map((user) => (
