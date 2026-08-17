@@ -4,6 +4,7 @@ import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPagePr
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '../../lib/utils'
 import type { Placement, SignatureRole } from './handwrittenApi'
+import { applyDrag, type DragState } from './placementDrag'
 import { placementPagesReady, samePlacements } from './placementReady'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -20,15 +21,6 @@ const roleColors: Record<SignatureRole, string> = {
   issuer: 'border-emerald-700 bg-emerald-500/10 text-emerald-800',
 }
 
-type DragState = {
-  role: SignatureRole
-  mode: 'move' | 'resize'
-  startX: number
-  startY: number
-  rect: { x: number; y: number; width: number; height: number }
-  pageWidth: number
-  pageHeight: number
-}
 
 export function PdfPlacementWorkspace({
   file,
@@ -51,7 +43,9 @@ export function PdfPlacementWorkspace({
 }) {
   const [loaded, setLoaded] = useState<{ source: File | Blob; document: PDFDocumentProxy } | null>(null)
   const [loadError, setLoadError] = useState<{ source: File | Blob; message: string } | null>(null)
-  const [drag, setDrag] = useState<DragState | null>(null)
+  // Only the pointer handlers ever read this, and nothing renders from it, so a
+  // ref keeps a drag from costing two renders it has no use for.
+  const dragRef = useRef<DragState | null>(null)
   // Pages report their measured size once rendered. Placement boxes are
   // positioned as percentages of that size, so before it arrives they sit in a
   // 1x1 box — present in the DOM but not yet where they belong.
@@ -117,41 +111,46 @@ export function PdfPlacementWorkspace({
     scrolledTo.current = file
   })
 
-  // Memoized pages keep the handler they last rendered with, so this must never
-  // read a captured copy of the plan — a stale one would write back an old
-  // array and undo edits made to other pages since.
+  // A memoized page keeps the handlers it last rendered with, so nothing here
+  // may read captured state. `drag` is set on pointerdown by a render this page
+  // skips, and a captured plan would write back an array that predates edits
+  // made to other pages.
   const placementsRef = useRef(placements)
+  const changeRef = useRef(onChange)
   useEffect(() => {
     placementsRef.current = placements
-  }, [placements])
+    changeRef.current = onChange
+  }, [placements, onChange])
+
+  // Written straight from the pointer handlers: waiting for an effect to sync
+  // this would drop the first move of every drag.
+  const startDrag = useCallback((next: DragState) => {
+    dragRef.current = next
+  }, [])
+  const endDrag = useCallback(() => {
+    dragRef.current = null
+  }, [])
+
+  // Pointer events outpace the screen, so coalesce them into one update per
+  // frame instead of re-rendering for every move.
+  const pendingFrame = useRef<number | null>(null)
+  useEffect(() => () => {
+    if (pendingFrame.current !== null) cancelAnimationFrame(pendingFrame.current)
+  }, [])
 
   function updateDrag(event: React.PointerEvent<HTMLDivElement>, pageIndex: number) {
-    if (!drag || !onChange) return
-    const dx = (event.clientX - drag.startX) / drag.pageWidth
-    const dy = (event.clientY - drag.startY) / drag.pageHeight
-    const minimum = 0.035
-    const next = placementsRef.current.map((placement) => {
-      if (placement.semantic_role !== drag.role || placement.page_index !== pageIndex) return placement
-      let { x, y, width, height } = drag.rect
-      if (drag.mode === 'move') {
-        x = clamp(x + dx, 0, 1 - width)
-        y = clamp(y + dy, 0, 1 - height)
-      } else {
-        width = clamp(width + dx, minimum, 1 - x)
-        height = clamp(height + dy, minimum, 1 - y)
-      }
+    const currentDrag = dragRef.current
+    if (!currentDrag || !changeRef.current) return
+    const { clientX, clientY } = event
 
-      return {
-        ...placement,
-        normalized_rect: {
-          x: decimal(x),
-          y: decimal(y),
-          width: decimal(width),
-          height: decimal(height),
-        },
-      }
+    if (pendingFrame.current !== null) return
+    pendingFrame.current = requestAnimationFrame(() => {
+      pendingFrame.current = null
+      const latestDrag = dragRef.current
+      const onLatestChange = changeRef.current
+      if (!latestDrag || !onLatestChange) return
+      onLatestChange(applyDrag(placementsRef.current, latestDrag, pageIndex, clientX, clientY))
     })
-    onChange(next)
   }
 
   if (!file) {
@@ -210,9 +209,9 @@ export function PdfPlacementWorkspace({
             selectedRole={selectedRole}
             signaturePreview={signaturePreview}
             onSelectRole={onSelectRole}
-            onDragStart={setDrag}
+            onDragStart={startDrag}
             onDrag={(event) => updateDrag(event, pageIndex)}
-            onDragEnd={() => setDrag(null)}
+            onDragEnd={endDrag}
           />
         ))}
       </div>
@@ -364,10 +363,4 @@ function numericRect(placement: Placement) {
   }
 }
 
-function clamp(value: number, minimum: number, maximum: number) {
-  return Math.min(Math.max(value, minimum), maximum)
-}
 
-function decimal(value: number) {
-  return value.toFixed(6)
-}
