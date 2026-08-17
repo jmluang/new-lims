@@ -16,8 +16,9 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, ErrorNotice, PageShell } from '../system/shared'
+import { Button, ErrorNotice, Modal, PageShell } from '../system/shared'
 import { inputClass } from '../system/utils'
+import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { reportNumberFromFileName } from './api'
 import {
   cancelSigningWorkflow,
@@ -62,6 +63,9 @@ type WorkspaceMode = 'plan' | 'sign'
 
 export function PdfHandwrittenSigningPage() {
   const [mode, setMode] = useState<WorkspaceMode>(modeFromHash)
+  // Planning who signs is a different job from signing; a signer who cannot
+  // plan should not be shown the tab, let alone land on it.
+  const canPlan = useEffectivePermissions().data?.resources['pdf.workflow']?.actions.create ?? false
 
   useEffect(() => {
     const syncMode = () => setMode(modeFromHash())
@@ -74,17 +78,19 @@ export function PdfHandwrittenSigningPage() {
       title="手写数字签名工作台"
       description="先把全部签名字段冻结到首个签名前，再由主检、审核、签发依次手写并使用单位证书生成增量 PAdES-B-T 数字签名。"
       actions={
-        <div className="inline-flex rounded-lg border border-emerald-900/15 bg-white p-1 shadow-sm">
-          <ModeButton active={mode === 'sign'} href="/pdf/handwritten-signing#sign" icon={PenTool}>
-            我的签名任务
-          </ModeButton>
-          <ModeButton active={mode === 'plan'} href="/pdf/handwritten-signing#plan" icon={Grip}>
-            规划签名位置
-          </ModeButton>
-        </div>
+        canPlan ? (
+          <div className="inline-flex rounded-lg border border-emerald-900/15 bg-white p-1 shadow-sm">
+            <ModeButton active={mode === 'sign'} href="/pdf/handwritten-signing#sign" icon={PenTool}>
+              我的签名任务
+            </ModeButton>
+            <ModeButton active={mode === 'plan'} href="/pdf/handwritten-signing#plan" icon={Grip}>
+              规划签名位置
+            </ModeButton>
+          </div>
+        ) : null
       }
     >
-      {mode === 'plan' ? <PlanningWorkspace /> : <SigningWorkspace />}
+      {mode === 'plan' && canPlan ? <PlanningWorkspace /> : <SigningWorkspace />}
     </PageShell>
   )
 }
@@ -458,6 +464,9 @@ function SigningWorkspace() {
   // happens to be first in the list.
   const [selectedRequestUuid, setSelectedRequestUuid] = useState(() => requestedSigningUuid() ?? '')
   const effectiveRequestUuid = selectedRequestUuid || requests.data?.[0]?.request_uuid || ''
+  const [taskPickerOpen, setTaskPickerOpen] = useState(false)
+  const current = requests.data?.find((request) => request.request_uuid === effectiveRequestUuid) ?? null
+  const taskCount = requests.data?.length ?? 0
   const detail = useQuery({
     queryKey: ['pdf', 'handwritten', 'request', effectiveRequestUuid],
     queryFn: () => fetchSigningRequest(effectiveRequestUuid),
@@ -531,44 +540,33 @@ function SigningWorkspace() {
   )
 
   return (
-    <div className="grid min-h-0 gap-4 xl:grid-cols-[17rem_minmax(0,1fr)_23rem]">
-      <aside className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-900">待我签名</h2>
-          <p className="mt-1 text-xs text-slate-500">任务严格按主检 → 审核 → 签发开放</p>
-        </div>
-        <div className="max-h-[72vh] space-y-2 overflow-y-auto p-2">
-          {requests.isLoading ? <div className="p-4 text-center text-xs text-slate-500">正在加载…</div> : null}
-          {requests.isError ? <ErrorNotice error={requests.error} fallback="签名任务加载失败" /> : null}
-          {requests.data?.length === 0 ? <div className="p-6 text-center text-xs text-slate-500">当前没有轮到你的任务</div> : null}
-          {requests.data?.map((request) => (
-            <button
-              key={request.request_uuid}
-              type="button"
-              className={`w-full rounded-lg border p-3 text-left transition ${
-                effectiveRequestUuid === request.request_uuid
-                  ? 'border-emerald-500 bg-emerald-50 shadow-sm'
-                  : 'border-slate-200 bg-white hover:border-emerald-300'
-              }`}
-              onClick={() => {
-                setSelectedRequestUuid(request.request_uuid)
-                setOperationUuid('')
-                setPreviewUrl(null)
-                setSignatureReady(false)
-                padRef.current?.clear()
-              }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-emerald-800">{roleLabels[request.semantic_role]}</span>
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">第 {request.sequence} 步</span>
+    <div className="space-y-3">
+      {/* Picking a task is a moment, not a permanent fixture: it took a column
+          away from the two things this page is actually for. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-900/10 bg-white px-4 py-2.5 shadow-sm">
+        <div className="min-w-0">
+          {current ? (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-800">
+                  {roleLabels[current.semantic_role]}
+                </span>
+                <span className="truncate text-sm font-medium text-slate-900">{current.report_number}</span>
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">第 {current.sequence} 步</span>
               </div>
-              <div className="mt-2 truncate text-sm font-medium text-slate-900">{request.report_number}</div>
-              <div className="mt-1 truncate text-[10px] text-slate-400">{request.request_uuid}</div>
-            </button>
-          ))}
+              <p className="mt-0.5 text-xs text-slate-500">任务严格按主检 → 审核 → 签发开放</p>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500">当前没有轮到你的任务</p>
+          )}
         </div>
-      </aside>
+        <Button variant="secondary" onClick={() => setTaskPickerOpen(true)}>
+          <RefreshCw className="size-4" />
+          切换任务{taskCount > 1 ? `（${taskCount}）` : ''}
+        </Button>
+      </div>
 
+      <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-14rem)] xl:grid-cols-[minmax(0,1fr)_30rem]">
       <PdfPlacementWorkspace
         file={revision.data ?? null}
         placements={placements}
@@ -584,7 +582,12 @@ function SigningWorkspace() {
               <div><span className="text-slate-400">字段</span><div className="mt-1 truncate font-medium">{detail.data.field.field_name}</div></div>
             </div>
           ) : null}
-          <SignaturePad onPreviewChange={setPreviewUrl} onReadyChange={setSignatureReady} padRef={padRef} />
+          <SignaturePad
+            onPreviewChange={setPreviewUrl}
+            onReadyChange={setSignatureReady}
+            padRef={padRef}
+            heightClass="h-72 sm:h-80"
+          />
         </WorkspaceCard>
 
         <WorkspaceCard title="身份确认与数字签名" icon={LockKeyhole}>
@@ -637,6 +640,43 @@ function SigningWorkspace() {
         {operation.data ? <OperationState operation={operation.data} /> : null}
         {operation.isError ? <ErrorNotice error={operation.error} fallback="签名状态查询失败" /> : null}
       </aside>
+      </div>
+
+      <Modal open={taskPickerOpen} title="待我签名" onClose={() => setTaskPickerOpen(false)}>
+        <p className="mb-3 text-xs text-slate-500">任务严格按主检 → 审核 → 签发开放。</p>
+        {requests.isLoading ? <div className="p-4 text-center text-xs text-slate-500">正在加载…</div> : null}
+        {requests.isError ? <ErrorNotice error={requests.error} fallback="签名任务加载失败" /> : null}
+        {taskCount === 0 && !requests.isLoading ? (
+          <div className="p-6 text-center text-sm text-slate-500">当前没有轮到你的任务</div>
+        ) : null}
+        <div className="space-y-2">
+          {requests.data?.map((request) => (
+            <button
+              key={request.request_uuid}
+              type="button"
+              className={`w-full rounded-lg border p-3 text-left transition ${
+                effectiveRequestUuid === request.request_uuid
+                  ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                  : 'border-slate-200 bg-white hover:border-emerald-300'
+              }`}
+              onClick={() => {
+                setSelectedRequestUuid(request.request_uuid)
+                setOperationUuid('')
+                setPreviewUrl(null)
+                setSignatureReady(false)
+                padRef.current?.clear()
+                setTaskPickerOpen(false)
+              }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-emerald-800">{roleLabels[request.semantic_role]}</span>
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">第 {request.sequence} 步</span>
+              </div>
+              <div className="mt-2 truncate text-sm font-medium text-slate-900">{request.report_number}</div>
+            </button>
+          ))}
+        </div>
+      </Modal>
     </div>
   )
 }

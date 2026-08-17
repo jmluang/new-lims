@@ -6,10 +6,13 @@ export function SignaturePad({
   onPreviewChange,
   onReadyChange,
   padRef,
+  heightClass = 'h-56',
 }: {
   onPreviewChange: (preview: string | null) => void
   onReadyChange: (ready: boolean) => void
   padRef: React.MutableRefObject<{ toBlob: () => Promise<Blob>; clear: () => void } | null>
+  /** Signing is the point of its page, so it asks for a taller pad than a preview does. */
+  heightClass?: string
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
@@ -126,7 +129,7 @@ export function SignaturePad({
           ref={canvasRef}
           width={900}
           height={320}
-          className="block h-56 w-full touch-none cursor-crosshair"
+          className={`block w-full touch-none cursor-crosshair ${heightClass}`}
           aria-label="手写签名区域"
           onPointerDown={(event) => {
             if (event.pointerType === 'mouse') return

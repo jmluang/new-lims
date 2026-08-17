@@ -53,6 +53,18 @@ class CanonicalAcceptanceSeeder extends Seeder
             'pdf.organization_key.use',
             'pdf.revision.download',
         ]);
+        // The counterpart to pdf_signer: preparing a report for signing is its
+        // own job, and it should not require a super admin.
+        $pdfPlanner = $this->group('pdf_planner', [
+            'pdf.workflow.read',
+            'pdf.workflow.create',
+            'pdf.workflow.cancel',
+            'pdf.document.read',
+            'pdf.document.update',
+            'pdf.document.delete',
+            'pdf.request.read',
+            'pdf.revision.download',
+        ]);
         $customerViewer = $this->group('customer_viewer', [
             'customers.read',
             'customer_contacts.read',
@@ -161,7 +173,7 @@ class CanonicalAcceptanceSeeder extends Seeder
         $this->user('customer_viewer@example.test', 'Customer Viewer', 'active', $customerViewer, extraRoles: [$pdfSigner]);
         $this->user('customer_editor@example.test', 'Customer Editor', 'active', $customerEditor, extraRoles: [$pdfSigner]);
         $this->user('equipment_manager@example.test', 'Equipment Manager', 'active', $equipmentManager);
-        $this->user('test_order_manager@example.test', 'Test Order Manager', 'active', $testOrderManager);
+        $this->user('test_order_manager@example.test', 'Test Order Manager', 'active', $testOrderManager, extraRoles: [$pdfPlanner]);
         $this->user('sample_manager@example.test', 'Sample Manager', 'active', $sampleManager);
         $this->user('auditor@example.test', 'Auditor', 'active', $auditor);
         $this->user('locked_user@example.test', 'Locked User', 'locked', $customerViewer, locked: true);

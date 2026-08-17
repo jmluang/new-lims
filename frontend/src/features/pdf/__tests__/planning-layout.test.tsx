@@ -7,6 +7,15 @@ const state = vi.hoisted(() => ({ search: '' }))
 // renderToStaticMarkup does not run effects, so the component only reads
 // location.hash. Stub that rather than pulling in a DOM environment.
 vi.stubGlobal('window', { location: { hash: '#plan', search: '' } })
+vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} })
+
+// The planning tab is permission-gated; these tests are about its layout, so
+// grant it and let the gating have its own test.
+vi.mock('../../auth/useCurrentUser', () => ({
+  useEffectivePermissions: () => ({
+    data: { resources: { 'pdf.workflow': { actions: { create: true }, fields: {} } } },
+  }),
+}))
 
 vi.mock('../resumePlanning', () => ({
   resumeDocumentUuid: () => new URLSearchParams(state.search).get('document'),
