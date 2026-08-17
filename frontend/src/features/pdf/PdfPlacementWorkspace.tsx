@@ -31,6 +31,7 @@ export function PdfPlacementWorkspace({
   onChange,
   signaturePreview,
   emptyMessage,
+  onPageSize,
 }: {
   file: File | Blob | null
   placements: Placement[]
@@ -40,6 +41,8 @@ export function PdfPlacementWorkspace({
   onChange?: (placements: Placement[]) => void
   signaturePreview?: string | null
   emptyMessage?: string
+  /** Reports a page's rendered size, so callers can reason in page proportions. */
+  onPageSize?: (pageIndex: number, size: { width: number; height: number }) => void
 }) {
   const [loaded, setLoaded] = useState<{ source: File | Blob; document: PDFDocumentProxy } | null>(null)
   const [loadError, setLoadError] = useState<{ source: File | Blob; message: string } | null>(null)
@@ -58,7 +61,12 @@ export function PdfPlacementWorkspace({
   useEffect(() => {
     fileRef.current = file
   }, [file])
-  const markMeasured = useCallback((pageIndex: number) => {
+  const sizeRef = useRef(onPageSize)
+  useEffect(() => {
+    sizeRef.current = onPageSize
+  }, [onPageSize])
+  const markMeasured = useCallback((pageIndex: number, pageSize: { width: number; height: number }) => {
+    sizeRef.current?.(pageIndex, pageSize)
     const source = fileRef.current
     if (!source) return
     setMeasured((current) => {
@@ -239,7 +247,7 @@ const PdfPage = memo(function PdfPage({
   editable: boolean
   selectedRole?: SignatureRole
   signaturePreview?: string | null
-  onMeasured: (pageIndex: number) => void
+  onMeasured: (pageIndex: number, size: { width: number; height: number }) => void
   onSelectRole?: (role: SignatureRole) => void
   onDragStart: (drag: DragState) => void
   onDrag: (event: React.PointerEvent<HTMLDivElement>) => void
@@ -282,8 +290,8 @@ const PdfPage = memo(function PdfPage({
     measuredRef.current = onMeasured
   }, [onMeasured])
   useEffect(() => {
-    if (size.width > 1) measuredRef.current(pageIndex)
-  }, [size.width, pageIndex])
+    if (size.width > 1) measuredRef.current(pageIndex, size)
+  }, [size, pageIndex])
 
   return (
     <div id={`pdf-page-${pageIndex}`} className="mx-auto w-fit max-w-full">

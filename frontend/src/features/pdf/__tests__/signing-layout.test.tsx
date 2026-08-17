@@ -64,11 +64,14 @@ describe('signing workspace', () => {
     expect(html).toContain('xl:grid-cols-[minmax(0,1fr)_24rem]')
   })
 
-  it('gives the signature pad the room the page is for', async () => {
+  it('draws the pad as a wide rectangle rather than a near square', async () => {
     const html = await markup(false)
 
-    // The pad used to be h-56 inside a 23rem column; signing is the point here.
-    expect(html).toMatch(/h-72/)
+    // A fixed height in a narrow column made the pad nearly square while its
+    // canvas stayed 900x320, so every stroke was stretched sideways on the way
+    // in. The display now follows the canvas.
+    expect(html).toMatch(/aspect-ratio:\s*2\.8/)
     expect(html).not.toMatch(/class="[^"]*\bh-56\b/)
+    expect(html).not.toMatch(/class="[^"]*\bh-72\b/)
   })
 })

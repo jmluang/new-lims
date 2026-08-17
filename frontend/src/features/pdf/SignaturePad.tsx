@@ -3,17 +3,26 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '../system/shared'
 import { inkBounds } from './inkCrop'
 
+/** Backing resolution; the height follows from the requested aspect ratio. */
+const CANVAS_WIDTH = 900
+
 export function SignaturePad({
   onPreviewChange,
   onReadyChange,
   padRef,
-  heightClass = 'h-56',
+  aspectRatio = 900 / 320,
 }: {
   onPreviewChange: (preview: string | null) => void
   onReadyChange: (ready: boolean) => void
   padRef: React.MutableRefObject<{ toBlob: () => Promise<Blob>; clear: () => void } | null>
-  /** Signing is the point of its page, so it asks for a taller pad than a preview does. */
-  heightClass?: string
+  /**
+   * Width over height of the drawing surface.
+   *
+   * The display has to match the canvas it is backed by. When it did not, a
+   * stroke drawn in a near-square box was mapped onto a 900x320 canvas and came
+   * out stretched sideways — the stored signature was not the one written.
+   */
+  aspectRatio?: number
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
@@ -148,9 +157,10 @@ export function SignaturePad({
       <div className="relative overflow-hidden rounded-xl border border-slate-300 bg-[linear-gradient(to_right,transparent_49.8%,rgb(148_163_184/0.18)_50%,transparent_50.2%),linear-gradient(to_bottom,transparent_49.8%,rgb(148_163_184/0.18)_50%,transparent_50.2%)] shadow-inner">
         <canvas
           ref={canvasRef}
-          width={900}
-          height={320}
-          className={`block w-full touch-none cursor-crosshair ${heightClass}`}
+          width={CANVAS_WIDTH}
+          height={Math.round(CANVAS_WIDTH / aspectRatio)}
+          style={{ aspectRatio }}
+          className="block w-full touch-none cursor-crosshair"
           aria-label="手写签名区域"
           onPointerDown={(event) => {
             if (event.pointerType === 'mouse') return

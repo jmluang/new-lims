@@ -36,6 +36,7 @@ import {
   type SignatureRole,
 } from './handwrittenApi'
 import { PdfPlacementWorkspace } from './PdfPlacementWorkspace'
+import { fieldAspectRatio } from './fieldAspect'
 import { requestedSigningUuid, resumeDocumentUuid, resumePlanning } from './resumePlanning'
 import { canFreeze, workflowIdempotencyKey as buildWorkflowIdempotencyKey } from './workflowAttempt'
 import { SignaturePad } from './SignaturePad'
@@ -465,6 +466,7 @@ function SigningWorkspace() {
   const [selectedRequestUuid, setSelectedRequestUuid] = useState(() => requestedSigningUuid() ?? '')
   const effectiveRequestUuid = selectedRequestUuid || requests.data?.[0]?.request_uuid || ''
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
+  const [pageSize, setPageSize] = useState<{ width: number; height: number } | null>(null)
   const current = requests.data?.find((request) => request.request_uuid === effectiveRequestUuid) ?? null
   const taskCount = requests.data?.length ?? 0
   const detail = useQuery({
@@ -533,6 +535,10 @@ function SigningWorkspace() {
       normalized_rect: slot.normalized_rect,
     }))
   }, [detail.data])
+  const padAspectRatio = useMemo(
+    () => fieldAspectRatio(detail.data?.field.slots[0]?.normalized_rect, pageSize),
+    [detail.data, pageSize],
+  )
   const terminalState = operation.data?.state
   const operationPending = Boolean(
     operationUuid
@@ -572,6 +578,7 @@ function SigningWorkspace() {
         placements={placements}
         editable={false}
         signaturePreview={previewUrl}
+        onPageSize={(index, size) => index === placements[0]?.page_index && setPageSize(size)}
       />
 
       <aside className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
@@ -582,11 +589,13 @@ function SigningWorkspace() {
               <div><span className="text-slate-400">字段</span><div className="mt-1 truncate font-medium">{detail.data.field.field_name}</div></div>
             </div>
           ) : null}
+          {/* Drawn at the shape of the field it lands in, so the proportions of
+              a signature survive the trip into the document. */}
           <SignaturePad
             onPreviewChange={setPreviewUrl}
             onReadyChange={setSignatureReady}
             padRef={padRef}
-            heightClass="h-72 sm:h-80"
+            aspectRatio={padAspectRatio}
           />
         </WorkspaceCard>
 
