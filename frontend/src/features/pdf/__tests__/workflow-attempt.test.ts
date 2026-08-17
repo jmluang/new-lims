@@ -1,26 +1,44 @@
 import { describe, expect, it } from 'vitest'
 import { canFreeze, workflowIdempotencyKey } from '../workflowAttempt'
 
-const resumed = { uploaded: '', attempt: null, documentUuid: 'doc-1', revisionUuid: 'rev-1' }
+const resumed = { uploaded: '', previousWorkflowUuid: null, documentUuid: 'doc-1', revisionUuid: 'rev-1' }
 
 describe('workflowIdempotencyKey', () => {
-  it('derives the first attempt on a resumed document', () => {
+  it('derives the first generation from the document and its revision', () => {
     expect(workflowIdempotencyKey(resumed)).toBe('workflow-doc-1-rev-1')
   })
 
-  // Reusing the derived key after a cancel replays the cancelled workflow, and
-  // preparing that hangs instead of creating a new generation.
-  it('uses a fresh key once one has been minted by a cancel', () => {
-    expect(workflowIdempotencyKey({ ...resumed, attempt: 'workflow-fresh' })).toBe('workflow-fresh')
+  it('is stable across renders so a double click replays instead of creating twice', () => {
+    expect(workflowIdempotencyKey(resumed)).toBe(workflowIdempotencyKey(resumed))
+  })
+
+  // Reusing the first key after a cancel replays the cancelled workflow, and the
+  // freeze looks like it did nothing at all.
+  it('changes once a generation exists', () => {
+    const next = workflowIdempotencyKey({ ...resumed, previousWorkflowUuid: 'wf-1' })
+
+    expect(next).toBe('workflow-after-wf-1')
+    expect(next).not.toBe(workflowIdempotencyKey(resumed))
+  })
+
+  // The cancel may have happened before the page was ever opened, so this cannot
+  // depend on having observed it.
+  it('gives every generation its own key', () => {
+    const first = workflowIdempotencyKey(resumed)
+    const second = workflowIdempotencyKey({ ...resumed, previousWorkflowUuid: 'wf-1' })
+    const third = workflowIdempotencyKey({ ...resumed, previousWorkflowUuid: 'wf-2' })
+
+    expect(new Set([first, second, third]).size).toBe(3)
   })
 
   it('keeps the key the upload path already generated', () => {
-    expect(workflowIdempotencyKey({ ...resumed, uploaded: 'workflow-uploaded', attempt: 'workflow-fresh' }))
+    expect(workflowIdempotencyKey({ ...resumed, uploaded: 'workflow-uploaded', previousWorkflowUuid: 'wf-1' }))
       .toBe('workflow-uploaded')
   })
 
   it('has no key before anything has been finalized', () => {
-    expect(workflowIdempotencyKey({ uploaded: '', attempt: null, documentUuid: null, revisionUuid: null })).toBe('')
+    expect(workflowIdempotencyKey({ uploaded: '', previousWorkflowUuid: null, documentUuid: null, revisionUuid: null }))
+      .toBe('')
   })
 })
 

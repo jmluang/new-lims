@@ -1,20 +1,23 @@
 /**
  * Idempotency key for creating a signing workflow.
  *
- * The first attempt on a resumed document derives its key, so a double click
- * replays the workflow it just created instead of making a second one. That
- * only holds while the workflow is wanted: once cancelled, replaying it would
- * hand back the cancelled workflow and the freeze would appear to hang. A
- * cancel therefore mints a fresh key, and the next freeze is a new generation.
+ * Keys are derived rather than random so a double click replays the workflow it
+ * just created instead of making a second one. The derivation therefore has to
+ * change once a generation exists: reusing the key of a cancelled workflow
+ * replays that workflow, and the freeze looks like it did nothing.
+ *
+ * Deriving each attempt from the generation before it gives every generation
+ * its own key, whether the cancel happened a moment ago or before the page was
+ * ever opened.
  */
 export function workflowIdempotencyKey(input: {
   uploaded: string
-  attempt: string | null
+  previousWorkflowUuid: string | null
   documentUuid: string | null
   revisionUuid: string | null
 }): string {
   if (input.uploaded) return input.uploaded
-  if (input.attempt) return input.attempt
+  if (input.previousWorkflowUuid) return `workflow-after-${input.previousWorkflowUuid}`
   if (input.documentUuid && input.revisionUuid) return `workflow-${input.documentUuid}-${input.revisionUuid}`
 
   return ''

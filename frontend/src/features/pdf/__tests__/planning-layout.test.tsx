@@ -94,6 +94,16 @@ describe('planning workspace layout', () => {
     expect(html).not.toContain('HEIGHT')
   })
 
+  // The workspace is only locked while a workflow owns the fields. Cancelling
+  // hands them back, and the boxes have to be movable again to replan.
+  it('ties the canvas being editable to the same rule as the freeze button', async () => {
+    const { canFreeze } = await import('../workflowAttempt')
+
+    expect(canFreeze(null)).toBe(true)
+    expect(canFreeze('cancelled')).toBe(true)
+    expect(canFreeze('ready')).toBe(false)
+  })
+
   it('lets the sidebar scroll on its own so the page does not', async () => {
     const html = await planningMarkup('')
 

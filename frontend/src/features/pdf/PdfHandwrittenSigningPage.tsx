@@ -101,7 +101,6 @@ function PlanningWorkspace() {
   const [editedPlacements, setPlacements] = useState<Placement[] | null>(null)
   const [selectedRole, setSelectedRole] = useState<SignatureRole>('inspector')
   const [showCoordinates, setShowCoordinates] = useState(false)
-  const [attemptKey, setAttemptKey] = useState<string | null>(null)
   const [workflowResult, setResult] = useState<{ workflow_uuid: string; status: string } | null>(null)
   const [resumedDocument] = useState(resumeDocumentUuid)
   const effectivePolicyVersionUuid = policyVersionUuid || options.data?.policies[0]?.version_uuid || ''
@@ -129,7 +128,7 @@ function PlanningWorkspace() {
   const result = workflowResult ?? resume.data?.activeWorkflow ?? null
   const workflowIdempotencyKey = buildWorkflowIdempotencyKey({
     uploaded: uploadedIdempotencyKey,
-    attempt: attemptKey,
+    previousWorkflowUuid: result?.workflow_uuid ?? null,
     documentUuid: resumedDocument,
     revisionUuid: resume.data?.revision.revision_uuid ?? null,
   })
@@ -166,12 +165,7 @@ function PlanningWorkspace() {
   const cancel = useMutation({
     mutationFn: ({ workflowUuid }: { workflowUuid: string }) =>
       cancelSigningWorkflow(workflowUuid, 'PLANNER_CANCELLED'),
-    onSuccess: (cancelled) => {
-      setResult(cancelled)
-      // The next freeze must be a new generation. Reusing the key would replay
-      // the cancelled workflow instead of creating one.
-      setAttemptKey(`workflow-${crypto.randomUUID()}`)
-    },
+    onSuccess: setResult,
   })
   const selected = placements.find((placement) => placement.semantic_role === selectedRole)!
   const ready = Boolean(
@@ -195,7 +189,7 @@ function PlanningWorkspace() {
       <PdfPlacementWorkspace
         file={finalized?.file ?? null}
         placements={placements}
-        editable={Boolean(finalized) && !result}
+        editable={Boolean(finalized) && canFreeze(result?.status)}
         selectedRole={selectedRole}
         onSelectRole={setSelectedRole}
         onChange={setPlacements}
