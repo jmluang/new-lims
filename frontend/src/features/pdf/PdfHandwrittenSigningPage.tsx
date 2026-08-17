@@ -3,7 +3,6 @@ import {
   BadgeCheck,
   CheckCircle2,
   FileKey2,
-  FilePenLine,
   Grip,
   Loader2,
   LockKeyhole,
@@ -77,13 +76,6 @@ export function PdfHandwrittenSigningPage() {
         </div>
       }
     >
-      <div className="rounded-xl border border-emerald-900/10 bg-[radial-gradient(circle_at_top_left,rgb(16_185_129/0.11),transparent_36%),white] p-4 shadow-sm sm:p-5">
-        <div className="grid gap-3 text-xs text-slate-600 sm:grid-cols-3">
-          <TrustItem icon={FilePenLine} title="签名字段先冻结" text="主检签名前一次性预创建主检、审核、签发三个签名字段" />
-          <TrustItem icon={FileKey2} title="单位证书签名" text="手写图只是可见外观，法律意义来自 Java 证书签名与时间戳" />
-          <TrustItem icon={ShieldCheck} title="只做增量修订" text="每次签名保留历史 ByteRange，后续签名不覆盖已有签名" />
-        </div>
-      </div>
       {mode === 'plan' ? <PlanningWorkspace /> : <SigningWorkspace />}
     </PageShell>
   )
@@ -176,7 +168,7 @@ function PlanningWorkspace() {
   }
 
   return (
-    <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_21rem]">
+    <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-11rem)] xl:grid-cols-[minmax(0,1fr)_21rem]">
       <PdfPlacementWorkspace
         file={finalized?.file ?? null}
         placements={placements}
@@ -186,7 +178,7 @@ function PlanningWorkspace() {
         onChange={setPlacements}
         emptyMessage={inspected ? '确认报告编号并完成定稿后，将加载定稿 PDF 供位置规划' : '上传并检查 PDF 后，再对定稿版本规划签名位置'}
       />
-      <aside className="space-y-4">
+      <aside className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
         {resumedDocument ? (
           <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-5 text-sky-900">
             {resume.isPending ? (
@@ -206,6 +198,10 @@ function PlanningWorkspace() {
             )}
           </div>
         ) : null}
+        {/* Continuing a document means upload, inspection and finalization are
+            already done, so their cards would only be dead weight beside the PDF. */}
+        {resumedDocument ? null : (
+        <>
         <WorkspaceCard title="1. 上传并检查原始 PDF" icon={Upload}>
           <label className={`block cursor-pointer rounded-lg border border-dashed border-emerald-400 bg-emerald-50/60 p-4 text-center transition hover:bg-emerald-50 ${finalized ? 'cursor-not-allowed opacity-70' : ''}`}>
             <Upload className="mx-auto size-5 text-emerald-700" />
@@ -276,8 +272,10 @@ function PlanningWorkspace() {
             {finalized ? '报告与定稿已冻结' : '确认报告编号并生成定稿'}
           </Button>
         </WorkspaceCard>
+        </>
+        )}
 
-        <WorkspaceCard title="3. 在定稿上调整签名框" icon={Grip}>
+        <WorkspaceCard title={resumedDocument ? '调整签名框' : '3. 在定稿上调整签名框'} icon={Grip}>
           <fieldset disabled={!finalized || Boolean(result)} className="disabled:opacity-50">
             <div className="grid grid-cols-2 gap-2">
               {roles.map((role) => (
@@ -323,7 +321,7 @@ function PlanningWorkspace() {
           </fieldset>
         </WorkspaceCard>
 
-        <WorkspaceCard title="4. 指定三位签署人" icon={Users}>
+        <WorkspaceCard title={resumedDocument ? '指定三位签署人' : '4. 指定三位签署人'} icon={Users}>
           {options.isError ? <ErrorNotice error={options.error} fallback="签署选项加载失败" /> : null}
           <div className="space-y-3">
             {(['inspector', 'reviewer', 'issuer'] as const).map((role) => (
@@ -526,7 +524,7 @@ function SigningWorkspace() {
         signaturePreview={previewUrl}
       />
 
-      <aside className="space-y-4">
+      <aside className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
         <WorkspaceCard title="手写签名" icon={PenTool}>
           {detail.data ? (
             <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
@@ -618,15 +616,6 @@ function WorkspaceCard({ title, icon: Icon, children }: { title: string; icon: t
       </div>
       <div className="p-4">{children}</div>
     </section>
-  )
-}
-
-function TrustItem({ icon: Icon, title, text }: { icon: typeof Upload; title: string; text: string }) {
-  return (
-    <div className="flex gap-3 rounded-lg border border-white/80 bg-white/70 p-3">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800"><Icon className="size-4" /></span>
-      <div><div className="font-semibold text-slate-800">{title}</div><div className="mt-0.5 leading-5 text-slate-500">{text}</div></div>
-    </div>
   )
 }
 

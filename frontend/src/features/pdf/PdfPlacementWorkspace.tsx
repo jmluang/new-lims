@@ -122,7 +122,7 @@ export function PdfPlacementWorkspace({
   }
 
   return (
-    <div className="grid min-h-0 grid-cols-[4.5rem_minmax(0,1fr)] overflow-hidden rounded-xl border border-slate-200 bg-slate-200/60">
+    <div className="grid min-h-0 grid-cols-[4.5rem_minmax(0,1fr)] overflow-hidden rounded-xl border border-slate-200 bg-slate-200/60 xl:h-full">
       <div className="space-y-2 overflow-y-auto border-r border-slate-200 bg-white p-2">
         {Array.from({ length: document.numPages }, (_, index) => (
           <a
@@ -134,7 +134,7 @@ export function PdfPlacementWorkspace({
           </a>
         ))}
       </div>
-      <div className="max-h-[72vh] space-y-5 overflow-auto p-4 sm:p-6">
+      <div className="max-h-[72vh] space-y-5 overflow-auto p-4 sm:p-6 xl:max-h-none">
         {Array.from({ length: document.numPages }, (_, pageIndex) => (
           <PdfPage
             key={pageIndex}
