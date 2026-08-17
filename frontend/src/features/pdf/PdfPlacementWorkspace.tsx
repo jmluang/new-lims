@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '../../lib/utils'
 import type { Placement, SignatureRole } from './handwrittenApi'
+import { placementPagesReady } from './placementReady'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
@@ -50,6 +52,20 @@ export function PdfPlacementWorkspace({
   const [loaded, setLoaded] = useState<{ source: File | Blob; document: PDFDocumentProxy } | null>(null)
   const [loadError, setLoadError] = useState<{ source: File | Blob; message: string } | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
+  // Pages report their measured size once rendered. Placement boxes are
+  // positioned as percentages of that size, so before it arrives they sit in a
+  // 1x1 box — present in the DOM but not yet where they belong.
+  // Tagged with its source, the same way `loaded` is, so a new file starts from
+  // an empty set without resetting state from inside an effect.
+  const [measured, setMeasured] = useState<{ source: File | Blob; pages: ReadonlySet<number> } | null>(null)
+  const markMeasured = useCallback((source: File | Blob, pageIndex: number) => {
+    setMeasured((current) => {
+      if (current?.source !== source) return { source, pages: new Set([pageIndex]) }
+      if (current.pages.has(pageIndex)) return current
+
+      return { source, pages: new Set(current.pages).add(pageIndex) }
+    })
+  }, [])
 
   useEffect(() => {
     if (!file) return
@@ -110,6 +126,9 @@ export function PdfPlacementWorkspace({
     )
   }
 
+  const measuredPages = measured?.source === file ? measured.pages : new Set<number>()
+  const placementsReady = placementPagesReady(placements.map((placement) => placement.page_index), measuredPages)
+
   const document = loaded?.source === file ? loaded.document : null
   const error = loadError?.source === file ? loadError.message : null
 
@@ -134,9 +153,22 @@ export function PdfPlacementWorkspace({
           </a>
         ))}
       </div>
-      <div className="max-h-[72vh] space-y-5 overflow-auto p-4 sm:p-6 xl:max-h-none">
+      <div className="relative min-h-0">
+        {placementsReady ? null : (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-100/80 backdrop-blur-[1px]">
+            <span className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-600 shadow-sm">
+              <Loader2 className="size-4 animate-spin text-emerald-700" />
+              正在准备签名框…
+            </span>
+          </div>
+        )}
+      <div className={cn(
+        'max-h-[72vh] space-y-5 p-4 sm:p-6 xl:max-h-none xl:h-full',
+        placementsReady ? 'overflow-auto' : 'overflow-hidden pointer-events-none select-none',
+      )}>
         {Array.from({ length: document.numPages }, (_, pageIndex) => (
           <PdfPage
+            onMeasured={(index) => markMeasured(file, index)}
             key={pageIndex}
             document={document}
             pageIndex={pageIndex}
@@ -151,6 +183,7 @@ export function PdfPlacementWorkspace({
           />
         ))}
       </div>
+      </div>
     </div>
   )
 }
@@ -162,6 +195,7 @@ function PdfPage({
   editable,
   selectedRole,
   signaturePreview,
+  onMeasured,
   onSelectRole,
   onDragStart,
   onDrag,
@@ -173,6 +207,7 @@ function PdfPage({
   editable: boolean
   selectedRole?: SignatureRole
   signaturePreview?: string | null
+  onMeasured: (pageIndex: number) => void
   onSelectRole?: (role: SignatureRole) => void
   onDragStart: (drag: DragState) => void
   onDrag: (event: React.PointerEvent<HTMLDivElement>) => void
@@ -200,11 +235,13 @@ function PdfPage({
     canvas.style.width = `${viewport.width}px`
     canvas.style.height = `${viewport.height}px`
     setSize({ width: viewport.width, height: viewport.height })
+    // The boxes can only land correctly once this page knows its own size.
+    onMeasured(pageIndex)
     const context = canvas.getContext('2d')
     if (!context) return
     const task = page.render({ canvas, canvasContext: context, viewport, transform: [outputScale, 0, 0, outputScale, 0, 0] })
     return () => task.cancel()
-  }, [page])
+  }, [page, pageIndex, onMeasured])
 
   return (
     <div id={`pdf-page-${pageIndex}`} className="mx-auto w-fit max-w-full">
