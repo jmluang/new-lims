@@ -110,27 +110,27 @@ export function PdfDocumentListPage() {
 
       {rows.length > 0 ? (
         <DataTable>
-          <thead>
+          <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
             <tr>
-              <th>报告编号</th>
-              <th>阶段</th>
-              <th>签署人</th>
-              <th>版本</th>
-              <th>创建时间</th>
-              <th>操作</th>
+              <th className="px-3 py-2">报告编号</th>
+              <th className="px-3 py-2">阶段</th>
+              <th className="px-3 py-2">签署人</th>
+              <th className="px-3 py-2">版本</th>
+              <th className="px-3 py-2">创建时间</th>
+              <th className="px-3 py-2 text-right">操作</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {rows.map((document) => (
-              <tr key={document.document_uuid}>
-                <td>
+              <tr key={document.document_uuid} className="align-top">
+                <td className="px-3 py-2">
                   <div className="font-medium text-slate-900">{document.report_number}</div>
-                  <div className="text-xs text-slate-400">{document.document_uuid.slice(0, 8)}</div>
+                  <div className="font-mono text-xs text-slate-400">{document.document_uuid.slice(0, 8)}</div>
                 </td>
-                <td>
+                <td className="px-3 py-2">
                   <StageBadge document={document} />
                 </td>
-                <td>
+                <td className="px-3 py-2">
                   {document.signers.length === 0 ? (
                     <span className="text-xs text-slate-400">尚未编排</span>
                   ) : (
@@ -141,10 +141,10 @@ export function PdfDocumentListPage() {
                     </div>
                   )}
                 </td>
-                <td className="text-xs text-slate-500">{document.revisions.length} 个</td>
-                <td className="text-xs text-slate-500">{formatDateTime(document.created_at)}</td>
-                <td>
-                  <div className="flex gap-1">
+                <td className="whitespace-nowrap px-3 py-2 text-slate-700">{document.revisions.length} 个</td>
+                <td className="whitespace-nowrap px-3 py-2 text-slate-700">{formatDateTime(document.created_at)}</td>
+                <td className="px-3 py-2">
+                  <div className="flex justify-end gap-1">
                     <PermissionGate resource="pdf.document" action="update">
                       <Button
                         variant="ghost"
@@ -175,6 +175,59 @@ export function PdfDocumentListPage() {
             ))}
           </tbody>
         </DataTable>
+      ) : null}
+
+      {/* DataTable is desktop-only, so the same rows need a card form on mobile. */}
+      {rows.length > 0 ? (
+        <div className="space-y-2 md:hidden">
+          {rows.map((document) => (
+            <article className="rounded-lg border border-emerald-900/10 bg-white p-3" key={document.document_uuid}>
+              <div className="flex items-start justify-between gap-2">
+                <p className="truncate text-sm font-medium text-slate-900">{document.report_number}</p>
+                <StageBadge document={document} />
+              </div>
+              <div className="mt-2 space-y-1">
+                {document.signers.length === 0 ? (
+                  <span className="text-xs text-slate-400">尚未编排签名</span>
+                ) : (
+                  document.signers.map((signer) => <SignerRow key={signer.sequence} signer={signer} />)
+                )}
+              </div>
+              <p className="mt-2 text-xs text-slate-400">
+                {document.revisions.length} 个版本 · {formatDateTime(document.created_at)}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <PermissionGate resource="pdf.document" action="update">
+                  <Button
+                    variant="secondary"
+                    disabled={editableReason(document) !== null}
+                    onClick={() => {
+                      setRenaming(document)
+                      setRenameValue(document.report_number)
+                    }}
+                  >
+                    <Pencil className="size-4" />
+                    改编号
+                  </Button>
+                </PermissionGate>
+                <PermissionGate resource="pdf.document" action="delete">
+                  <Button
+                    variant="secondary"
+                    className="border-red-200 text-red-700 hover:bg-red-50"
+                    disabled={editableReason(document) !== null}
+                    onClick={() => setDeleting(document)}
+                  >
+                    <Trash2 className="size-4" />
+                    删除
+                  </Button>
+                </PermissionGate>
+              </div>
+              {editableReason(document) ? (
+                <p className="mt-2 text-xs text-slate-400">{editableReason(document)}</p>
+              ) : null}
+            </article>
+          ))}
+        </div>
       ) : null}
 
       {documents.data?.meta ? (
