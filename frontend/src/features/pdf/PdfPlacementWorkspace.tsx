@@ -58,6 +58,8 @@ export function PdfPlacementWorkspace({
   // Tagged with its source, the same way `loaded` is, so a new file starts from
   // an empty set without resetting state from inside an effect.
   const [measured, setMeasured] = useState<{ source: File | Blob; pages: ReadonlySet<number> } | null>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const scrolledTo = useRef<File | Blob | null>(null)
   const markMeasured = useCallback((source: File | Blob, pageIndex: number) => {
     setMeasured((current) => {
       if (current?.source !== source) return { source, pages: new Set([pageIndex]) }
@@ -88,6 +90,26 @@ export function PdfPlacementWorkspace({
       void loaded?.destroy()
     }
   }, [file])
+
+  const measuredPages = measured?.source === file ? measured.pages : new Set<number>()
+  const placementsReady = placementPagesReady(placements.map((placement) => placement.page_index), measuredPages)
+
+  // Boxes often sit deep in a report; opening on page 1 hides the very thing
+  // the operator came to adjust. Jump once per file, after the boxes have landed.
+  useEffect(() => {
+    if (!file || !placementsReady || scrolledTo.current === file) return
+    const firstPage = placements.reduce<number | null>(
+      (lowest, placement) => (lowest === null || placement.page_index < lowest ? placement.page_index : lowest),
+      null,
+    )
+    if (firstPage === null || firstPage === 0) {
+      scrolledTo.current = file
+      return
+    }
+    const target = scrollAreaRef.current?.querySelector(`#pdf-page-${firstPage}`)
+    target?.scrollIntoView({ block: 'start' })
+    scrolledTo.current = file
+  })
 
   function updateDrag(event: React.PointerEvent<HTMLDivElement>, pageIndex: number) {
     if (!drag || !onChange) return
@@ -126,9 +148,6 @@ export function PdfPlacementWorkspace({
     )
   }
 
-  const measuredPages = measured?.source === file ? measured.pages : new Set<number>()
-  const placementsReady = placementPagesReady(placements.map((placement) => placement.page_index), measuredPages)
-
   const document = loaded?.source === file ? loaded.document : null
   const error = loadError?.source === file ? loadError.message : null
 
@@ -162,7 +181,7 @@ export function PdfPlacementWorkspace({
             </span>
           </div>
         )}
-      <div className={cn(
+      <div ref={scrollAreaRef} className={cn(
         'max-h-[72vh] space-y-5 p-4 sm:p-6 xl:max-h-none xl:h-full',
         placementsReady ? 'overflow-auto' : 'overflow-hidden pointer-events-none select-none',
       )}>
@@ -288,7 +307,13 @@ function PdfPage({
               {signaturePreview ? (
                 <img src={signaturePreview} alt="手写签名实时预览" className="h-full w-full object-contain p-1.5 pt-5" />
               ) : null}
-              {editable ? <span data-resize="true" className="absolute bottom-0 right-0 size-4 cursor-se-resize border-l border-t border-current bg-white/90" /> : null}
+              {editable ? (
+                <span
+                  data-resize="true"
+                  title="拖动调整大小"
+                  className="absolute -bottom-0.5 -right-0.5 size-5 cursor-se-resize rounded-tl border-l-2 border-t-2 border-current bg-white shadow-sm"
+                />
+              ) : null}
             </div>
           )
         })}

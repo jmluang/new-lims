@@ -73,6 +73,27 @@ describe('planning workspace layout', () => {
     expect(html).toContain('指定三位签署人')
   })
 
+  it('gives every role its own page field instead of one behind a selection', async () => {
+    const html = await planningMarkup('')
+    const pageInputs = html.match(/type="number"/g) ?? []
+
+    // 主检 / 审核 / 签发 each carry their own, so setting one no longer starts
+    // with selecting it.
+    expect(pageInputs.length).toBe(3)
+    expect(html).toContain('主检')
+    expect(html).toContain('审核')
+    expect(html).toContain('签发')
+  })
+
+  it('keeps the exact coordinates behind an advanced toggle', async () => {
+    const html = await planningMarkup('')
+
+    expect(html).toContain('高级：精确坐标')
+    // Collapsed by default: dragging is the normal way to place a box.
+    expect(html).not.toContain('WIDTH')
+    expect(html).not.toContain('HEIGHT')
+  })
+
   it('lets the sidebar scroll on its own so the page does not', async () => {
     const html = await planningMarkup('')
 

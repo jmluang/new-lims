@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BadgeCheck,
   CheckCircle2,
+  ChevronDown,
   FileKey2,
   Grip,
   Loader2,
@@ -42,6 +43,12 @@ const roleLabels: Record<SignatureRole, string> = {
   inspector: '主检',
   reviewer: '审核',
   issuer: '签发',
+}
+
+const roleSwatches: Record<SignatureRole, string> = {
+  inspector: 'bg-sky-500',
+  reviewer: 'bg-violet-500',
+  issuer: 'bg-emerald-600',
 }
 
 const defaultPlacements: Placement[] = [
@@ -92,6 +99,7 @@ function PlanningWorkspace() {
   const [editedAssignments, setAssignments] = useState<Record<SignatureRole, number> | null>(null)
   const [editedPlacements, setPlacements] = useState<Placement[] | null>(null)
   const [selectedRole, setSelectedRole] = useState<SignatureRole>('inspector')
+  const [showCoordinates, setShowCoordinates] = useState(false)
   const [workflowResult, setResult] = useState<{ workflow_uuid: string; status: string } | null>(null)
   const [resumedDocument] = useState(resumeDocumentUuid)
   const effectivePolicyVersionUuid = policyVersionUuid || options.data?.policies[0]?.version_uuid || ''
@@ -161,10 +169,14 @@ function PlanningWorkspace() {
   )
 
   // Edits start from the effective plan, which may still be the resumed one.
-  function updateSelected(patch: Partial<Placement>) {
+  function updateRole(role: SignatureRole, patch: Partial<Placement>) {
     setPlacements(
-      placements.map((placement) => (placement.semantic_role === selectedRole ? { ...placement, ...patch } : placement)),
+      placements.map((placement) => (placement.semantic_role === role ? { ...placement, ...patch } : placement)),
     )
+  }
+
+  function updateSelected(patch: Partial<Placement>) {
+    updateRole(selectedRole, patch)
   }
 
   return (
@@ -277,47 +289,75 @@ function PlanningWorkspace() {
 
         <WorkspaceCard title={resumedDocument ? '调整签名框' : '3. 在定稿上调整签名框'} icon={Grip}>
           <fieldset disabled={!finalized || Boolean(result)} className="disabled:opacity-50">
-            <div className="grid grid-cols-2 gap-2">
-              {roles.map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  className={`rounded-md border px-2 py-2 text-left text-xs font-medium transition ${
-                    selectedRole === role
-                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300'
-                  }`}
-                  onClick={() => setSelectedRole(role)}
-                >
-                  {roleLabels[role]}
-                </button>
-              ))}
+            {/* Each row owns its own page, so setting one no longer means
+                selecting it first. Selecting only decides which box the canvas
+                highlights while dragging. */}
+            <div className="space-y-1.5">
+              {roles.map((role) => {
+                const placement = placements.find((candidate) => candidate.semantic_role === role)!
+                const active = selectedRole === role
+
+                return (
+                  <div
+                    key={role}
+                    role="button"
+                    tabIndex={0}
+                    className={`flex items-center gap-2 rounded-md border px-2 py-1.5 transition ${
+                      active ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200 bg-white hover:border-emerald-300'
+                    }`}
+                    onClick={() => setSelectedRole(role)}
+                    onKeyDown={(event) => event.key === 'Enter' && setSelectedRole(role)}
+                  >
+                    <span className={`size-2.5 shrink-0 rounded-sm ${roleSwatches[role]}`} />
+                    <span className={`flex-1 text-xs font-medium ${active ? 'text-emerald-800' : 'text-slate-600'}`}>
+                      {roleLabels[role]}
+                    </span>
+                    <label className="flex items-center gap-1 text-[11px] text-slate-500">
+                      第
+                      <input
+                        className="h-7 w-12 rounded border border-slate-200 px-1 text-center text-xs text-slate-700"
+                        type="number"
+                        min={1}
+                        value={placement.page_index + 1}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => updateRole(role, { page_index: Math.max(0, Number(event.target.value) - 1) })}
+                      />
+                      页
+                    </label>
+                  </div>
+                )
+              })}
             </div>
-            <label className="mt-3 block text-xs font-medium text-slate-600">
-              所在页
-              <input
-                className={`${inputClass} mt-1`}
-                type="number"
-                min={1}
-                value={selected.page_index + 1}
-                onChange={(event) => updateSelected({ page_index: Math.max(0, Number(event.target.value) - 1) })}
-              />
-            </label>
-            <div className="mt-3 grid grid-cols-4 gap-2 text-[10px] text-slate-500">
-              {(['x', 'y', 'width', 'height'] as const).map((key) => (
-                <label key={key}>
-                  {key.toUpperCase()}
-                  <input
-                    className="mt-1 h-8 w-full rounded border border-slate-200 px-1 text-xs text-slate-700"
-                    value={selected.normalized_rect[key]}
-                    onChange={(event) =>
-                      updateSelected({ normalized_rect: { ...selected.normalized_rect, [key]: event.target.value } })
-                    }
-                  />
-                </label>
-              ))}
-            </div>
-            <p className="mt-2 text-xs leading-5 text-slate-500">坐标以页面左上角为原点；拖动移动，右下角拖柄调整大小。</p>
+            <p className="mt-2.5 text-xs leading-5 text-slate-500">在页面上拖动移动，拖右下角把手调整大小。</p>
+            <button
+              type="button"
+              className="mt-2 flex w-full items-center justify-between rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-500 hover:border-emerald-300"
+              onClick={() => setShowCoordinates((current) => !current)}
+            >
+              高级：精确坐标
+              <ChevronDown className={`size-3.5 transition ${showCoordinates ? 'rotate-180' : ''}`} />
+            </button>
+            {showCoordinates ? (
+              <>
+                <div className="mt-2 grid grid-cols-4 gap-2 text-[10px] text-slate-500">
+                  {(['x', 'y', 'width', 'height'] as const).map((key) => (
+                    <label key={key}>
+                      {key.toUpperCase()}
+                      <input
+                        className="mt-1 h-8 w-full rounded border border-slate-200 px-1 text-xs text-slate-700"
+                        value={selected.normalized_rect[key]}
+                        onChange={(event) =>
+                          updateSelected({ normalized_rect: { ...selected.normalized_rect, [key]: event.target.value } })
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  作用于选中的「{roleLabels[selectedRole]}」，坐标以页面左上角为原点。
+                </p>
+              </>
+            ) : null}
           </fieldset>
         </WorkspaceCard>
 
@@ -636,7 +676,7 @@ function modeFromHash(): WorkspaceMode {
   return window.location.hash === '#plan' || resumeDocumentUuid() !== null ? 'plan' : 'sign'
 }
 
-function rect(x: string, y: string, width = '0.24', height = '0.08') {
+function rect(x: string, y: string, width = '0.16', height = '0.055') {
   return {
     x: Number(x).toFixed(6),
     y: Number(y).toFixed(6),
