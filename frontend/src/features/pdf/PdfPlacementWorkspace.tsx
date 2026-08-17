@@ -1,10 +1,10 @@
 import { Loader2 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '../../lib/utils'
 import type { Placement, SignatureRole } from './handwrittenApi'
-import { placementPagesReady } from './placementReady'
+import { placementPagesReady, samePlacements } from './placementReady'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
@@ -60,7 +60,13 @@ export function PdfPlacementWorkspace({
   const [measured, setMeasured] = useState<{ source: File | Blob; pages: ReadonlySet<number> } | null>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const scrolledTo = useRef<File | Blob | null>(null)
-  const markMeasured = useCallback((source: File | Blob, pageIndex: number) => {
+  const fileRef = useRef(file)
+  useEffect(() => {
+    fileRef.current = file
+  }, [file])
+  const markMeasured = useCallback((pageIndex: number) => {
+    const source = fileRef.current
+    if (!source) return
     setMeasured((current) => {
       if (current?.source !== source) return { source, pages: new Set([pageIndex]) }
       if (current.pages.has(pageIndex)) return current
@@ -111,12 +117,20 @@ export function PdfPlacementWorkspace({
     scrolledTo.current = file
   })
 
+  // Memoized pages keep the handler they last rendered with, so this must never
+  // read a captured copy of the plan — a stale one would write back an old
+  // array and undo edits made to other pages since.
+  const placementsRef = useRef(placements)
+  useEffect(() => {
+    placementsRef.current = placements
+  }, [placements])
+
   function updateDrag(event: React.PointerEvent<HTMLDivElement>, pageIndex: number) {
     if (!drag || !onChange) return
     const dx = (event.clientX - drag.startX) / drag.pageWidth
     const dy = (event.clientY - drag.startY) / drag.pageHeight
     const minimum = 0.035
-    const next = placements.map((placement) => {
+    const next = placementsRef.current.map((placement) => {
       if (placement.semantic_role !== drag.role || placement.page_index !== pageIndex) return placement
       let { x, y, width, height } = drag.rect
       if (drag.mode === 'move') {
@@ -187,7 +201,7 @@ export function PdfPlacementWorkspace({
       )}>
         {Array.from({ length: document.numPages }, (_, pageIndex) => (
           <PdfPage
-            onMeasured={(index) => markMeasured(file, index)}
+            onMeasured={markMeasured}
             key={pageIndex}
             document={document}
             pageIndex={pageIndex}
@@ -207,7 +221,7 @@ export function PdfPlacementWorkspace({
   )
 }
 
-function PdfPage({
+const PdfPage = memo(function PdfPage({
   document,
   pageIndex,
   placements,
@@ -254,13 +268,23 @@ function PdfPage({
     canvas.style.width = `${viewport.width}px`
     canvas.style.height = `${viewport.height}px`
     setSize({ width: viewport.width, height: viewport.height })
-    // The boxes can only land correctly once this page knows its own size.
-    onMeasured(pageIndex)
     const context = canvas.getContext('2d')
     if (!context) return
     const task = page.render({ canvas, canvasContext: context, viewport, transform: [outputScale, 0, 0, outputScale, 0, 0] })
     return () => task.cancel()
-  }, [page, pageIndex, onMeasured])
+    // Deliberately only `page`: re-running this cancels and repaints the canvas,
+    // which must not happen just because a parent render produced new callbacks.
+  }, [page])
+
+  // Reported separately so the notification cannot drag the canvas render with
+  // it. The ref keeps the callback current without making it a dependency.
+  const measuredRef = useRef(onMeasured)
+  useEffect(() => {
+    measuredRef.current = onMeasured
+  }, [onMeasured])
+  useEffect(() => {
+    if (size.width > 1) measuredRef.current(pageIndex)
+  }, [size.width, pageIndex])
 
   return (
     <div id={`pdf-page-${pageIndex}`} className="mx-auto w-fit max-w-full">
@@ -320,7 +344,16 @@ function PdfPage({
       </div>
     </div>
   )
-}
+}, (previous, next) =>
+  previous.document === next.document
+  && previous.pageIndex === next.pageIndex
+  && previous.editable === next.editable
+  && previous.selectedRole === next.selectedRole
+  && previous.signaturePreview === next.signaturePreview
+  && previous.onMeasured === next.onMeasured
+  // The parent re-filters this array on every render, so compare by value:
+  // dragging one box must not reconcile every other page in the report.
+  && samePlacements(previous.placements, next.placements))
 
 function numericRect(placement: Placement) {
   return {
