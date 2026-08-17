@@ -399,7 +399,7 @@ export function PdfSigningPage() {
 
   return (
     <PageShell
-      title="PDF 签章"
+      title="PDF防篡改系统"
       description="上传检测报告，套用声明页与印章并写入数字签名，同时把文件摘要登记到防篡改台账。"
       actions={
         results.length > 0 && !signing ? (

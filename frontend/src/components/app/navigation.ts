@@ -90,7 +90,7 @@ export const navGroups: NavGroup[] = [
           { resource: 'pdf.workflow', action: 'create' },
         ],
       },
-      { label: 'PDF 签章', to: '/pdf/signing', icon: FileSignature, resource: 'pdf_signing', action: 'read' },
+      { label: 'PDF防篡改系统', to: '/pdf/signing', icon: FileSignature, resource: 'pdf_signing', action: 'read' },
       { label: '文件验证', to: '/pdf/verify', icon: FileCheck2, resource: 'pdf_verification', action: 'read' },
       { label: '签章台账', to: '/pdf/files', icon: FileStack, resource: 'pdf_files', action: 'read' },
       { label: '验证日志', to: '/pdf/verification-logs', icon: ScrollText, resource: 'pdf_verification_logs', action: 'read' },
