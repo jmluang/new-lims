@@ -28,5 +28,18 @@ if [[ -z "${PDF_SERVICE_HMAC_KEYS:-}" ]]; then
     exit 1
 fi
 
+# A JDBC URL carries unquoted & characters, which end the assignment when this
+# file is sourced. The service starts anyway and only reports itself not ready,
+# so check here where the cause is still obvious.
+if [[ "${PDF_EXECUTION_LEDGER_ENABLED:-false}" == "true" ]]; then
+    for required in PDF_EXECUTION_DB_URL PDF_EXECUTION_DB_USERNAME PDF_EXECUTION_DB_PASSWORD; do
+        if [[ -z "${!required:-}" ]]; then
+            echo "${required} is empty while the execution ledger is enabled." >&2
+            echo "Quote values containing & in .env.local, or the assignment is cut short." >&2
+            exit 1
+        fi
+    done
+fi
+
 # Spring binds to 127.0.0.1 by default; keep the signing boundary on loopback.
 exec mvn spring-boot:run
