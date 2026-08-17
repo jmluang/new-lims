@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { placementPagesReady, samePlacements } from '../placementReady'
+import { pageBoxStyle, placementPagesReady, samePlacements } from '../placementReady'
 import type { Placement } from '../handwrittenApi'
 
 describe('placementPagesReady', () => {
@@ -43,5 +43,21 @@ describe('samePlacements', () => {
   it('sees a box added or removed', () => {
     expect(samePlacements([], [box('0.1')])).toBe(false)
     expect(samePlacements([box('0.1')], [])).toBe(false)
+  })
+})
+
+describe('pageBoxStyle', () => {
+  // A fixed height beside maxWidth is what made a field look one shape while
+  // planning and another while signing: the column widths differ, so the width
+  // was squeezed while the height stayed and every percentage box stretched.
+  it('ties height to width instead of pinning it', () => {
+    const style = pageBoxStyle({ width: 800, height: 1132 })
+
+    expect(style.aspectRatio).toBe('800 / 1132')
+    expect(style).not.toHaveProperty('height')
+  })
+
+  it('still lets a narrow column shrink the page', () => {
+    expect(pageBoxStyle({ width: 800, height: 1132 }).maxWidth).toBe('100%')
   })
 })

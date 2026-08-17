@@ -191,7 +191,7 @@ function PlanningWorkspace() {
   }
 
   return (
-    <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-11rem)] xl:grid-cols-[minmax(0,1fr)_21rem]">
+    <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-11rem)] xl:grid-cols-[minmax(0,1fr)_24rem]">
       <PdfPlacementWorkspace
         file={finalized?.file ?? null}
         placements={placements}
@@ -566,7 +566,7 @@ function SigningWorkspace() {
         </Button>
       </div>
 
-      <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-14rem)] xl:grid-cols-[minmax(0,1fr)_30rem]">
+      <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-14rem)] xl:grid-cols-[minmax(0,1fr)_24rem]">
       <PdfPlacementWorkspace
         file={revision.data ?? null}
         placements={placements}

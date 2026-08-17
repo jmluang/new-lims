@@ -5,7 +5,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '../../lib/utils'
 import type { Placement, SignatureRole } from './handwrittenApi'
 import { applyDrag, type DragState } from './placementDrag'
-import { placementPagesReady, samePlacements } from './placementReady'
+import { pageBoxStyle, placementPagesReady, samePlacements } from './placementReady'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
@@ -288,8 +288,11 @@ const PdfPage = memo(function PdfPage({
   return (
     <div id={`pdf-page-${pageIndex}`} className="mx-auto w-fit max-w-full">
       <div className="mb-1 text-center text-xs font-medium text-slate-500">第 {pageIndex + 1} 页</div>
-      <div className="relative overflow-hidden bg-white shadow-[0_12px_35px_rgb(15_23_42/0.16)]" style={{ width: size.width, height: size.height, maxWidth: '100%' }}>
-        <canvas ref={canvasRef} className="block h-auto max-w-full" />
+      <div
+        className="relative overflow-hidden bg-white shadow-[0_12px_35px_rgb(15_23_42/0.16)]"
+        style={pageBoxStyle(size)}
+      >
+        <canvas ref={canvasRef} className="block h-full w-full" />
         {placements.map((placement) => {
           const rect = numericRect(placement)
           const selected = selectedRole === placement.semantic_role

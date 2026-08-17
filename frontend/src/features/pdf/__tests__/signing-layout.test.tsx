@@ -58,9 +58,10 @@ describe('signing workspace', () => {
   it('keeps the task list out of the layout until it is asked for', async () => {
     const html = await markup(false)
 
-    // A switcher in the header, not a column standing beside the PDF.
+    // A switcher in the header, not a column standing beside the PDF. The
+    // sidebar matches the planning page so a report is the same size in both.
     expect(html).toContain('切换任务')
-    expect(html).toContain('xl:grid-cols-[minmax(0,1fr)_30rem]')
+    expect(html).toContain('xl:grid-cols-[minmax(0,1fr)_24rem]')
   })
 
   it('gives the signature pad the room the page is for', async () => {

@@ -35,3 +35,20 @@ export function samePlacements(previous: readonly Placement[], next: readonly Pl
         && placement.normalized_rect.height === other.normalized_rect.height
     })
 }
+
+/**
+ * Style for the box a PDF page is drawn in.
+ *
+ * A fixed height beside maxWidth stops placements scaling with the page: a
+ * narrower column squeezes the width while the height stays, and every box —
+ * positioned in percentages of this container — is stretched with it. That is
+ * why a field looked one shape while planning and another while signing, where
+ * the sidebar is wider and the page column correspondingly narrower.
+ */
+export function pageBoxStyle(size: { width: number; height: number }) {
+  return {
+    width: size.width,
+    maxWidth: '100%',
+    aspectRatio: `${size.width} / ${size.height}`,
+  } as const
+}

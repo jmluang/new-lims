@@ -128,5 +128,6 @@ describe('planning workspace layout', () => {
 
     expect(html).toMatch(/<aside[^>]*xl:overflow-y-auto/)
     expect(html).toContain('xl:h-[calc(100vh-11rem)]')
+    expect(html).toContain('xl:grid-cols-[minmax(0,1fr)_24rem]')
   })
 })
