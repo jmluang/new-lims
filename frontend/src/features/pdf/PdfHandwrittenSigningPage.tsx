@@ -617,7 +617,7 @@ function SigningWorkspace() {
   // A pre-key failure remains retryable. Completed, ambiguous and irreversible
   // outcomes retire the controls so the UI cannot contradict the recovery rule.
   const signingControlsLocked = signingControlsUnavailable(terminalState)
-  const taskSwitchLocked = signingTaskSwitchUnavailable(submit.isPending, operationPending)
+  const taskSwitchLocked = signingTaskSwitchUnavailable(submit.isPending, operationPending, reject.isPending)
   const displayedRevision = completedRevisionUuid ? completedRevision.data ?? null : revision.data ?? null
 
   return (

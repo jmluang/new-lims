@@ -23,6 +23,10 @@ export function isSigningTerminalState(state: string | null | undefined): boolea
   return TERMINAL_SIGNING_STATES.includes(state ?? '')
 }
 
-export function signingTaskSwitchUnavailable(submitPending: boolean, operationPending: boolean): boolean {
-  return submitPending || operationPending
+export function signingTaskSwitchUnavailable(
+  submitPending: boolean,
+  operationPending: boolean,
+  rejectPending = false,
+): boolean {
+  return submitPending || operationPending || rejectPending
 }

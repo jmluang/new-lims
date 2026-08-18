@@ -63,6 +63,7 @@ describe('signing workspace', () => {
       .toEqual({ key: 'task-a:2.1', previewUrl: null, ready: false })
     expect(signingTaskSwitchUnavailable(true, false)).toBe(true)
     expect(signingTaskSwitchUnavailable(false, true)).toBe(true)
+    expect(signingTaskSwitchUnavailable(false, false, true)).toBe(true)
     expect(signingTaskSwitchUnavailable(false, false)).toBe(false)
     expect(isSigningTerminalState('manual_review')).toBe(true)
     expect(isSigningTerminalState('failed')).toBe(true)
