@@ -183,7 +183,11 @@ final class SignatureAppearanceService
                             $alpha = 127 - (int) round(127 * $opacity);
 
                             if ($alpha < 127) {
-                                $color = imagecolorallocatealpha($intermediate, 23, 59, 108, $alpha);
+                                // The ink is recoloured here, so this — not the
+                                // pad's stroke colour — is what the report ends
+                                // up carrying. Changing the pad alone does
+                                // nothing to the signed document.
+                                $color = imagecolorallocatealpha($intermediate, 0, 0, 0, $alpha);
                                 imagesetpixel($intermediate, $x - $left + $padding, $y - $top + $padding, $color);
                             }
                         }
