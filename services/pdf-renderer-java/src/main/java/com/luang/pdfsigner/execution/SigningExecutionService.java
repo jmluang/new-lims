@@ -11,10 +11,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public final class SigningExecutionService {
+    private static final Logger LOG = LoggerFactory.getLogger(SigningExecutionService.class);
+
     private static final HexFormat HEX = HexFormat.of();
     private final SigningExecutionRepository repository;
     private final ExecutionStorage storage;
@@ -83,6 +87,11 @@ public final class SigningExecutionService {
         } catch (Exception exception) {
             if (!privateKeyStarted) {
                 String errorCode = stableErrorCode(exception, "PRE_KEY_VALIDATION_FAILED");
+                // Refusing before the private key is the safe outcome, but the
+                // ledger only records a code. Without the cause, diagnosing why
+                // a signature was refused means guessing.
+                LOG.warn("Signing refused before the private key for {}: {} ({})",
+                        claim.operationUuid(), errorCode, exception.toString(), exception);
                 return repository.markPrePrivateKeyFailure(
                         claim.operationUuid(),
                         errorCode,
@@ -94,6 +103,8 @@ public final class SigningExecutionService {
                 // only authority allowed to classify a post-key ambiguous outcome.
                 throw exception;
             }
+            LOG.error("Signing failed after the private key for {}: {}",
+                    claim.operationUuid(), exception.toString(), exception);
             return repository.markFailure(
                     claim.operationUuid(),
                     "failed_after_private_key_known",
@@ -148,6 +159,11 @@ public final class SigningExecutionService {
             byte[] appearancePng,
             IncrementalSigningService.SignCommand command
     ) throws Exception {
+        // Cheapest thing that can fail, so it goes first — and it has to be here
+        // rather than inside the signer, because markPrivateKeyStarted runs
+        // between preflight and signing. A TSA misconfiguration caught there
+        // would already be classified as a post-key failure.
+        signingService.requireReadySigningConfiguration(claim.expectedCertificateFingerprint());
         if (sourcePdf.length == 0 || sourcePdf.length > 20L * 1024 * 1024) {
             throw new IllegalArgumentException("Source PDF exceeds the V1 input boundary");
         }
