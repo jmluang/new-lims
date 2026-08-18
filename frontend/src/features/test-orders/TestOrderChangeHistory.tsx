@@ -3,6 +3,7 @@ import { ChevronRight, History } from 'lucide-react'
 import { api } from '../../lib/api'
 import { ErrorNotice, LoadingState, Panel } from '../system/shared'
 import { formatDateTime } from '../system/utils'
+import { zhText } from '../../lib/zh'
 
 type Change = {
   field: string
@@ -113,6 +114,9 @@ function Value({ value, highlight = false }: { value: unknown; highlight?: boole
 
 const EMPTY = '（空）'
 
+/** Enum codes as the database stores them: `urgent`, `not_allowed`, `zh`. */
+const ENUM_CODE = /^[a-z][a-z0-9_]*$/
+
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') {
     return EMPTY
@@ -124,5 +128,9 @@ function displayValue(value: unknown): string {
     return JSON.stringify(value)
   }
 
-  return String(value)
+  const text = String(value)
+
+  // Only code-shaped values are translated. Free text is left alone, so a
+  // remark is never rewritten because it happens to match a dictionary key.
+  return ENUM_CODE.test(text) ? zhText(text) ?? text : text
 }

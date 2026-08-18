@@ -48,8 +48,10 @@ describe('TestOrderChangeHistory markup', () => {
     expect(html).toContain('Super Admin')
     expect(html).toContain('2 项')
     expect(html).toContain('紧急程度')
-    expect(html).toContain('urgent')
-    expect(html).toContain('normal')
+    // Enum codes are what the database stores; nobody should have to read them.
+    expect(html).toContain('加急')
+    expect(html).toContain('普通')
+    expect(html).not.toContain('urgent')
   })
 
   // shipping_notes and requirement carry newlines. Rendered without this the
@@ -62,7 +64,16 @@ describe('TestOrderChangeHistory markup', () => {
     const html = await markup()
 
     expect(html).toContain('（空）')
-    expect(html).toContain('electronic、paper')
+    expect(html).toContain('电子版、纸质版')
+  })
+
+  // Only code-shaped values are translated. A remark that happens to match a
+  // dictionary key must survive as the person typed it.
+  it('leaves free text exactly as it was written', async () => {
+    const html = await markup()
+
+    expect(html).toContain('第一行')
+    expect(html).toContain('第二行')
   })
 
   // The rest of the app outlines panels in emerald, not slate; this panel used
