@@ -26,7 +26,9 @@ export function testOrderDefaultValues(order?: TestOrder | null): TestOrderFormV
     maker_contact: order?.maker_contact ?? '',
     maker_phone: order?.maker_phone ?? '',
     maker_email: order?.maker_email ?? '',
-    report_forms: order?.report_forms ?? ['formal_report', 'electronic_report'],
+    // No default: a report form nobody picked is a claim about what the
+    // customer asked for. An order that arrived without one keeps none.
+    report_forms: order?.report_forms ?? [],
     delivery_method: order?.delivery_method ?? 'self_pick',
     outsourcing_option: order?.outsourcing_option ?? 'allowed',
     sample_return: order?.sample_return ?? 'return',

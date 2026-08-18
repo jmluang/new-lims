@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useRouterState } from '@tanstack/react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Pencil, X } from 'lucide-react'
+import { useState } from 'react'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
-import { ErrorNotice, LoadingState, PageShell } from '../system/shared'
+import { Button, ErrorNotice, LoadingState, PageShell } from '../system/shared'
 import type { ApiResource } from '../system/utils'
 import { TestOrderEntrustForm } from './TestOrderEntrustForm'
 import { TestOrderChangeHistory } from './TestOrderChangeHistory'
@@ -39,6 +40,9 @@ export function TestOrderDetailPage() {
     },
   })
   const order = orderQuery.data
+  // A detail page is for reading. Editing is entered deliberately, so a stray
+  // click cannot alter a commission order that is already with the lab.
+  const [editing, setEditing] = useState(false)
 
   async function save(payload: Record<string, unknown>, action: 'save' | 'print') {
     const saved = await saveOrder.mutateAsync(payload)
@@ -46,18 +50,33 @@ export function TestOrderDetailPage() {
     if (action === 'print') {
       await printEntrustOrder(saved)
     }
+
+    setEditing(false)
   }
 
   return (
     <PageShell
       title="Test order detail"
-      description="详情页按正式委托单版式展示；可直接编辑保存，并生成最新 PDF。"
+      description="按正式委托单版式展示；点击编辑后可修改并保存，随时生成最新 PDF。"
       actions={
         <>
           <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/test-orders">
             <ArrowLeft className="size-4" aria-hidden="true" />
             返回列表
           </Link>
+          {order && canUpdate ? (
+            editing ? (
+              <Button variant="secondary" onClick={() => setEditing(false)}>
+                <X className="size-4" aria-hidden="true" />
+                取消编辑
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                <Pencil className="size-4" aria-hidden="true" />
+                编辑
+              </Button>
+            )
+          ) : null}
           {order ? <PermissionGate resource="test_orders" action="print"><TestOrderPrintButton order={order} /></PermissionGate> : null}
         </>
       }
@@ -66,7 +85,14 @@ export function TestOrderDetailPage() {
       {orderQuery.isPending ? <LoadingState label="Loading test order" /> : null}
       {order ? (
         <>
-          <TestOrderEntrustForm order={order} editable={canUpdate} submitting={saveOrder.isPending} error={saveOrder.error} onSubmit={save} />
+          <TestOrderEntrustForm
+            key={`${order.id}:${editing ? 'edit' : 'read'}`}
+            order={order}
+            editable={canUpdate && editing}
+            submitting={saveOrder.isPending}
+            error={saveOrder.error}
+            onSubmit={save}
+          />
           <TestOrderChangeHistory orderId={order.id} />
         </>
       ) : null}
