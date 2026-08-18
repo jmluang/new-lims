@@ -113,15 +113,23 @@ export function TestOrderEntrustForm({
           </table>
         </div>
         {editable ? <button className="m-2 inline-flex items-center gap-1 text-sm text-emerald-700 hover:text-emerald-900" type="button" onClick={() => standards.append(emptyStandard())}><Plus className="size-4" />新增标准</button> : null}
-        <div className="grid grid-cols-[7rem_1fr_7rem_1fr] border-t border-emerald-900/15 text-sm">
-          <CellLabel>报告形式</CellLabel>
-          <Cell className="col-span-3 border-r-0">{editable
-            ? <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2">{reportFormOptions.map((option) => <label className="inline-flex items-center gap-1" key={option}><input type="checkbox" value={option} {...form.register('report_forms')} />{reportFormLabel(option)}</label>)}</div>
-            : <ReadOnly value={(form.watch('report_forms') ?? []).map(reportFormLabel).join('、')} />}</Cell>
-          <CellLabel>样品是否返还</CellLabel><Cell><SelectCell form={form} editable={editable} name={'sample_return'} options={sampleReturnOptions.map((option) => ({ value: option, label: option === 'return' ? '是' : '否（销毁处理）' }))} /></Cell>
-          <CellLabel>报告提交</CellLabel><Cell className="border-r-0"><SelectCell form={form} editable={editable} name={'delivery_method'} options={reportSubmissionOptions.map((option) => ({ value: option, label: option === 'self_pick' ? '自取' : '邮寄' }))} /></Cell>
-          <CellLabel>准许检测分包</CellLabel><Cell className="col-span-3 border-r-0"><SelectCell form={form} editable={editable} name={'outsourcing_option'} options={outsourcingOptions.map((option) => ({ value: option, label: option === 'allowed' ? '允许' : '不允许' }))} /></Cell>
-          <CellLabel>备注</CellLabel><Cell className="col-span-3 border-r-0"><TextCell form={form} editable={editable} name={'remark'} /></Cell>
+        <div className="border-t border-emerald-900/15 text-sm">
+          <div className="grid grid-cols-[7rem_1fr] border-b border-emerald-900/15">
+            <CellLabel>报告形式</CellLabel>
+            <Cell className="border-r-0">{editable
+              ? <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2">{reportFormOptions.map((option) => <label className="inline-flex items-center gap-1" key={option}><input type="checkbox" value={option} {...form.register('report_forms')} />{reportFormLabel(option)}</label>)}</div>
+              : <ReadOnly value={(form.watch('report_forms') ?? []).map(reportFormLabel).join('、')} />}</Cell>
+          </div>
+          <div className="grid grid-cols-[7rem_1fr_7rem_1fr] border-b border-emerald-900/15">
+            <CellLabel>样品是否返还</CellLabel><Cell><SelectCell form={form} editable={editable} name={'sample_return'} options={sampleReturnOptions.map((option) => ({ value: option, label: option === 'return' ? '是' : '否（销毁处理）' }))} /></Cell>
+            <CellLabel>报告提交</CellLabel><Cell className="border-r-0"><SelectCell form={form} editable={editable} name={'delivery_method'} options={reportSubmissionOptions.map((option) => ({ value: option, label: option === 'self_pick' ? '自取' : '邮寄' }))} /></Cell>
+          </div>
+          <div className="grid grid-cols-[7rem_1fr] border-b border-emerald-900/15">
+            <CellLabel>准许检测分包</CellLabel><Cell className="border-r-0"><SelectCell form={form} editable={editable} name={'outsourcing_option'} options={outsourcingOptions.map((option) => ({ value: option, label: option === 'allowed' ? '允许' : '不允许' }))} /></Cell>
+          </div>
+          <div className="grid grid-cols-[7rem_1fr]">
+            <CellLabel>备注</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'remark'} /></Cell>
+          </div>
         </div>
 
         <SectionTitle>*样品信息</SectionTitle>
@@ -166,7 +174,7 @@ export function TestOrderEntrustForm({
 }
 
 function PartyRows({ form, editable, prefix, title }: { form: UseFormReturn<TestOrderFormValues>; editable: boolean; prefix: 'client' | 'manufacturer' | 'maker'; title: string }) {
-  return <div className="border-t border-emerald-900/15 text-sm"><div className="grid grid-cols-[7rem_1fr_4rem_1fr_3rem_1fr]"><CellLabel>{title}</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_company`} /></Cell><CellLabel>联系人</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_contact`} /></Cell><CellLabel>电话</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_phone`} /></Cell></div><div className="grid grid-cols-[7rem_1fr_3rem_1fr]"><CellLabel>地址</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_address`} /></Cell><CellLabel>邮箱</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_email`} type="email" /></Cell></div></div>
+  return <div className="border-t border-emerald-900/15 text-sm"><div className="grid grid-cols-[7rem_1fr_4rem_1fr_3rem_1fr] border-b border-emerald-900/15"><CellLabel>{title}</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_company`} /></Cell><CellLabel>联系人</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_contact`} /></Cell><CellLabel>电话</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_phone`} /></Cell></div><div className="grid grid-cols-[7rem_1fr_3rem_1fr]"><CellLabel>地址</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_address`} /></Cell><CellLabel>邮箱</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_email`} type="email" /></Cell></div></div>
 }
 
 
