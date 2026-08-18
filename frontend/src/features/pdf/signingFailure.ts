@@ -18,3 +18,8 @@ export function signingFailureText(code: string | null | undefined): string {
 
   return translated && translated !== code ? translated : GENERIC
 }
+
+/** Terminal outcomes that must not offer another signing attempt. */
+export function signingControlsUnavailable(state: string | null | undefined): boolean {
+  return ['completed', 'irreversible_failed', 'manual_review', 'cancelled'].includes(state ?? '')
+}

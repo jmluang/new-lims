@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { signingFailureText } from '../signingFailure'
+import { signingControlsUnavailable, signingFailureText } from '../signingFailure'
 
 describe('signingFailureText', () => {
   // The bug this exists to stop: an unmapped code was rendered verbatim, so a
@@ -25,5 +25,13 @@ describe('signingFailureText', () => {
   it('falls back when there is no code at all', () => {
     expect(signingFailureText(null)).toContain('联系管理员')
     expect(signingFailureText(undefined)).toContain('联系管理员')
+  })
+
+  it('only keeps the form for retryable failures', () => {
+    expect(signingControlsUnavailable('failed')).toBe(false)
+    expect(signingControlsUnavailable('completed')).toBe(true)
+    expect(signingControlsUnavailable('manual_review')).toBe(true)
+    expect(signingControlsUnavailable('irreversible_failed')).toBe(true)
+    expect(signingControlsUnavailable('cancelled')).toBe(true)
   })
 })

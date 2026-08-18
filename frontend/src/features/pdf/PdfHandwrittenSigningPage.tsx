@@ -19,7 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ErrorNotice, Modal, PageShell } from '../system/shared'
 import { showToast } from '../../lib/toast'
 import { signedText, signedTitle } from './signingOutcome'
-import { signingFailureText } from './signingFailure'
+import { signingControlsUnavailable, signingFailureText } from './signingFailure'
 import { inputClass } from '../system/utils'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { reportNumberFromFileName } from './api'
@@ -43,6 +43,12 @@ import { fieldAspectRatio } from './fieldAspect'
 import { requestedSigningUuid, resumeDocumentUuid, resumePlanning } from './resumePlanning'
 import { canFreeze, workflowIdempotencyKey as buildWorkflowIdempotencyKey } from './workflowAttempt'
 import { SignaturePad } from './SignaturePad'
+import {
+  drawingStateForKey,
+  operationUuidForRequest,
+  type RequestOperationState,
+  type SignatureDrawingState,
+} from './signingTaskState'
 
 const roles: SignatureRole[] = ['inspector', 'reviewer', 'issuer']
 const roleLabels: Record<SignatureRole, string> = {
@@ -467,7 +473,10 @@ function SigningWorkspace() {
   const [selectedRequestUuid, setSelectedRequestUuid] = useState(() => requestedSigningUuid() ?? '')
   const effectiveRequestUuid = selectedRequestUuid || requests.data?.[0]?.request_uuid || ''
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
-  const [pageSize, setPageSize] = useState<{ width: number; height: number } | null>(null)
+  const [pageSizeState, setPageSizeState] = useState<{
+    requestUuid: string
+    size: { width: number; height: number }
+  } | null>(null)
   const current = requests.data?.find((request) => request.request_uuid === effectiveRequestUuid) ?? null
   const taskCount = requests.data?.length ?? 0
   const detail = useQuery({
@@ -480,13 +489,13 @@ function SigningWorkspace() {
     queryFn: () => downloadRevision(detail.data!.revision.revision_uuid),
     enabled: Boolean(detail.data?.revision.revision_uuid),
   })
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [signatureReady, setSignatureReady] = useState(false)
+  const [drawingState, setDrawingState] = useState<SignatureDrawingState>({ key: '', previewUrl: null, ready: false })
   const [currentPassword, setCurrentPassword] = useState('')
   const [rejectReason, setRejectReason] = useState('CONTENT_REVIEW_REJECTED')
   const [rejectOpen, setRejectOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [operationUuid, setOperationUuid] = useState('')
+  const [operationState, setOperationState] = useState<RequestOperationState>({ requestUuid: '', operationUuid: '' })
+  const operationUuid = operationUuidForRequest(operationState, effectiveRequestUuid)
   const padRef = useRef<{ toBlob: () => Promise<Blob>; clear: () => void } | null>(null)
 
   const operation = useQuery({
@@ -501,17 +510,20 @@ function SigningWorkspace() {
   const submit = useMutation({
     mutationFn: async () => {
       if (!effectiveRequestUuid) throw new Error('请先选择签名任务')
+      const requestUuid = effectiveRequestUuid
       const appearance = await padRef.current?.toBlob()
       if (!appearance) throw new Error('请先完成手写签名')
-      return submitSignatureAppearance({
-        requestUuid: effectiveRequestUuid,
+      const operation = await submitSignatureAppearance({
+        requestUuid,
         appearance,
         fileName: 'handwritten-signature.png',
         currentPassword,
       })
+
+      return { requestUuid, operation }
     },
     onSuccess: (result) => {
-      setOperationUuid(result.operation_uuid)
+      setOperationState({ requestUuid: result.requestUuid, operationUuid: result.operation.operation_uuid })
       setCurrentPassword('')
       // The password has been accepted; the rest is progress the signer watches
       // in the panel, not something to hold a dialog open for.
@@ -522,7 +534,9 @@ function SigningWorkspace() {
     mutationFn: () => rejectSigningRequest(effectiveRequestUuid, rejectReason),
     onSuccess: async () => {
       setSelectedRequestUuid('')
-      setOperationUuid('')
+      setOperationState({ requestUuid: '', operationUuid: '' })
+      setDrawingState({ key: '', previewUrl: null, ready: false })
+      setPageSizeState(null)
       setRejectOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'requests'] })
     },
@@ -573,17 +587,22 @@ function SigningWorkspace() {
     }))
   }, [detail.data])
   const padAspectRatio = useMemo(
-    () => fieldAspectRatio(detail.data?.field.slots[0]?.normalized_rect, pageSize),
-    [detail.data, pageSize],
+    () => fieldAspectRatio(
+      detail.data?.field.slots[0]?.normalized_rect,
+      pageSizeState?.requestUuid === effectiveRequestUuid ? pageSizeState.size : null,
+    ),
+    [detail.data, effectiveRequestUuid, pageSizeState],
   )
+  const drawingKey = `${effectiveRequestUuid}:${padAspectRatio}`
+  const activeDrawing = drawingStateForKey(drawingState, drawingKey)
   const terminalState = operation.data?.state
   const operationPending = Boolean(
     operationUuid
       && (!terminalState || !['completed', 'failed', 'irreversible_failed', 'manual_review', 'cancelled'].includes(terminalState)),
   )
-  // Only a completed signature retires the form. A failure leaves it in place,
-  // because retrying is exactly what the signer needs to do next.
-  const signatureCompleted = terminalState === 'completed'
+  // A pre-key failure remains retryable. Completed, ambiguous and irreversible
+  // outcomes retire the controls so the UI cannot contradict the recovery rule.
+  const signingControlsLocked = signingControlsUnavailable(terminalState)
 
   return (
     <div className="space-y-3">
@@ -612,7 +631,7 @@ function SigningWorkspace() {
         <div className="flex items-center gap-2">
           {/* A signature already in the report cannot be taken back by
               rejecting, so the option stops being offered once it lands. */}
-          {signatureCompleted ? null : (
+          {signingControlsLocked ? null : (
             <Button
               variant="danger"
               disabled={!detail.data || reject.isPending || operationPending}
@@ -631,11 +650,16 @@ function SigningWorkspace() {
 
       <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-14rem)] xl:grid-cols-[minmax(0,1fr)_24rem]">
       <PdfPlacementWorkspace
+        key={effectiveRequestUuid || 'no-task'}
         file={revision.data ?? null}
         placements={placements}
         editable={false}
-        signaturePreview={previewUrl}
-        onPageSize={(index, size) => index === placements[0]?.page_index && setPageSize(size)}
+        signaturePreview={activeDrawing.previewUrl}
+        onPageSize={(index, size) => {
+          if (index === placements[0]?.page_index) {
+            setPageSizeState({ requestUuid: effectiveRequestUuid, size })
+          }
+        }}
       />
 
       <aside className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
@@ -649,8 +673,17 @@ function SigningWorkspace() {
           {/* Drawn at the shape of the field it lands in, so the proportions of
               a signature survive the trip into the document. */}
           <SignaturePad
-            onPreviewChange={setPreviewUrl}
-            onReadyChange={setSignatureReady}
+            key={drawingKey}
+            onPreviewChange={(previewUrl) => setDrawingState((state) => ({
+              key: drawingKey,
+              previewUrl,
+              ready: state.key === drawingKey ? state.ready : false,
+            }))}
+            onReadyChange={(ready) => setDrawingState((state) => ({
+              key: drawingKey,
+              previewUrl: state.key === drawingKey ? state.previewUrl : null,
+              ready,
+            }))}
             padRef={padRef}
             aspectRatio={padAspectRatio}
           />
@@ -658,7 +691,7 @@ function SigningWorkspace() {
 
         {/* Once the signature is in the report there is nothing left to submit,
             so the whole card goes rather than sitting there disabled. */}
-        {signatureCompleted ? null : (
+        {signingControlsLocked ? null : (
           <WorkspaceCard title="身份确认与数字签名" icon={LockKeyhole}>
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
               提交后本次签名即刻生效，不能撤销。
@@ -666,7 +699,7 @@ function SigningWorkspace() {
             <Button
               variant="primary"
               className="mt-3 w-full"
-              disabled={!detail.data || !signatureReady || submit.isPending || operationPending}
+              disabled={!detail.data || !activeDrawing.ready || submit.isPending || operationPending}
               onClick={() => setConfirmOpen(true)}
             >
               {submit.isPending || operationPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
@@ -772,11 +805,10 @@ function SigningWorkspace() {
               }`}
               onClick={() => {
                 setSelectedRequestUuid(request.request_uuid)
-                setOperationUuid('')
-                setPreviewUrl(null)
-                setSignatureReady(false)
+                setOperationState({ requestUuid: '', operationUuid: '' })
+                setDrawingState({ key: '', previewUrl: null, ready: false })
+                setPageSizeState(null)
                 setCurrentPassword('')
-                padRef.current?.clear()
                 setTaskPickerOpen(false)
               }}
             >

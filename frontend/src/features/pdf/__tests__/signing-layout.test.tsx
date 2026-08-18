@@ -48,6 +48,16 @@ async function markup(canPlan: boolean) {
 }
 
 describe('signing workspace', () => {
+  it('does not reuse operation or ink state across tasks and canvas shapes', async () => {
+    const { drawingStateForKey, operationUuidForRequest } = await import('../signingTaskState')
+
+    expect(operationUuidForRequest({ requestUuid: 'task-a', operationUuid: 'operation-a' }, 'task-b')).toBe('')
+    expect(drawingStateForKey({ key: 'task-a:2.8', previewUrl: 'ink-a', ready: true }, 'task-b:2.8'))
+      .toEqual({ key: 'task-b:2.8', previewUrl: null, ready: false })
+    expect(drawingStateForKey({ key: 'task-a:2.8', previewUrl: 'ink-a', ready: true }, 'task-a:2.1'))
+      .toEqual({ key: 'task-a:2.1', previewUrl: null, ready: false })
+  })
+
   // Planning who signs is a different job from signing. A signer without the
   // planning permission should not be offered the tab at all.
   it('hides the planning tab from someone who can only sign', async () => {
