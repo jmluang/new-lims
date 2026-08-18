@@ -64,6 +64,26 @@ describe('signing workspace', () => {
     expect(html).toContain('xl:grid-cols-[minmax(0,1fr)_24rem]')
   })
 
+  it('offers rejecting from the header rather than beside the signature', async () => {
+    const html = await markup(false)
+
+    // Confirming and rejecting stood in the same panel, so the page read as two
+    // things to do rather than one decision. Rejecting now sits with the task it
+    // applies to, and its reasons stay behind the modal until asked for.
+    expect(html).toContain('拒绝')
+    expect(html).not.toContain('拒绝并终止本次签署')
+    expect(html).not.toContain('内容审核不通过')
+  })
+
+  it('asks for the password at the moment of signing, not beside the pad', async () => {
+    const html = await markup(false)
+
+    // The field sat in the panel the whole time the signer was drawing. It now
+    // lives in the confirmation dialog, which is closed until the button is hit.
+    expect(html).toContain('确认身份并签名')
+    expect(html).not.toContain('当前登录密码')
+  })
+
   it('draws the pad as a wide rectangle rather than a near square', async () => {
     const html = await markup(false)
 
