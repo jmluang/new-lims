@@ -134,19 +134,39 @@ export function StatusBadge({ status }: { status?: string | null }) {
     <span
       className={cn(
         'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium',
-        ['active', 'success', 'completed', 'received', 'public_submission_accepted'].includes(normalized) && 'border-emerald-200 bg-emerald-50 text-emerald-700',
-        ['locked', 'failed', 'error'].includes(normalized) && 'border-red-200 bg-red-50 text-red-700',
-        ['disabled', 'pending', 'running', 'not_received', 'partially_received', 'public_submission_pending'].includes(normalized) && 'border-amber-200 bg-amber-50 text-amber-700',
-        ['testing', 'outsourced', 'outsource_returned'].includes(normalized) && 'border-sky-200 bg-sky-50 text-sky-700',
-        ['returned', 'retained', 'scrapped', 'rejected', 'cancelled', 'abnormal', 'public_submission_rejected'].includes(normalized) && 'border-slate-200 bg-slate-100 text-slate-700',
-        !['active', 'success', 'completed', 'received', 'public_submission_accepted', 'locked', 'failed', 'error', 'disabled', 'pending', 'running', 'not_received', 'partially_received', 'public_submission_pending', 'testing', 'outsourced', 'outsource_returned', 'returned', 'retained', 'scrapped', 'rejected', 'cancelled', 'abnormal', 'public_submission_rejected'].includes(
-          normalized,
-        ) && 'border-slate-200 bg-slate-50 text-slate-600',
+        statusBadgeClassNames[normalized] ?? 'border-slate-200 bg-slate-50 text-slate-600',
       )}
     >
       {zhText(normalized)}
     </span>
   )
+}
+
+const statusBadgeClassNames: Record<string, string> = {
+  active: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  public_submission_accepted: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  received: 'border-sky-200 bg-sky-50 text-sky-700',
+  testing: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+  locked: 'border-red-200 bg-red-50 text-red-700',
+  failed: 'border-red-200 bg-red-50 text-red-700',
+  error: 'border-red-200 bg-red-50 text-red-700',
+  disabled: 'border-amber-200 bg-amber-50 text-amber-700',
+  pending: 'border-amber-200 bg-amber-50 text-amber-700',
+  running: 'border-amber-200 bg-amber-50 text-amber-700',
+  partially_received: 'border-amber-200 bg-amber-50 text-amber-700',
+  public_submission_pending: 'border-amber-200 bg-amber-50 text-amber-700',
+  outsourced: 'border-sky-200 bg-sky-50 text-sky-700',
+  outsource_returned: 'border-sky-200 bg-sky-50 text-sky-700',
+  not_received: 'border-slate-200 bg-slate-100 text-slate-700',
+  returned: 'border-slate-200 bg-slate-100 text-slate-700',
+  retained: 'border-slate-200 bg-slate-100 text-slate-700',
+  scrapped: 'border-slate-200 bg-slate-100 text-slate-700',
+  rejected: 'border-slate-200 bg-slate-100 text-slate-700',
+  cancelled: 'border-slate-200 bg-slate-100 text-slate-700',
+  abnormal: 'border-slate-200 bg-slate-100 text-slate-700',
+  public_submission_rejected: 'border-slate-200 bg-slate-100 text-slate-700',
 }
 
 export function LoadingState({ label = 'Loading data' }: { label?: string }) {
