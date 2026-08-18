@@ -607,6 +607,21 @@ export const textMap: Record<string, string> = {
   WORKFLOW_CANCELLED_BEFORE_PRIVATE_KEY: '签名在调用私钥前已被取消',
   WORKFLOW_REJECTED_BEFORE_PRIVATE_KEY: '签名在调用私钥前已被拒绝',
 
+  // Signers see these. The one thing they need is whether a signature may
+  // already exist: if it cannot, say so and let them retry; if it might, tell
+  // them to stop rather than sign the report twice.
+  JAVA_EXECUTION_REGISTRATION_DEADLINE: '签名服务没有响应，本次没有生成签名，可以重新提交',
+  JAVA_EXECUTION_NOT_REGISTERED_YET: '签名服务尚未开始处理，请稍后重新提交',
+  JAVA_FAILED_BEFORE_PRIVATE_KEY: '签名在开始前中断，本次没有生成签名，可以重新提交',
+  JAVA_STATUS_TEMPORARILY_UNAVAILABLE: '签名服务暂时不可用，请稍后重新提交',
+  JAVA_STATUS_TRANSPORT_ERROR: '无法连接签名服务，请稍后重新提交',
+  JAVA_FAILED_AFTER_PRIVATE_KEY: '签名中途失败，结果需要核对，请不要重复提交并联系管理员',
+  JAVA_OUTCOME_UNKNOWN: '本次签名结果未知，请不要重复提交并联系管理员',
+  JAVA_POST_OUTCOME_UNCERTAIN: '本次签名结果尚未确认，请不要重复提交并联系管理员',
+  JAVA_COMPLETED_RESULT_UNAVAILABLE: '签名已生成但暂时无法读取，请稍后刷新或联系管理员',
+  JAVA_RESULT_RESPONSE_MISMATCH: '签名结果校验不一致，请联系管理员核对',
+  JAVA_RESULT_INTEGRITY_FALLBACK: '签名结果完整性待复核，请联系管理员',
+
   PDF_MANUAL_REVIEW_RESOLUTION_INVALID: '人工复核裁决无效',
   PDF_MANUAL_REVIEW_COMPLETED_RESULT_NOT_ADOPTABLE: '已完成的签名结果不可采用',
   PDF_MANUAL_REVIEW_PRIVATE_KEY_ABSENCE_NOT_PROVEN: '无法证明未调用私钥，不能按未签名结案',

@@ -15,8 +15,8 @@ import { editableReason, planReason } from './documentEditable'
 
 const stageLabels: Record<string, string> = {
   confirmed_awaiting_finalize: '待定稿',
-  finalized_awaiting_workflow: '已定稿，未编排签名',
-  preparing_fields: '正在准备签名字段',
+  finalized_awaiting_workflow: '已定稿，待编排签名',
+  preparing_fields: '正在准备签名位置',
   awaiting_signature: '等待签署',
   all_signed: '全部已签署',
   published: '已发布',
@@ -31,6 +31,21 @@ const signerStatusLabels: Record<string, string> = {
   signed: '已签署',
   rejected: '已拒绝',
   cancelled: '已取消',
+  // A failed signature copies the operation's terminal state onto the request,
+  // so these two reach the screen the same way the ordinary statuses do.
+  manual_review: '待人工复核',
+  irreversible_failed: '签名失败',
+}
+
+/**
+ * Never renders an internal state name.
+ *
+ * Falling back to the raw value put `manual_review` in front of a signer, who
+ * has no way to read it. An unlabelled status is a gap in this map, and saying
+ * so plainly beats leaking the vocabulary the backend happens to use.
+ */
+function signerStatusLabel(status: string): string {
+  return signerStatusLabels[status] ?? '状态未知'
 }
 
 const roleLabels: Record<string, string> = {
@@ -312,7 +327,7 @@ export function PdfDocumentListPage() {
 }
 
 function StageBadge({ document }: { document: SigningDocument }) {
-  const label = stageLabels[document.stage] ?? document.stage
+  const label = stageLabels[document.stage] ?? '状态未知'
   const tone = document.stage === 'published' || document.stage === 'all_signed'
     ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
     : document.stage === 'cancelled' || document.stage === 'failed'
@@ -347,7 +362,7 @@ function SignerRow({ signer }: { signer: DocumentSigner }) {
       <span className="text-slate-500">{signer.semantic_role ? roleLabels[signer.semantic_role] ?? signer.semantic_role : `第 ${signer.sequence} 步`}</span>
       <span className="font-medium text-slate-800">{signer.assigned_user_name ?? '—'}</span>
       <span className={done ? 'text-emerald-700' : stopped ? 'text-red-700' : 'text-slate-400'}>
-        {signerStatusLabels[signer.status] ?? signer.status}
+        {signerStatusLabel(signer.status)}
       </span>
     </div>
   )

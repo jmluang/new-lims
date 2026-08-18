@@ -1,0 +1,29 @@
+import { describe, expect, it } from 'vitest'
+import { signingFailureText } from '../signingFailure'
+
+describe('signingFailureText', () => {
+  // The bug this exists to stop: an unmapped code was rendered verbatim, so a
+  // signer read "JAVA_EXECUTION_REGISTRATION_DEADLINE" off their screen.
+  it('never renders a raw internal code', () => {
+    for (const code of ['JAVA_EXECUTION_REGISTRATION_DEADLINE', 'SOMETHING_NOBODY_TRANSLATED']) {
+      expect(signingFailureText(code)).not.toContain(code)
+    }
+  })
+
+  it('tells the signer they may retry when no signature can exist', () => {
+    expect(signingFailureText('JAVA_FAILED_BEFORE_PRIVATE_KEY')).toContain('没有生成签名')
+  })
+
+  // The distinction that matters: after the private key ran, a signature may
+  // already be in the report, so retrying risks signing it twice.
+  it('tells the signer to stop when a signature might already exist', () => {
+    for (const code of ['JAVA_FAILED_AFTER_PRIVATE_KEY', 'JAVA_OUTCOME_UNKNOWN', 'JAVA_POST_OUTCOME_UNCERTAIN']) {
+      expect(signingFailureText(code)).toContain('不要重复提交')
+    }
+  })
+
+  it('falls back when there is no code at all', () => {
+    expect(signingFailureText(null)).toContain('联系管理员')
+    expect(signingFailureText(undefined)).toContain('联系管理员')
+  })
+})
