@@ -19,7 +19,7 @@ const entries = [
     actor_user_id: 1,
     actor_name: 'Super Admin',
     changes: [
-      { field: '特别说明', old_value: '', new_value: '第一行\n第二行' },
+      { field: '特别说明', old_value: '', new_value: 'default\n第二行' },
       { field: '报告形式', old_value: [], new_value: ['electronic', 'paper'] },
     ],
   },
@@ -72,8 +72,9 @@ describe('TestOrderChangeHistory markup', () => {
   it('leaves free text exactly as it was written', async () => {
     const html = await markup()
 
-    expect(html).toContain('第一行')
+    expect(html).toContain('default')
     expect(html).toContain('第二行')
+    expect(html).not.toContain('默认')
   })
 
   // The rest of the app outlines panels in emerald, not slate; this panel used

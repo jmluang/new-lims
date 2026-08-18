@@ -85,7 +85,14 @@ export function TestOrderDetailPage() {
       {orderQuery.isPending ? <LoadingState label="Loading test order" /> : null}
       {order ? (
         <>
-          <TestOrderEntrustForm order={order} editable={canUpdate && editing} submitting={saveOrder.isPending} error={saveOrder.error} onSubmit={save} />
+          <TestOrderEntrustForm
+            key={`${order.id}:${editing ? 'edit' : 'read'}`}
+            order={order}
+            editable={canUpdate && editing}
+            submitting={saveOrder.isPending}
+            error={saveOrder.error}
+            onSubmit={save}
+          />
           <TestOrderChangeHistory orderId={order.id} />
         </>
       ) : null}

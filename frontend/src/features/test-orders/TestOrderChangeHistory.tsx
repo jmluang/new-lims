@@ -75,13 +75,13 @@ export function TestOrderChangeHistory({ orderId }: { orderId: number }) {
                       row: the arrow carries the direction, so the eye reads the
                       change itself instead of the words for it. */}
                   <dd className="mt-1 flex flex-wrap items-start gap-x-1 gap-y-1 md:mt-0">
-                    <Value value={change.old_value} />
+                    <Value field={change.field} value={change.old_value} />
                     {/* The arrow travels with the new value. Left as a sibling
                         it stranded itself at the end of the previous line
                         whenever a long field wrapped. */}
                     <span className="flex min-w-0 items-start gap-1">
                       <ChevronRight className="mt-1 size-3.5 shrink-0 text-slate-400" aria-hidden="true" />
-                      <Value value={change.new_value} highlight />
+                      <Value field={change.field} value={change.new_value} highlight />
                     </span>
                   </dd>
                 </div>
@@ -94,8 +94,8 @@ export function TestOrderChangeHistory({ orderId }: { orderId: number }) {
   )
 }
 
-function Value({ value, highlight = false }: { value: unknown; highlight?: boolean }) {
-  const text = displayValue(value)
+function Value({ field, value, highlight = false }: { field: string; value: unknown; highlight?: boolean }) {
+  const text = displayValue(value, isEnumField(field))
   const empty = text === EMPTY
 
   return (
@@ -117,12 +117,28 @@ const EMPTY = '（空）'
 /** Enum codes as the database stores them: `urgent`, `not_allowed`, `zh`. */
 const ENUM_CODE = /^[a-z][a-z0-9_]*$/
 
-function displayValue(value: unknown): string {
+const ENUM_FIELDS = new Set([
+  '紧急程度',
+  '报告形式',
+  '样品是否返还',
+  '报告提交',
+  '准许检测分包',
+  '样品状态',
+])
+
+function isEnumField(field: string): boolean {
+  return ENUM_FIELDS.has(field)
+    || field.endsWith('/报告语言')
+    || field.endsWith('/状态')
+    || field.endsWith('/收样状态')
+}
+
+function displayValue(value: unknown, translateEnum: boolean): string {
   if (value === null || value === undefined || value === '') {
     return EMPTY
   }
   if (Array.isArray(value)) {
-    return value.length === 0 ? EMPTY : value.map(displayValue).join('、')
+    return value.length === 0 ? EMPTY : value.map((item) => displayValue(item, translateEnum)).join('、')
   }
   if (typeof value === 'object') {
     return JSON.stringify(value)
@@ -130,7 +146,5 @@ function displayValue(value: unknown): string {
 
   const text = String(value)
 
-  // Only code-shaped values are translated. Free text is left alone, so a
-  // remark is never rewritten because it happens to match a dictionary key.
-  return ENUM_CODE.test(text) ? zhText(text) ?? text : text
+  return translateEnum && ENUM_CODE.test(text) ? zhText(text) ?? text : text
 }
