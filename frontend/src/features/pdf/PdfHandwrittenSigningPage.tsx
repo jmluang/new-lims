@@ -512,6 +512,14 @@ function SigningWorkspace() {
       return isSigningTerminalState(state) ? false : 2000
     },
   })
+  const completedRevisionUuid = operation.data?.state === 'completed'
+    ? operation.data.result_revision_uuid ?? ''
+    : ''
+  const completedRevision = useQuery({
+    queryKey: ['pdf', 'handwritten', 'revision', completedRevisionUuid],
+    queryFn: () => downloadRevision(completedRevisionUuid),
+    enabled: Boolean(completedRevisionUuid),
+  })
   const submit = useMutation({
     mutationFn: async () => {
       if (!effectiveRequestUuid) throw new Error('请先选择签名任务')
@@ -610,6 +618,7 @@ function SigningWorkspace() {
   // outcomes retire the controls so the UI cannot contradict the recovery rule.
   const signingControlsLocked = signingControlsUnavailable(terminalState)
   const taskSwitchLocked = signingTaskSwitchUnavailable(submit.isPending, operationPending)
+  const displayedRevision = completedRevisionUuid ? completedRevision.data ?? null : revision.data ?? null
 
   return (
     <div className="space-y-3">
@@ -658,10 +667,10 @@ function SigningWorkspace() {
       <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-14rem)] xl:grid-cols-[minmax(0,1fr)_24rem]">
       <PdfPlacementWorkspace
         key={effectiveRequestUuid || 'no-task'}
-        file={revision.data ?? null}
+        file={displayedRevision}
         placements={placements}
         editable={false}
-        signaturePreview={activeDrawing.previewUrl}
+        signaturePreview={signingControlsLocked ? null : activeDrawing.previewUrl}
         onPageSize={(index, size) => {
           if (index === placements[0]?.page_index) {
             setPageSizeState({ requestUuid: effectiveRequestUuid, size })
@@ -670,7 +679,7 @@ function SigningWorkspace() {
       />
 
       <aside className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
-        <WorkspaceCard title="手写签名" icon={PenTool}>
+        {signingControlsLocked ? null : <WorkspaceCard title="手写签名" icon={PenTool}>
           {detail.data ? (
             <div className="mb-3 rounded-lg bg-slate-50 p-3 text-xs">
               <span className="text-slate-400">签名角色</span>
@@ -694,7 +703,7 @@ function SigningWorkspace() {
             padRef={padRef}
             aspectRatio={padAspectRatio}
           />
-        </WorkspaceCard>
+        </WorkspaceCard>}
 
         {/* Once the signature is in the report there is nothing left to submit,
             so the whole card goes rather than sitting there disabled. */}
@@ -723,6 +732,7 @@ function SigningWorkspace() {
 
         {operation.data ? <OperationState operation={operation.data} lastSigner={lastSigner} /> : null}
         {operation.isError ? <ErrorNotice error={operation.error} fallback="签名状态查询失败" /> : null}
+        {completedRevision.isError ? <ErrorNotice error={completedRevision.error} fallback="已签署报告加载失败" /> : null}
       </aside>
       </div>
 
@@ -824,6 +834,8 @@ function SigningWorkspace() {
                 setPageSizeState(null)
                 setPinnedRequest(request)
                 setCurrentPassword('')
+                submit.reset()
+                reject.reset()
                 setTaskPickerOpen(false)
               }}
             >

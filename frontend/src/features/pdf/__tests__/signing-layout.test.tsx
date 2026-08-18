@@ -104,6 +104,17 @@ describe('signing workspace', () => {
     expect(html).not.toContain('当前登录密码')
   })
 
+  it('uses the server result revision after a signature completes', async () => {
+    const source = await import('node:fs').then(({ readFileSync }) => readFileSync(
+      new URL('../PdfHandwrittenSigningPage.tsx', import.meta.url),
+      'utf8',
+    ))
+
+    expect(source).toContain("operation.data.result_revision_uuid")
+    expect(source).toContain("file={displayedRevision}")
+    expect(source).toContain("signaturePreview={signingControlsLocked ? null : activeDrawing.previewUrl}")
+  })
+
   it('draws the pad as a wide rectangle rather than a near square', async () => {
     const html = await markup(false)
 
