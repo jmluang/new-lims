@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\AuditLog;
 use App\Models\Standard;
 use App\Models\TestOrder;
 use App\Services\Audit\AuditLogger;
@@ -212,6 +213,31 @@ class TestOrderController extends Controller
                     ->values(),
             ],
         ]);
+    }
+
+    public function history(Request $request, TestOrder $testOrder): JsonResponse
+    {
+        $this->authorizePermission($request, 'test_orders.read', self::RESOURCE, $testOrder);
+
+        $history = AuditLog::query()
+            ->where('module', self::RESOURCE)
+            ->where('action', 'test_orders.update')
+            ->where('subject_type', $testOrder->getMorphClass())
+            ->where('subject_id', (string) $testOrder->getKey())
+            ->latest('id')
+            ->limit(100)
+            ->get()
+            ->map(fn (AuditLog $auditLog): array => [
+                'id' => $auditLog->id,
+                'occurred_at' => $auditLog->created_at?->toJSON(),
+                'actor_user_id' => $auditLog->actor_user_id,
+                'actor_name' => $auditLog->actor_name_snapshot ?? '系统',
+                'changes' => $this->historyChanges($auditLog->before_values ?? [], $auditLog->after_values ?? []),
+            ])
+            ->filter(fn (array $entry): bool => $entry['changes'] !== [])
+            ->values();
+
+        return response()->json(['data' => $history]);
     }
 
     public function formOptions(Request $request): JsonResponse
@@ -487,6 +513,109 @@ class TestOrderController extends Controller
                 'sort_order' => $sample->sort_order,
             ])->values(),
         ];
+    }
+
+    /**
+     * Convert the immutable before/after snapshots into entries that are useful
+     * in an order form. Child rows are matched by their stable database id so a
+     * changed sample does not appear as an opaque, whole-array replacement.
+     *
+     * @param array<string, mixed> $before
+     * @param array<string, mixed> $after
+     * @return array<int, array{field: string, old_value: mixed, new_value: mixed}>
+     */
+    private function historyChanges(array $before, array $after): array
+    {
+        $changes = [];
+        $labels = [
+            'contract_no' => '合同编号', 'order_date' => '委托日期', 'planned_end_date' => '计划结束时间',
+            'urgency' => '紧急程度', 'client_company' => '委托单位', 'client_address' => '委托单位地址',
+            'client_contact' => '委托单位联系人', 'client_phone' => '委托单位电话', 'client_email' => '委托单位邮箱',
+            'manufacturer_company' => '制造商', 'manufacturer_address' => '制造商地址', 'manufacturer_contact' => '制造商联系人',
+            'manufacturer_phone' => '制造商电话', 'manufacturer_email' => '制造商邮箱',
+            'maker_company' => '生产厂', 'maker_address' => '生产厂地址', 'maker_contact' => '生产厂联系人',
+            'maker_phone' => '生产厂电话', 'maker_email' => '生产厂邮箱',
+            'report_forms' => '报告形式', 'sample_return' => '样品是否返还', 'delivery_method' => '报告提交',
+            'outsourcing_option' => '准许检测分包', 'remark' => '备注', 'sample_status' => '样品状态',
+            'address_lab_name' => '实验室名称', 'address_contact' => '寄送联系人', 'address_detail' => '实验室地址',
+            'address_phone' => '寄送联系电话', 'shipping_notes' => '特别说明', 'client_signature' => '委托人签字',
+            'client_sign_date' => '委托人签字日期', 'dept_confirm' => '综合部确认', 'dept_confirm_date' => '综合部确认日期',
+            'lab_confirm' => '检测部确认', 'lab_confirm_date' => '检测部确认日期',
+        ];
+
+        foreach ($labels as $key => $label) {
+            $oldValue = $before[$key] ?? null;
+            $newValue = $after[$key] ?? null;
+            if ($oldValue !== $newValue) {
+                $changes[] = ['field' => $label, 'old_value' => $oldValue, 'new_value' => $newValue];
+            }
+        }
+
+        return [
+            ...$changes,
+            ...$this->childHistoryChanges($before['standards'] ?? [], $after['standards'] ?? [], '执行标准', [
+                'standard_code' => '标准编号', 'standard_name' => '标准名称', 'qualifications' => '资质要求',
+                'report_language' => '报告语言', 'requirement' => '检测要求',
+            ]),
+            ...$this->childHistoryChanges($before['samples'] ?? [], $after['samples'] ?? [], '样品', [
+                'sample_name' => '名称', 'specification' => '规格', 'model' => '型号', 'input_voltage' => '额定电压',
+                'rated_current' => '额定电流', 'power' => '额定功率', 'rated_frequency' => '额定频率',
+                'quantity' => '数量', 'quantity_unit' => '数量单位', 'sample_condition' => '状态',
+                'sample_condition_note' => '异常说明', 'detail_content' => '详细内容', 'remark' => '备注', 'status' => '收样状态',
+            ]),
+        ];
+    }
+
+    /**
+     * @param mixed $beforeRows
+     * @param mixed $afterRows
+     * @param array<string, string> $fieldLabels
+     * @return array<int, array{field: string, old_value: mixed, new_value: mixed}>
+     */
+    private function childHistoryChanges(mixed $beforeRows, mixed $afterRows, string $groupLabel, array $fieldLabels): array
+    {
+        $beforeByKey = $this->historyRowsByKey(is_array($beforeRows) ? $beforeRows : []);
+        $afterByKey = $this->historyRowsByKey(is_array($afterRows) ? $afterRows : []);
+        $changes = [];
+
+        foreach (array_unique([...array_keys($beforeByKey), ...array_keys($afterByKey)]) as $key) {
+            $oldRow = $beforeByKey[$key] ?? null;
+            $newRow = $afterByKey[$key] ?? null;
+            $rowName = (string) (($newRow['sample_name'] ?? $newRow['standard_code'] ?? $oldRow['sample_name'] ?? $oldRow['standard_code'] ?? '#'.$key));
+
+            if ($oldRow === null || $newRow === null) {
+                $changes[] = ['field' => "{$groupLabel}（{$rowName}）", 'old_value' => $oldRow, 'new_value' => $newRow];
+                continue;
+            }
+
+            foreach ($fieldLabels as $field => $label) {
+                $oldValue = $oldRow[$field] ?? null;
+                $newValue = $newRow[$field] ?? null;
+                if ($oldValue !== $newValue) {
+                    $changes[] = ['field' => "{$groupLabel}（{$rowName}）/{$label}", 'old_value' => $oldValue, 'new_value' => $newValue];
+                }
+            }
+        }
+
+        return $changes;
+    }
+
+    /**
+     * @param array<int, mixed> $rows
+     * @return array<string, array<string, mixed>>
+     */
+    private function historyRowsByKey(array $rows): array
+    {
+        $keyed = [];
+        foreach ($rows as $index => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $keyed[(string) ($row['id'] ?? "new-{$index}")] = $row;
+        }
+
+        return $keyed;
     }
 
     private function auditValues(TestOrder $order): array

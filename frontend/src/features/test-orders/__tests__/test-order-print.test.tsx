@@ -138,6 +138,7 @@ describe('test order entrust print', () => {
 
     expect(listHtml).toContain('打印委托单')
     expect(detailHtml).toContain('打印委托单')
+    expect(detailHtml).toContain('修改记录')
 
     permissionState.data = permissionsWithPrint(false)
 

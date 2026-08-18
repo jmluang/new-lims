@@ -145,6 +145,25 @@ class TestOrderApiTest extends TestCase
         $this->assertDatabaseHas('test_order_samples', ['id' => $keptSampleId, 'detail_content' => '功能检查（更新）']);
     }
 
+    public function test_order_history_lists_the_actor_and_changed_fields_for_an_order(): void
+    {
+        $admin = $this->userWithPermissions($this->managerPermissions());
+        $customer = Customer::query()->create(['name' => '中山市XXX有限公司', 'status' => 'active']);
+        $standard = $this->standard();
+        $orderId = $this->postJsonAs($admin, '/api/test-orders', $this->payload($customer, $standard))->assertCreated()->json('data.id');
+
+        $this->putJsonAs($admin, "/api/test-orders/{$orderId}", ['remark' => '客户要求加急处理'])
+            ->assertOk();
+
+        $this->getJsonAs($admin, "/api/test-orders/{$orderId}/history")
+            ->assertOk()
+            ->assertJsonPath('data.0.actor_user_id', $admin->id)
+            ->assertJsonPath('data.0.actor_name', $admin->name)
+            ->assertJsonPath('data.0.changes.0.field', '备注')
+            ->assertJsonPath('data.0.changes.0.old_value', null)
+            ->assertJsonPath('data.0.changes.0.new_value', '客户要求加急处理');
+    }
+
     public function test_test_order_list_defaults_to_newest_id_first(): void
     {
         $reader = $this->userWithPermissions(['test_orders.read']);
