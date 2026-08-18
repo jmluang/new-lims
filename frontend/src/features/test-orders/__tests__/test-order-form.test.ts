@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   contactOptionsForCustomer,
   copyClientPartyValues,
+  customerForSearchValue,
   customerSearchValue,
+  customerSnapshotValues,
   normalizeTestOrderPayload,
   reportFormOptions,
   reportSubmissionOptions,
@@ -13,6 +15,7 @@ import {
 } from '../testOrderSchema'
 import { TestOrderForm } from '../TestOrderForm'
 import { testOrderDefaultValues } from '../testOrderDefaults'
+import type { TestOrder } from '../TestOrderListPage'
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => React.createElement('a', { href: to }, children),
@@ -146,6 +149,21 @@ describe('test order form', () => {
     })
   })
 
+  it('normalizes legacy report form values for current checkbox options', () => {
+    const order = {
+      id: 1,
+      order_no: 'WT-1',
+      order_date: '2026-08-18',
+      client_company: '中山市测试公司',
+      sample_status: 'not_received',
+      report_forms: ['electronic', 'paper'],
+      standards: [],
+      samples: [],
+    } as TestOrder
+
+    expect(testOrderDefaultValues(order).report_forms).toEqual(['electronic_report', 'paper_report'])
+  })
+
   it('renders entrust print fields in the existing form layout', () => {
     const html = renderToStaticMarkup(
       React.createElement(TestOrderForm, {
@@ -191,6 +209,42 @@ describe('test order form', () => {
         status: 'active',
       }),
     ).toBe('中山市星河检测客户 91442000MA7TEST 0760-88886666')
+  })
+
+  it('builds customer-linked snapshots and clears stale address data for unmatched searches', () => {
+    const customer = {
+      id: 7,
+      name: '中山市星河检测客户',
+      phone: '0760-88886666',
+      email: 'company@example.test',
+      address: '中山市东区一号',
+      status: 'active' as const,
+      default_contact: {
+        id: 11,
+        name: '默认联系人',
+        phone: '13800000000',
+        email: 'contact@example.test',
+        status: 'active' as const,
+      },
+    }
+
+    expect(customerForSearchValue([customer], '中山市星河检测客户')).toBe(customer)
+    expect(customerSnapshotValues('client', customer)).toMatchObject({
+      client_customer_id: 7,
+      client_company: '中山市星河检测客户',
+      client_address: '中山市东区一号',
+      client_contact: '默认联系人',
+      client_phone: '13800000000',
+      client_email: 'contact@example.test',
+    })
+    expect(customerSnapshotValues('client', null, '未匹配公司')).toMatchObject({
+      client_customer_id: null,
+      client_company: '未匹配公司',
+      client_address: '',
+      client_contact: '',
+      client_phone: '',
+      client_email: '',
+    })
   })
 
   it('uses customer contacts as selectable party contacts with default fallback', () => {

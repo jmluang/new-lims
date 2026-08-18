@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { Download, Eye, Search } from 'lucide-react'
+import { Eye, Search } from 'lucide-react'
 import { useState } from 'react'
-import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel } from '../system/shared'
-import { errorMessage, formatBytes, formatDateTime, inputClass, type ApiCollection, type ApiResource } from '../system/utils'
+import { formatBytes, formatDateTime, inputClass, type ApiCollection, type ApiResource } from '../system/utils'
 import { digestLabels } from './api'
 
 const coverFieldLabels: Record<string, string> = {
@@ -51,7 +50,6 @@ export function PdfFileListPage() {
   const [applied, setApplied] = useState<Filters>(emptyFilters)
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(15)
-  const [downloadError, setDownloadError] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<number | null>(null)
 
   const detailQuery = useQuery({
@@ -76,26 +74,6 @@ export function PdfFileListPage() {
       return response.data
     },
   })
-
-  async function download(row: PdfFileRow) {
-    setDownloadError(null)
-
-    try {
-      const response = await api.get<Blob>(`/api/pdf/files/${row.id}/download`, { responseType: 'blob' })
-      const url = URL.createObjectURL(response.data)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = row.file_name
-      anchor.click()
-
-      // Revoked on a timer, not in the same task as the click: a browser that
-      // has not yet taken ownership of the blob ends up with a cancelled
-      // download, which reads as the button doing nothing.
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
-    } catch (caught) {
-      setDownloadError(errorMessage(caught, '下载失败'))
-    }
-  }
 
   function applyFilters() {
     setApplied(filters)
@@ -160,7 +138,6 @@ export function PdfFileListPage() {
         </div>
       </Panel>
 
-      {downloadError ? <ErrorNotice error={new Error(downloadError)} /> : null}
       {filesQuery.isError ? <ErrorNotice error={filesQuery.error} fallback="无法加载签章台账" /> : null}
 
       {filesQuery.isPending ? (
@@ -198,12 +175,6 @@ export function PdfFileListPage() {
                         <Eye className="size-4" aria-hidden="true" />
                         详情
                       </Button>
-                      <PermissionGate resource="pdf_files" action="download">
-                        <Button variant="ghost" disabled={!row.has_file} onClick={() => download(row)}>
-                          <Download className="size-4" aria-hidden="true" />
-                          下载
-                        </Button>
-                      </PermissionGate>
                     </div>
                   </td>
                 </tr>
@@ -225,12 +196,6 @@ export function PdfFileListPage() {
                     <Eye className="size-4" aria-hidden="true" />
                     详情
                   </Button>
-                  <PermissionGate resource="pdf_files" action="download">
-                    <Button variant="secondary" disabled={!row.has_file} onClick={() => download(row)}>
-                      <Download className="size-4" aria-hidden="true" />
-                      下载
-                    </Button>
-                  </PermissionGate>
                 </div>
               </article>
             ))}

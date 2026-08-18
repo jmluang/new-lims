@@ -31,7 +31,7 @@ class BuildEntrustOrderPdfPayload
             'producer' => $this->party($order, 'maker'),
             'requirements' => [
                 'report_forms' => collect($order->report_forms ?? [])
-                    ->map(fn (string $value): array => $this->enumValue($value, $this->reportFormLabel($value)))
+                    ->map(fn (string $value): array => $this->enumValue($this->canonicalReportFormValue($value), $this->reportFormLabel($value)))
                     ->values()
                     ->all(),
                 'report_form_options' => [
@@ -154,6 +154,15 @@ class BuildEntrustOrderPdfPayload
             'formal_report' => '正式报告',
             'simple_report' => '简版报告',
             'english_report' => '英文报告',
+            default => $value,
+        };
+    }
+
+    private function canonicalReportFormValue(string $value): string
+    {
+        return match ($value) {
+            'electronic' => 'electronic_report',
+            'paper' => 'paper_report',
             default => $value,
         };
     }

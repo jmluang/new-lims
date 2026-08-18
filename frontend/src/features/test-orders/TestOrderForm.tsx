@@ -7,10 +7,12 @@ import { inputClass, textareaClass } from '../system/utils'
 import type { Customer } from '../customers/CustomerListPage'
 import type { Standard } from '../standards/StandardListPage'
 import { zhText } from '../../lib/zh'
+import { CustomerCompanySearchInput } from './CustomerCompanySearchInput'
 import {
   contactOptionsForCustomer,
   copyClientPartyValues,
-  customerSearchValue,
+  customerForSearchValue,
+  customerSnapshotValues,
   normalizeTestOrderPayload,
   outsourcingOptions,
   reportFormOptions,
@@ -18,6 +20,8 @@ import {
   sampleConditionOptions,
   sampleReturnOptions,
   testOrderSchema,
+  type PartyCustomer,
+  type PartyPrefix,
   type TestOrderFormValues,
 } from './testOrderSchema'
 import type { TestOrder } from './TestOrderListPage'
@@ -83,40 +87,21 @@ export function TestOrderForm({
     await onSubmit(normalizeTestOrderPayload(values))
   }
 
-  function applyCustomer(prefix: 'client' | 'manufacturer' | 'maker', customerId: string) {
-    const customer = customers.find((item) => String(item.id) === customerId)
-    const idField = `${prefix}_customer_id` as const
-
-    form.setValue(idField, customer ? customer.id : null)
-
-    if (!customer) {
-      return
-    }
-
-    form.setValue(`${prefix}_company` as const, customer.name)
-    form.setValue(`${prefix}_address` as const, customer.address ?? '')
-    form.setValue(`${prefix}_phone` as const, customer.phone ?? '')
-    form.setValue(`${prefix}_email` as const, customer.email ?? '')
-
-    const defaultContact = contactOptionsForCustomer(customer)[0]
-    if (defaultContact) {
-      applyContact(prefix, defaultContact)
-    }
+  function setCustomerSnapshot(prefix: PartyPrefix, customer: PartyCustomer | null, companyValue = '') {
+    Object.entries(customerSnapshotValues(prefix, customer, companyValue)).forEach(([field, value]) => {
+      form.setValue(field as keyof TestOrderFormValues, value as never, { shouldDirty: true, shouldValidate: prefix === 'client' })
+    })
   }
 
-  function applyCustomerSearch(prefix: 'client' | 'manufacturer' | 'maker', value: string) {
-    form.setValue(`${prefix}_company` as const, value, { shouldDirty: true, shouldValidate: prefix === 'client' })
-
-    const customer = customers.find((item) => item.name === value || customerSearchValue(item) === value)
-    if (!customer) {
-      form.setValue(`${prefix}_customer_id` as const, null)
-      return
-    }
-
-    applyCustomer(prefix, String(customer.id))
+  function applyCustomer(prefix: PartyPrefix, customerId: string) {
+    setCustomerSnapshot(prefix, customers.find((item) => String(item.id) === customerId) ?? null)
   }
 
-  function applyContact(prefix: 'client' | 'manufacturer' | 'maker', contact: { name: string; phone?: string | null; email?: string | null }) {
+  function applyCustomerSearch(prefix: PartyPrefix, value: string) {
+    setCustomerSnapshot(prefix, customerForSearchValue(customers, value), value)
+  }
+
+  function applyContact(prefix: PartyPrefix, contact: { name: string; phone?: string | null; email?: string | null }) {
     form.setValue(`${prefix}_contact` as const, contact.name, { shouldDirty: true })
     if (contact.phone) {
       form.setValue(`${prefix}_phone` as const, contact.phone, { shouldDirty: true })
@@ -485,7 +470,6 @@ function PartyFields({
   const contactValue = useWatch({ control: form.control, name: `${prefix}_contact` })
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId)
   const contactOptions = contactOptionsForCustomer(selectedCustomer, selectedCustomer?.contacts)
-  const datalistId = `${prefix}-customer-options`
   const synced = prefix !== 'client' && sameAsClient
 
   return (
@@ -510,25 +494,23 @@ function PartyFields({
         </select>
       </Field>
       <Field label={`${title} company`}>
-        <input
+        <CustomerCompanySearchInput
+          prefix={prefix}
           className={inputClass}
-          list={datalistId}
           value={companyValue ?? ''}
-          onChange={(event) => onCompanySearch(prefix, event.target.value)}
-          readOnly={synced}
-          placeholder={zhText('Search') ?? undefined}
+          customers={customers}
+          disabled={synced}
+          onChange={(value) => onCompanySearch(prefix, value)}
         />
-        <datalist id={datalistId}>
-          {customers.map((customer) => (
-            <option value={customerSearchValue(customer)} key={customer.id}>
-              {customer.name}
-            </option>
-          ))}
-        </datalist>
         {required && form.formState.errors.client_company ? <span className="mt-1 block text-xs text-red-600">{form.formState.errors.client_company.message}</span> : null}
       </Field>
       <Field label={`${title} address`}>
-        <input className={inputClass} readOnly={synced} {...form.register(`${prefix}_address`)} />
+        <input
+          className={`${inputClass} cursor-not-allowed bg-slate-100 text-slate-600`}
+          readOnly
+          aria-label={`${zhText(title)}地址（由所选公司同步）`}
+          {...form.register(`${prefix}_address`)}
+        />
       </Field>
       <Field label={`${title} contact`}>
         <select

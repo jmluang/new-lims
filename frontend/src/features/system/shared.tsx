@@ -1,5 +1,6 @@
-import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, useContext, useLayoutEffect, type ReactElement, type ReactNode } from 'react'
 import { AlertCircle, Loader2, X } from 'lucide-react'
+import { PageHeaderContext } from '../../components/app/PageHeaderContext'
 import { cn } from '../../lib/utils'
 import { zhText } from '../../lib/zh'
 import { errorMessage, type PaginationMeta } from './utils'
@@ -15,15 +16,21 @@ export function PageShell({
   actions?: ReactNode
   children: ReactNode
 }) {
+  const setPageHeader = useContext(PageHeaderContext)
+
+  useLayoutEffect(() => {
+    if (!setPageHeader) {
+      return
+    }
+
+    setPageHeader({ title, description })
+
+    return () => setPageHeader(null)
+  }, [description, setPageHeader, title])
+
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 border-b border-emerald-900/10 pb-5 sm:flex-row sm:items-end sm:justify-between">
-        <div className="max-w-3xl">
-          <h1 className="text-2xl font-semibold tracking-normal text-slate-950">{zhText(title)}</h1>
-          <p className="mt-1.5 text-sm leading-6 text-slate-600">{zhText(description)}</p>
-        </div>
-        {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
-      </div>
+      {actions ? <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div> : null}
       {children}
     </div>
   )

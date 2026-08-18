@@ -1,6 +1,6 @@
 import { localDateInputValue } from '../system/utils'
 import type { TestOrder } from './TestOrderListPage'
-import type { TestOrderFormValues } from './testOrderSchema'
+import { canonicalReportFormValue, type TestOrderFormValues } from './testOrderSchema'
 
 export function testOrderDefaultValues(order?: TestOrder | null): TestOrderFormValues {
   return {
@@ -28,7 +28,7 @@ export function testOrderDefaultValues(order?: TestOrder | null): TestOrderFormV
     maker_email: order?.maker_email ?? '',
     // No default: a report form nobody picked is a claim about what the
     // customer asked for. An order that arrived without one keeps none.
-    report_forms: order?.report_forms ?? [],
+    report_forms: order?.report_forms?.map(canonicalReportFormValue) ?? [],
     delivery_method: order?.delivery_method ?? 'self_pick',
     outsourcing_option: order?.outsourcing_option ?? 'allowed',
     sample_return: order?.sample_return ?? 'return',

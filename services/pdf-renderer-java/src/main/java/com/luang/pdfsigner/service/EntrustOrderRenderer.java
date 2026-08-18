@@ -348,17 +348,18 @@ public class EntrustOrderRenderer {
 
         // Report form and options
         float halfWidth = contentWidth * 0.5f;
+        float reportFormsGroupWidth = contentWidth * 0.65f;
         EntrustOrderPayload.Requirements requirements = payload.requirements();
         String reportFormsText = requirements != null ? renderMultiSelect(requirements.reportFormOptions(), requirements.reportForms()) : "";
 
         String sampleReturnText = requirements != null ? renderSingleSelectOrSelected(requirements.sampleReturnOptions(), requirements.sampleReturn()) : "";
 
         drawCell(content, font, margin, y - ROW_HEIGHT, labelWidth(contentWidth), ROW_HEIGHT, "报告形式", false);
-        drawCell(content, font, margin + labelWidth(contentWidth), y - ROW_HEIGHT, halfWidth - labelWidth(contentWidth), ROW_HEIGHT,
+        drawCell(content, font, margin + labelWidth(contentWidth), y - ROW_HEIGHT, reportFormsGroupWidth - labelWidth(contentWidth), ROW_HEIGHT,
                 reportFormsText, false);
-        drawCell(content, font, margin + halfWidth, y - ROW_HEIGHT, labelWidth(contentWidth), ROW_HEIGHT,
+        drawCell(content, font, margin + reportFormsGroupWidth, y - ROW_HEIGHT, labelWidth(contentWidth), ROW_HEIGHT,
                 "样品是否返还", false);
-        drawCell(content, font, margin + halfWidth + labelWidth(contentWidth), y - ROW_HEIGHT, halfWidth - labelWidth(contentWidth), ROW_HEIGHT,
+        drawCell(content, font, margin + reportFormsGroupWidth + labelWidth(contentWidth), y - ROW_HEIGHT, contentWidth - reportFormsGroupWidth - labelWidth(contentWidth), ROW_HEIGHT,
                 sampleReturnText, false);
         y -= ROW_HEIGHT;
 

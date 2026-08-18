@@ -67,7 +67,7 @@ describe('SampleFlowRecordsPage', () => {
       </QueryClientProvider>,
     )
 
-    expect(html).toContain('样品流转记录')
+    expect(html).not.toContain('样品流转记录')
     expect(html).toContain('样品编号/名称/委托单')
     expect(html).toContain('流转动作')
     expect(html).toContain('开始日期')

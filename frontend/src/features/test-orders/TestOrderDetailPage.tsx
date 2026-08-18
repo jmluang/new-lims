@@ -3,6 +3,7 @@ import { Link, useRouterState } from '@tanstack/react-router'
 import { ArrowLeft, Pencil, X } from 'lucide-react'
 import { useState } from 'react'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
+import type { Customer } from '../customers/CustomerListPage'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { Button, ErrorNotice, LoadingState, PageShell } from '../system/shared'
@@ -12,6 +13,10 @@ import { TestOrderChangeHistory } from './TestOrderChangeHistory'
 import type { TestOrder } from './TestOrderListPage'
 import { TestOrderPrintButton } from './TestOrderPrintButton'
 import { printEntrustOrder } from './testOrderPrint'
+
+type TestOrderFormOptions = {
+  customers: Customer[]
+}
 
 export function TestOrderDetailPage() {
   const queryClient = useQueryClient()
@@ -23,6 +28,15 @@ export function TestOrderDetailPage() {
     queryKey: ['test-order', testOrderId],
     queryFn: async () => {
       const response = await api.get<ApiResource<TestOrder>>(`/api/test-orders/${testOrderId}`)
+
+      return response.data.data
+    },
+  })
+  const formOptionsQuery = useQuery({
+    queryKey: ['test-order-form-options'],
+    enabled: canUpdate,
+    queryFn: async () => {
+      const response = await api.get<{ data: TestOrderFormOptions & { standards: unknown[] } }>('/api/test-orders/form-options', { params: { limit: 100 } })
 
       return response.data.data
     },
@@ -71,7 +85,7 @@ export function TestOrderDetailPage() {
                 取消编辑
               </Button>
             ) : (
-              <Button variant="secondary" onClick={() => setEditing(true)}>
+              <Button variant="secondary" disabled={formOptionsQuery.isPending || formOptionsQuery.isError} onClick={() => setEditing(true)}>
                 <Pencil className="size-4" aria-hidden="true" />
                 编辑
               </Button>
@@ -82,12 +96,14 @@ export function TestOrderDetailPage() {
       }
     >
       {orderQuery.isError ? <ErrorNotice error={orderQuery.error} fallback="Unable to load test order" /> : null}
+      {canUpdate && formOptionsQuery.isError ? <ErrorNotice error={formOptionsQuery.error} fallback="无法加载委托单位选项" /> : null}
       {orderQuery.isPending ? <LoadingState label="Loading test order" /> : null}
       {order ? (
         <>
           <TestOrderEntrustForm
             key={`${order.id}:${editing ? 'edit' : 'read'}`}
             order={order}
+            customers={formOptionsQuery.data?.customers ?? []}
             editable={canUpdate && editing}
             submitting={saveOrder.isPending}
             error={saveOrder.error}

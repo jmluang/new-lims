@@ -56,7 +56,10 @@ class EntrustOrderRendererTest {
                     ],
                     \"report_form_options\": [
                       { \"value\": \"electronic\", \"label\": \"电子档\" },
-                      { \"value\": \"paper\", \"label\": \"纸本\" }
+                      { \"value\": \"paper\", \"label\": \"纸本\" },
+                      { \"value\": \"formal\", \"label\": \"正式报告\" },
+                      { \"value\": \"simple\", \"label\": \"简版报告\" },
+                      { \"value\": \"english\", \"label\": \"英文报告\" }
                     ],
                     \"sample_return\": { \"value\": \"return\", \"label\": \"返还\" },
                     \"sample_return_options\": [
@@ -132,6 +135,7 @@ class EntrustOrderRendererTest {
             assertThat(text).contains("电话 13800000000");
             assertThat(text).contains("邮箱 client@example");
             assertThat(text).contains("报告形式 ■电子档□纸本");
+            assertThat(text).contains("□正式报告□简版报告□英文报告");
             assertThat(text).contains("样品是否返还 ■返还□不返还");
             assertThat(text).contains("报告提交 ■邮寄□自取");
             assertThat(text).contains("准许检测分包 ■允许□不允许");

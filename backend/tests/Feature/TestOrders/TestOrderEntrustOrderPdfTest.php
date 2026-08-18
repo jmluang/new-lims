@@ -60,10 +60,10 @@ class TestOrderEntrustOrderPdfTest extends TestCase
                     && $payload['client']['email'] === 'client@example.test'
                     && $payload['requirements']['sample_return']['value'] === 'return'
                     && collect($payload['requirements']['report_forms'])->contains(
-                        fn (array $option): bool => $option['value'] === 'electronic' && $option['label'] === '电子档'
+                        fn (array $option): bool => $option['value'] === 'electronic_report' && $option['label'] === '电子档'
                     )
                     && collect($payload['requirements']['report_forms'])->contains(
-                        fn (array $option): bool => $option['value'] === 'paper' && $option['label'] === '纸本'
+                        fn (array $option): bool => $option['value'] === 'paper_report' && $option['label'] === '纸本'
                     )
                     && $payload['requirements']['standards'][0]['notes'] === null
                     && count($payload['samples']) === 2

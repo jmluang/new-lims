@@ -6,6 +6,10 @@ export const outsourcingOptions = ['allowed', 'not_allowed'] as const
 export const sampleReturnOptions = ['return', 'destroy'] as const
 export const sampleConditionOptions = ['good', 'abnormal'] as const
 
+export function canonicalReportFormValue(value: string) {
+  return ({ electronic: 'electronic_report', paper: 'paper_report' } as Record<string, string>)[value] ?? value
+}
+
 export const testOrderStandardSchema = z.object({
   id: z.number().optional(),
   standard_id: z.number().nullable().optional(),
@@ -81,13 +85,14 @@ export const testOrderSchema = z.object({
 export type TestOrderFormValues = z.infer<typeof testOrderSchema>
 
 type ApiPayload = Record<string, unknown>
-type PartyPrefix = 'client' | 'manufacturer' | 'maker'
+export type PartyPrefix = 'client' | 'manufacturer' | 'maker'
 
-type PartyCustomer = {
+export type PartyCustomer = {
   id: number
   name: string
   credit_code?: string | null
   phone?: string | null
+  email?: string | null
   address?: string | null
   status?: 'active' | 'disabled'
   default_contact?: PartyContact | null
@@ -150,6 +155,23 @@ export function normalizeTestOrderPayload(values: TestOrderFormValues): ApiPaylo
 
 export function customerSearchValue(customer: PartyCustomer) {
   return [customer.name, customer.credit_code, customer.phone].filter(Boolean).join(' ')
+}
+
+export function customerForSearchValue(customers: PartyCustomer[], value: string) {
+  return customers.find((customer) => customer.name === value || customerSearchValue(customer) === value) ?? null
+}
+
+export function customerSnapshotValues(prefix: PartyPrefix, customer: PartyCustomer | null, companyValue = ''): Partial<TestOrderFormValues> {
+  const defaultContact = contactOptionsForCustomer(customer)[0]
+
+  return {
+    [`${prefix}_customer_id`]: customer?.id ?? null,
+    [`${prefix}_company`]: customer?.name ?? companyValue,
+    [`${prefix}_address`]: customer?.address ?? '',
+    [`${prefix}_contact`]: defaultContact?.name ?? '',
+    [`${prefix}_phone`]: defaultContact?.phone ?? customer?.phone ?? '',
+    [`${prefix}_email`]: defaultContact?.email ?? customer?.email ?? '',
+  }
 }
 
 export function contactOptionsForCustomer(customer?: PartyCustomer | null, contacts?: PartyContact[]) {
