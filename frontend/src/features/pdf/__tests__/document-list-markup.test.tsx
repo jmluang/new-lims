@@ -16,6 +16,7 @@ const document: SigningDocument = {
   signers: [
     { sequence: 1, semantic_role: 'inspector', assigned_user_id: 2, assigned_user_name: '张三', status: 'signed', act_status: 'completed' },
     { sequence: 2, semantic_role: 'reviewer', assigned_user_id: 3, assigned_user_name: '李四', status: 'available', act_status: 'planned' },
+    { sequence: 3, semantic_role: 'issuer', assigned_user_id: 4, assigned_user_name: '王五', status: 'manual_review', act_status: 'planned' },
   ],
   revisions: [{ revision_uuid: 'r1', revision_number: 1, revision_role: 'finalized_unsigned', integrity_state: 'ready' }],
   created_by_id: 1,
@@ -90,5 +91,14 @@ describe('PdfDocumentListPage markup', () => {
     expect(html).toContain('李四')
     expect(html).toContain('已签署')
     expect(html).toContain('待签署')
+  })
+
+  // A failed signature copies the operation's terminal state onto the request,
+  // so a signer was shown the literal word "manual_review".
+  it('never shows a signer an internal state name', async () => {
+    const html = await markup()
+
+    expect(html).toContain('待人工复核')
+    expect(html).not.toContain('manual_review')
   })
 })

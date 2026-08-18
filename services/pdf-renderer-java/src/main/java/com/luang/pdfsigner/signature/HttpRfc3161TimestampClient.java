@@ -50,10 +50,15 @@ public final class HttpRfc3161TimestampClient implements Rfc3161TimestampClient 
     }
 
     @Override
-    public TimeStampToken timestamp(byte[] signatureValue) throws Exception {
+    public void requireReadyConfiguration() {
         if (tsaUri == null || trustedCertificateFingerprints.isEmpty()) {
             throw new IllegalStateException("PAdES-B-T requires a TSA URL and certificate fingerprint allowlist");
         }
+    }
+
+    @Override
+    public TimeStampToken timestamp(byte[] signatureValue) throws Exception {
+        requireReadyConfiguration();
         TimeStampRequestGenerator generator = new TimeStampRequestGenerator();
         generator.setCertReq(true);
         if (policyOid != null) {

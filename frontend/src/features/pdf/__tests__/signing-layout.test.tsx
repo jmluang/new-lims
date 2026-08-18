@@ -48,6 +48,27 @@ async function markup(canPlan: boolean) {
 }
 
 describe('signing workspace', () => {
+  it('does not reuse operation or ink state across tasks and canvas shapes', async () => {
+    const {
+      drawingStateForKey,
+      isSigningTerminalState,
+      operationUuidForRequest,
+      signingTaskSwitchUnavailable,
+    } = await import('../signingTaskState')
+
+    expect(operationUuidForRequest({ requestUuid: 'task-a', operationUuid: 'operation-a' }, 'task-b')).toBe('')
+    expect(drawingStateForKey({ key: 'task-a:2.8', previewUrl: 'ink-a', ready: true }, 'task-b:2.8'))
+      .toEqual({ key: 'task-b:2.8', previewUrl: null, ready: false })
+    expect(drawingStateForKey({ key: 'task-a:2.8', previewUrl: 'ink-a', ready: true }, 'task-a:2.1'))
+      .toEqual({ key: 'task-a:2.1', previewUrl: null, ready: false })
+    expect(signingTaskSwitchUnavailable(true, false)).toBe(true)
+    expect(signingTaskSwitchUnavailable(false, true)).toBe(true)
+    expect(signingTaskSwitchUnavailable(false, false, true)).toBe(true)
+    expect(signingTaskSwitchUnavailable(false, false)).toBe(false)
+    expect(isSigningTerminalState('manual_review')).toBe(true)
+    expect(isSigningTerminalState('failed')).toBe(true)
+  })
+
   // Planning who signs is a different job from signing. A signer without the
   // planning permission should not be offered the tab at all.
   it('hides the planning tab from someone who can only sign', async () => {
@@ -62,6 +83,37 @@ describe('signing workspace', () => {
     // sidebar matches the planning page so a report is the same size in both.
     expect(html).toContain('切换任务')
     expect(html).toContain('xl:grid-cols-[minmax(0,1fr)_24rem]')
+  })
+
+  it('offers rejecting from the header rather than beside the signature', async () => {
+    const html = await markup(false)
+
+    // Confirming and rejecting stood in the same panel, so the page read as two
+    // things to do rather than one decision. Rejecting now sits with the task it
+    // applies to, and its reasons stay behind the modal until asked for.
+    expect(html).toContain('拒绝')
+    expect(html).not.toContain('拒绝并终止本次签署')
+    expect(html).not.toContain('内容审核不通过')
+  })
+
+  it('asks for the password at the moment of signing, not beside the pad', async () => {
+    const html = await markup(false)
+
+    // The field sat in the panel the whole time the signer was drawing. It now
+    // lives in the confirmation dialog, which is closed until the button is hit.
+    expect(html).toContain('确认身份并签名')
+    expect(html).not.toContain('当前登录密码')
+  })
+
+  it('uses the server result revision after a signature completes', async () => {
+    const source = await import('node:fs').then(({ readFileSync }) => readFileSync(
+      new URL('../PdfHandwrittenSigningPage.tsx', import.meta.url),
+      'utf8',
+    ))
+
+    expect(source).toContain("operation.data.result_revision_uuid")
+    expect(source).toContain("file={displayedRevision}")
+    expect(source).toContain("signaturePreview={signingControlsLocked ? null : activeDrawing.previewUrl}")
   })
 
   it('draws the pad as a wide rectangle rather than a near square', async () => {

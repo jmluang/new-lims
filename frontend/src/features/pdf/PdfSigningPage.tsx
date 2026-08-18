@@ -424,8 +424,7 @@ export function PdfSigningPage() {
 
       {!signingEnabled ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          签章服务当前不可用：请确认 Java PDF 服务已启动，且 <code>PDF_SERVICE_ENABLED</code> 与{' '}
-          <code>PDF_SIGNING_ENABLED</code> 均已开启。
+          签章服务当前不可用，请联系管理员。
         </div>
       ) : null}
 

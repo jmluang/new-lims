@@ -21,11 +21,11 @@ function signed(document: SigningDocument): boolean {
 
 function frozen(document: SigningDocument): string | null {
   if (!document.is_owner) return '只有创建者可以修改或删除'
-  if (document.stage === 'published' || document.status === 'published') return '已发布的文档不可修改'
-  if (document.evidence_hold_state !== 'none') return '文档处于证据保全中'
-  if (document.integrity_state !== 'ok') return '文档处于完整性保护中'
-  if (document.has_running_work) return '文档有进行中的任务'
-  if (signed(document)) return '文档已有签名'
+  if (document.stage === 'published' || document.status === 'published') return '已发布的报告不可修改'
+  if (document.evidence_hold_state !== 'none') return '该报告处于证据保全中'
+  if (document.integrity_state !== 'ok') return '该报告处于完整性保护中'
+  if (document.has_running_work) return '该报告有正在处理的操作'
+  if (signed(document)) return '该报告已有签名'
 
   return null
 }
@@ -41,7 +41,7 @@ export function editableReason(document: SigningDocument): string | null {
   if (blocked) return blocked
 
   if (document.workflow_status && !SETTLED_WORKFLOW.includes(document.workflow_status)) {
-    return '文档有进行中的工作流，请先在编排页取消'
+    return '该报告正在签署中，需先在编排页取消'
   }
 
   return null

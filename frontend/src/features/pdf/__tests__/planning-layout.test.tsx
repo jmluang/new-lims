@@ -69,7 +69,7 @@ describe('planning workspace layout', () => {
 
     expect(html).toContain('1. 上传并检查原始 PDF')
     expect(html).toContain('2. 确认报告并生成定稿')
-    expect(html).toContain('3. 在定稿上调整签名框')
+    expect(html).toContain('3. 调整签名位置')
   })
 
   it('hides the already-finished steps when continuing a document', async () => {
@@ -78,8 +78,8 @@ describe('planning workspace layout', () => {
     expect(html).not.toContain('1. 上传并检查原始 PDF')
     expect(html).not.toContain('2. 确认报告并生成定稿')
     // The remaining cards lose their numbering along with them.
-    expect(html).toContain('调整签名框')
-    expect(html).not.toContain('3. 在定稿上调整签名框')
+    expect(html).toContain('调整签名位置')
+    expect(html).not.toContain('3. 调整签名位置')
     expect(html).toContain('指定三位签署人')
   })
 

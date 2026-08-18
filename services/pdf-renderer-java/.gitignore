@@ -49,3 +49,8 @@ application-*.properties
 
 *.ttf
 !src/main/resources/fonts/LimsSongSC-Regular.ttf
+
+# Runtime artifacts: signed results written by the execution ledger, and the
+# Redis snapshot that lands here when redis-server is started from this folder.
+data/
+dump.rdb

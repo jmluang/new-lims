@@ -17,6 +17,9 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ErrorNotice, Modal, PageShell } from '../system/shared'
+import { showToast } from '../../lib/toast'
+import { signedText, signedTitle } from './signingOutcome'
+import { signingControlsUnavailable, signingFailureText } from './signingFailure'
 import { inputClass } from '../system/utils'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { reportNumberFromFileName } from './api'
@@ -34,12 +37,21 @@ import {
   submitSignatureAppearance,
   type Placement,
   type SignatureRole,
+  type SigningRequestSummary,
 } from './handwrittenApi'
 import { PdfPlacementWorkspace } from './PdfPlacementWorkspace'
 import { fieldAspectRatio } from './fieldAspect'
 import { requestedSigningUuid, resumeDocumentUuid, resumePlanning } from './resumePlanning'
 import { canFreeze, workflowIdempotencyKey as buildWorkflowIdempotencyKey } from './workflowAttempt'
 import { SignaturePad } from './SignaturePad'
+import {
+  drawingStateForKey,
+  isSigningTerminalState,
+  operationUuidForRequest,
+  signingTaskSwitchUnavailable,
+  type RequestOperationState,
+  type SignatureDrawingState,
+} from './signingTaskState'
 
 const roles: SignatureRole[] = ['inspector', 'reviewer', 'issuer']
 const roleLabels: Record<SignatureRole, string> = {
@@ -77,7 +89,7 @@ export function PdfHandwrittenSigningPage() {
   return (
     <PageShell
       title="手写数字签名工作台"
-      description="先把全部签名字段冻结到首个签名前，再由主检、审核、签发依次手写并使用单位证书生成增量 PAdES-B-T 数字签名。"
+      description="按主检、审核、签发的顺序逐人手写签名；签名位置在首个签名前一次性确定，之后不再改动。"
       actions={
         canPlan ? (
           <div className="inline-flex rounded-lg border border-emerald-900/15 bg-white p-1 shadow-sm">
@@ -206,18 +218,18 @@ function PlanningWorkspace() {
         {resumedDocument ? (
           <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-5 text-sky-900">
             {resume.isPending ? (
-              <span className="flex items-center gap-2"><Loader2 className="size-4 animate-spin" />正在载入已有文档…</span>
+              <span className="flex items-center gap-2"><Loader2 className="size-4 animate-spin" />正在载入报告…</span>
             ) : resume.isError ? (
-              <ErrorNotice error={resume.error} fallback="已有文档载入失败" />
+              <ErrorNotice error={resume.error} fallback="报告载入失败" />
             ) : (
               <>
-                <p className="font-medium">正在编辑已有文档 · {reportNumber}</p>
+                <p className="font-medium">正在编辑已有报告 · {reportNumber}</p>
                 <p className="mt-1 text-sky-800">
                   {result
-                    ? '该文档已有工作流。修改签名位置或签署人前，需要先取消当前这一代。'
-                    : '定稿版本已载入，直接调整签名位置和签署人即可。'}
+                    ? '该报告已在签署流程中。要改动签名位置或签署人，需先取消当前流程。'
+                    : '已载入定稿，直接调整签名位置和签署人即可。'}
                 </p>
-                <a className="mt-1 inline-block underline" href="/pdf/documents">返回签署文档列表</a>
+                <a className="mt-1 inline-block underline" href="/pdf/documents">返回报告列表</a>
               </>
             )}
           </div>
@@ -262,7 +274,7 @@ function PlanningWorkspace() {
             onClick={() => inspectSource.mutate()}
           >
             {inspectSource.isPending ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-            {inspected ? 'PDF 已检查' : '检查 PDF 结构与签名状态'}
+            {inspected ? 'PDF 已检查' : '检查 PDF'}
           </Button>
         </WorkspaceCard>
 
@@ -278,12 +290,11 @@ function PlanningWorkspace() {
               onChange={(event) => setReportNumber(event.target.value)}
             />
           </label>
-          <p className="mt-2 text-xs leading-5 text-slate-500">确认后报告身份不可修改；系统会重新下载精确的 finalized revision。</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">确认后报告编号不可修改。</p>
           {finalizeSource.isError ? <div className="mt-3"><ErrorNotice error={finalizeSource.error} fallback="PDF 定稿失败" /></div> : null}
           {finalized ? (
             <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
-              <div className="font-semibold">定稿字节已锁定并载入预览</div>
-              <div className="mt-1 break-all font-mono text-[10px]">SHA-256 {finalized.revision.sha256}</div>
+              <div className="font-semibold">定稿完成，已载入预览</div>
             </div>
           ) : null}
           <Button
@@ -299,7 +310,7 @@ function PlanningWorkspace() {
         </>
         )}
 
-        <WorkspaceCard title={resumedDocument ? '调整签名框' : '3. 在定稿上调整签名框'} icon={Grip}>
+        <WorkspaceCard title={resumedDocument ? '调整签名位置' : '3. 调整签名位置'} icon={Grip}>
           <fieldset disabled={!finalized || Boolean(result)} className="disabled:opacity-50">
             {/* Each row owns its own page, so setting one no longer means
                 selecting it first. Selecting only decides which box the canvas
@@ -410,11 +421,10 @@ function PlanningWorkspace() {
           </div>
         </WorkspaceCard>
 
-        {create.isError ? <ErrorNotice error={create.error} fallback="工作流创建失败" /> : null}
+        {create.isError ? <ErrorNotice error={create.error} fallback="发起签署失败" /> : null}
         {result ? (
           <div className={`rounded-xl border p-4 text-sm ${result.status === 'cancelled' ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
-            <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="size-4" />{result.status === 'cancelled' ? '工作流已取消' : '签名任务已准备'}</div>
-            <div className="mt-2 break-all text-xs">{result.workflow_uuid}</div>
+            <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="size-4" />{result.status === 'cancelled' ? '签署流程已取消' : '已发起签署'}</div>
             {result.status !== 'cancelled' ? (
               <Button
                 variant="secondary"
@@ -423,12 +433,12 @@ function PlanningWorkspace() {
                 onClick={() => cancel.mutate({ workflowUuid: result.workflow_uuid })}
               >
                 {cancel.isPending ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
-                取消本代工作流
+                取消签署流程
               </Button>
             ) : null}
           </div>
         ) : null}
-        {cancel.isError ? <ErrorNotice error={cancel.error} fallback="工作流取消失败" /> : null}
+        {cancel.isError ? <ErrorNotice error={cancel.error} fallback="取消签署失败" /> : null}
         {/* Already frozen: the fields are committed and there is nothing left to
             freeze. It comes back once the workflow is cancelled, since that
             leaves the document free for a new generation. */}
@@ -449,7 +459,7 @@ function PlanningWorkspace() {
           }
         >
           {create.isPending ? <Loader2 className="size-4 animate-spin" /> : <LockKeyhole className="size-4" />}
-          {result?.status === 'cancelled' ? '重新冻结字段并创建任务' : '冻结字段并创建任务'}
+          {result?.status === 'cancelled' ? '重新确认并发起签署' : '确认签名位置并发起签署'}
         </Button>
         ) : null}
 
@@ -466,8 +476,13 @@ function SigningWorkspace() {
   const [selectedRequestUuid, setSelectedRequestUuid] = useState(() => requestedSigningUuid() ?? '')
   const effectiveRequestUuid = selectedRequestUuid || requests.data?.[0]?.request_uuid || ''
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
-  const [pageSize, setPageSize] = useState<{ width: number; height: number } | null>(null)
-  const current = requests.data?.find((request) => request.request_uuid === effectiveRequestUuid) ?? null
+  const [pinnedRequest, setPinnedRequest] = useState<SigningRequestSummary | null>(null)
+  const [pageSizeState, setPageSizeState] = useState<{
+    requestUuid: string
+    size: { width: number; height: number }
+  } | null>(null)
+  const listedCurrent = requests.data?.find((request) => request.request_uuid === effectiveRequestUuid) ?? null
+  const current = listedCurrent ?? (pinnedRequest?.request_uuid === effectiveRequestUuid ? pinnedRequest : null)
   const taskCount = requests.data?.length ?? 0
   const detail = useQuery({
     queryKey: ['pdf', 'handwritten', 'request', effectiveRequestUuid],
@@ -479,11 +494,13 @@ function SigningWorkspace() {
     queryFn: () => downloadRevision(detail.data!.revision.revision_uuid),
     enabled: Boolean(detail.data?.revision.revision_uuid),
   })
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [signatureReady, setSignatureReady] = useState(false)
+  const [drawingState, setDrawingState] = useState<SignatureDrawingState>({ key: '', previewUrl: null, ready: false })
   const [currentPassword, setCurrentPassword] = useState('')
   const [rejectReason, setRejectReason] = useState('CONTENT_REVIEW_REJECTED')
-  const [operationUuid, setOperationUuid] = useState('')
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [operationState, setOperationState] = useState<RequestOperationState>({ requestUuid: '', operationUuid: '' })
+  const operationUuid = operationUuidForRequest(operationState, effectiveRequestUuid)
   const padRef = useRef<{ toBlob: () => Promise<Blob>; clear: () => void } | null>(null)
 
   const operation = useQuery({
@@ -492,40 +509,88 @@ function SigningWorkspace() {
     enabled: Boolean(operationUuid),
     refetchInterval: (query) => {
       const state = query.state.data?.state
-      return state && ['completed', 'failed', 'irreversible_failed', 'manual_review', 'cancelled'].includes(state) ? false : 2000
+      return isSigningTerminalState(state) ? false : 2000
     },
+  })
+  const completedRevisionUuid = operation.data?.state === 'completed'
+    ? operation.data.result_revision_uuid ?? ''
+    : ''
+  const completedRevision = useQuery({
+    queryKey: ['pdf', 'handwritten', 'revision', completedRevisionUuid],
+    queryFn: () => downloadRevision(completedRevisionUuid),
+    enabled: Boolean(completedRevisionUuid),
   })
   const submit = useMutation({
     mutationFn: async () => {
       if (!effectiveRequestUuid) throw new Error('请先选择签名任务')
+      const requestUuid = effectiveRequestUuid
       const appearance = await padRef.current?.toBlob()
       if (!appearance) throw new Error('请先完成手写签名')
-      return submitSignatureAppearance({
-        requestUuid: effectiveRequestUuid,
+      const operation = await submitSignatureAppearance({
+        requestUuid,
         appearance,
         fileName: 'handwritten-signature.png',
         currentPassword,
       })
+
+      return { requestUuid, operation }
     },
     onSuccess: (result) => {
-      setOperationUuid(result.operation_uuid)
+      setOperationState({ requestUuid: result.requestUuid, operationUuid: result.operation.operation_uuid })
       setCurrentPassword('')
+      // The password has been accepted; the rest is progress the signer watches
+      // in the panel, not something to hold a dialog open for.
+      setConfirmOpen(false)
     },
   })
   const reject = useMutation({
     mutationFn: () => rejectSigningRequest(effectiveRequestUuid, rejectReason),
     onSuccess: async () => {
       setSelectedRequestUuid('')
-      setOperationUuid('')
+      setOperationState({ requestUuid: '', operationUuid: '' })
+      setDrawingState({ key: '', previewUrl: null, ready: false })
+      setPageSizeState(null)
+      setPinnedRequest(null)
+      setRejectOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'requests'] })
     },
   })
 
+  // The workflow pins issuer to the third and final step, so this signer's
+  // signature is the one that publishes the report.
+  const lastSigner = detail.data?.semantic_role === 'issuer'
+
   useEffect(() => {
-    if (operation.data?.state === 'completed') {
+    if (isSigningTerminalState(operation.data?.state)) {
       void queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'requests'] })
     }
   }, [operation.data?.state, queryClient])
+
+  // Announced once per operation, not once per poll: the operation query keeps
+  // refetching, and re-firing on every tick would stack duplicate toasts.
+  const announced = useRef('')
+  useEffect(() => {
+    const state = operation.data?.state
+    if (!operationUuid || !state || announced.current === operationUuid) return
+
+    if (state === 'completed') {
+      announced.current = operationUuid
+      showToast({
+        variant: 'success',
+        title: lastSigner ? '全部签署已完成' : '签名已完成',
+        description: lastSigner ? '报告已发布。' : '可以交给下一位签署人。',
+      })
+      return
+    }
+    if (['failed', 'irreversible_failed', 'manual_review', 'cancelled'].includes(state)) {
+      announced.current = operationUuid
+      showToast({
+        variant: 'error',
+        title: '签名未完成',
+        description: signingFailureText(operation.data?.error_code, state),
+      })
+    }
+  }, [operation.data?.state, operation.data?.error_code, operationUuid, lastSigner])
 
   const placements = useMemo<Placement[]>(() => {
     if (!detail.data?.field) return []
@@ -536,14 +601,24 @@ function SigningWorkspace() {
     }))
   }, [detail.data])
   const padAspectRatio = useMemo(
-    () => fieldAspectRatio(detail.data?.field.slots[0]?.normalized_rect, pageSize),
-    [detail.data, pageSize],
+    () => fieldAspectRatio(
+      detail.data?.field.slots[0]?.normalized_rect,
+      pageSizeState?.requestUuid === effectiveRequestUuid ? pageSizeState.size : null,
+    ),
+    [detail.data, effectiveRequestUuid, pageSizeState],
   )
+  const drawingKey = `${effectiveRequestUuid}:${padAspectRatio}`
+  const activeDrawing = drawingStateForKey(drawingState, drawingKey)
   const terminalState = operation.data?.state
   const operationPending = Boolean(
     operationUuid
-      && (!terminalState || !['completed', 'failed', 'irreversible_failed', 'manual_review', 'cancelled'].includes(terminalState)),
+      && !isSigningTerminalState(terminalState),
   )
+  // A pre-key failure remains retryable. Completed, ambiguous and irreversible
+  // outcomes retire the controls so the UI cannot contradict the recovery rule.
+  const signingControlsLocked = signingControlsUnavailable(terminalState)
+  const taskSwitchLocked = signingTaskSwitchUnavailable(submit.isPending, operationPending, reject.isPending)
+  const displayedRevision = completedRevisionUuid ? completedRevision.data ?? null : revision.data ?? null
 
   return (
     <div className="space-y-3">
@@ -566,90 +641,173 @@ function SigningWorkspace() {
             <p className="text-sm text-slate-500">当前没有轮到你的任务</p>
           )}
         </div>
-        <Button variant="secondary" onClick={() => setTaskPickerOpen(true)}>
-          <RefreshCw className="size-4" />
-          切换任务{taskCount > 1 ? `（${taskCount}）` : ''}
-        </Button>
+        {/* Rejecting is the alternative to signing, not a second thing to do
+            alongside it: it sits up here with the task it applies to, so the
+            panel below only ever offers one way forward. */}
+        <div className="flex items-center gap-2">
+          {/* A signature already in the report cannot be taken back by
+              rejecting, so the option stops being offered once it lands. */}
+          {signingControlsLocked ? null : (
+            <Button
+              variant="danger"
+              disabled={!detail.data || reject.isPending || operationPending}
+              onClick={() => setRejectOpen(true)}
+            >
+              <XCircle className="size-4" />
+              拒绝
+            </Button>
+          )}
+          <Button variant="secondary" disabled={taskSwitchLocked} onClick={() => setTaskPickerOpen(true)}>
+            <RefreshCw className="size-4" />
+            切换任务{taskCount > 1 ? `（${taskCount}）` : ''}
+          </Button>
+        </div>
       </div>
 
       <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-14rem)] xl:grid-cols-[minmax(0,1fr)_24rem]">
       <PdfPlacementWorkspace
-        file={revision.data ?? null}
+        key={effectiveRequestUuid || 'no-task'}
+        file={displayedRevision}
         placements={placements}
         editable={false}
-        signaturePreview={previewUrl}
-        onPageSize={(index, size) => index === placements[0]?.page_index && setPageSize(size)}
+        signaturePreview={signingControlsLocked ? null : activeDrawing.previewUrl}
+        onPageSize={(index, size) => {
+          if (index === placements[0]?.page_index) {
+            setPageSizeState({ requestUuid: effectiveRequestUuid, size })
+          }
+        }}
       />
 
       <aside className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
-        <WorkspaceCard title="手写签名" icon={PenTool}>
+        {signingControlsLocked ? null : <WorkspaceCard title="手写签名" icon={PenTool}>
           {detail.data ? (
-            <div className="mb-3 grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-3 text-xs">
-              <div><span className="text-slate-400">角色</span><div className="mt-1 font-medium">{roleLabels[detail.data.semantic_role]}</div></div>
-              <div><span className="text-slate-400">字段</span><div className="mt-1 truncate font-medium">{detail.data.field.field_name}</div></div>
+            <div className="mb-3 rounded-lg bg-slate-50 p-3 text-xs">
+              <span className="text-slate-400">签名角色</span>
+              <div className="mt-1 font-medium">{roleLabels[detail.data.semantic_role]}</div>
             </div>
           ) : null}
           {/* Drawn at the shape of the field it lands in, so the proportions of
               a signature survive the trip into the document. */}
           <SignaturePad
-            onPreviewChange={setPreviewUrl}
-            onReadyChange={setSignatureReady}
+            key={drawingKey}
+            onPreviewChange={(previewUrl) => setDrawingState((state) => ({
+              key: drawingKey,
+              previewUrl,
+              ready: state.key === drawingKey ? state.ready : false,
+            }))}
+            onReadyChange={(ready) => setDrawingState((state) => ({
+              key: drawingKey,
+              previewUrl: state.key === drawingKey ? state.previewUrl : null,
+              ready,
+            }))}
             padRef={padRef}
             aspectRatio={padAspectRatio}
           />
-        </WorkspaceCard>
+        </WorkspaceCard>}
 
-        <WorkspaceCard title="身份确认与数字签名" icon={LockKeyhole}>
-          <label className="block text-xs font-medium text-slate-600">
-            当前登录密码
-            <input
-              className={`${inputClass} mt-1`}
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              disabled={submit.isPending || operationPending}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-            />
-          </label>
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
-            点击后会消费一次性 challenge，并锁定当前 PDF 摘要、签名字段、笔迹外观、策略和单位证书指纹。
-          </div>
-          <Button
-            variant="primary"
-            className="mt-3 w-full"
-            disabled={!detail.data || !signatureReady || !currentPassword || submit.isPending || operationPending}
-            onClick={() => submit.mutate()}
-          >
-            {submit.isPending || operationPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            {operationPending ? '正在等待 Java 签名' : '确认并提交数字签名'}
-          </Button>
-        </WorkspaceCard>
+        {/* Once the signature is in the report there is nothing left to submit,
+            so the whole card goes rather than sitting there disabled. */}
+        {signingControlsLocked ? null : (
+          <WorkspaceCard title="身份确认与数字签名" icon={LockKeyhole}>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800">
+              提交后本次签名即刻生效，不能撤销。
+            </div>
+            <Button
+              variant="primary"
+              className="mt-3 w-full"
+              disabled={!detail.data || !activeDrawing.ready || submit.isPending || operationPending}
+              onClick={() => {
+                if (current) {
+                  setSelectedRequestUuid(current.request_uuid)
+                  setPinnedRequest(current)
+                }
+                setConfirmOpen(true)
+              }}
+            >
+              {submit.isPending || operationPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              {operationPending ? '正在生成签名…' : '确认身份并签名'}
+            </Button>
+          </WorkspaceCard>
+        )}
 
-        {submit.isError ? <ErrorNotice error={submit.error} fallback="签名提交失败" /> : null}
-        <WorkspaceCard title="拒绝当前任务" icon={XCircle}>
-          <label className="block text-xs font-medium text-slate-600">
-            拒绝原因
-            <select className={`${inputClass} mt-1`} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)}>
-              <option value="CONTENT_REVIEW_REJECTED">内容审核不通过</option>
-              <option value="SIGNATURE_POSITION_INCORRECT">签名位置不正确</option>
-              <option value="REPORT_DATA_INCORRECT">报告数据不正确</option>
-            </select>
-          </label>
-          <Button
-            variant="secondary"
-            className="mt-3 w-full border-red-200 text-red-700 hover:bg-red-50"
-            disabled={!detail.data || reject.isPending || operationPending}
-            onClick={() => reject.mutate()}
-          >
-            {reject.isPending ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
-            拒绝并终止本代工作流
-          </Button>
-          {reject.isError ? <div className="mt-3"><ErrorNotice error={reject.error} fallback="拒绝任务失败" /></div> : null}
-        </WorkspaceCard>
-        {operation.data ? <OperationState operation={operation.data} /> : null}
+        {operation.data ? <OperationState operation={operation.data} lastSigner={lastSigner} /> : null}
         {operation.isError ? <ErrorNotice error={operation.error} fallback="签名状态查询失败" /> : null}
+        {completedRevision.isError ? <ErrorNotice error={completedRevision.error} fallback="已签署报告加载失败" /> : null}
       </aside>
       </div>
+
+      {/* The password is asked for at the moment of signing, not kept sitting in
+          a field beside the pad while the signer works on their signature. */}
+      <Modal
+        open={confirmOpen}
+        title="确认身份并签名"
+        description={current ? `${roleLabels[current.semantic_role]} · ${current.report_number}` : undefined}
+        onClose={() => setConfirmOpen(false)}
+        actions={(
+          <>
+            <Button variant="ghost" disabled={submit.isPending} onClick={() => setConfirmOpen(false)}>
+              取消
+            </Button>
+            <Button
+              variant="primary"
+              disabled={!currentPassword || submit.isPending}
+              onClick={() => submit.mutate()}
+            >
+              {submit.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              确认并签名
+            </Button>
+          </>
+        )}
+      >
+        <label className="block text-xs font-medium text-slate-600">
+          当前登录密码
+          <input
+            className={`${inputClass} mt-1`}
+            type="password"
+            autoComplete="current-password"
+            autoFocus
+            value={currentPassword}
+            disabled={submit.isPending}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && currentPassword && !submit.isPending) submit.mutate()
+            }}
+          />
+        </label>
+        <p className="mt-3 text-xs leading-5 text-amber-800">提交后本次签名即刻写入报告，不能撤销。</p>
+        {/* Beside the field that caused it: a rejected password is the error
+            this dialog exists to surface. */}
+        {submit.isError ? <div className="mt-3"><ErrorNotice error={submit.error} fallback="签名提交失败" /></div> : null}
+      </Modal>
+
+      <Modal
+        open={rejectOpen}
+        title="拒绝当前任务"
+        description={current ? `${roleLabels[current.semantic_role]} · ${current.report_number}` : undefined}
+        onClose={() => setRejectOpen(false)}
+        actions={(
+          <>
+            <Button variant="ghost" disabled={reject.isPending} onClick={() => setRejectOpen(false)}>
+              返回
+            </Button>
+            <Button variant="danger" disabled={!detail.data || reject.isPending} onClick={() => reject.mutate()}>
+              {reject.isPending ? <Loader2 className="size-4 animate-spin" /> : <XCircle className="size-4" />}
+              拒绝并终止本次签署
+            </Button>
+          </>
+        )}
+      >
+        <label className="block text-xs font-medium text-slate-600">
+          拒绝原因
+          <select className={`${inputClass} mt-1`} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)}>
+            <option value="CONTENT_REVIEW_REJECTED">内容审核不通过</option>
+            <option value="SIGNATURE_POSITION_INCORRECT">签名位置不正确</option>
+            <option value="REPORT_DATA_INCORRECT">报告数据不正确</option>
+          </select>
+        </label>
+        <p className="mt-3 text-xs leading-5 text-slate-500">拒绝后本次签署流程终止，需要由发起人重新发起。</p>
+        {reject.isError ? <div className="mt-3"><ErrorNotice error={reject.error} fallback="拒绝任务失败" /></div> : null}
+      </Modal>
 
       <Modal open={taskPickerOpen} title="待我签名" onClose={() => setTaskPickerOpen(false)}>
         <p className="mb-3 text-xs text-slate-500">任务严格按主检 → 审核 → 签发开放。</p>
@@ -663,6 +821,7 @@ function SigningWorkspace() {
             <button
               key={request.request_uuid}
               type="button"
+              disabled={taskSwitchLocked}
               className={`w-full rounded-lg border p-3 text-left transition ${
                 effectiveRequestUuid === request.request_uuid
                   ? 'border-emerald-500 bg-emerald-50 shadow-sm'
@@ -670,10 +829,13 @@ function SigningWorkspace() {
               }`}
               onClick={() => {
                 setSelectedRequestUuid(request.request_uuid)
-                setOperationUuid('')
-                setPreviewUrl(null)
-                setSignatureReady(false)
-                padRef.current?.clear()
+                setOperationState({ requestUuid: '', operationUuid: '' })
+                setDrawingState({ key: '', previewUrl: null, ready: false })
+                setPageSizeState(null)
+                setPinnedRequest(request)
+                setCurrentPassword('')
+                submit.reset()
+                reject.reset()
                 setTaskPickerOpen(false)
               }}
             >
@@ -690,23 +852,32 @@ function SigningWorkspace() {
   )
 }
 
-function OperationState({ operation }: { operation: Awaited<ReturnType<typeof fetchSigningOperation>> }) {
+function OperationState({
+  operation,
+  lastSigner,
+}: {
+  operation: Awaited<ReturnType<typeof fetchSigningOperation>>
+  lastSigner: boolean
+}) {
   const completed = operation.state === 'completed'
   const failed = ['failed', 'irreversible_failed', 'manual_review', 'cancelled'].includes(operation.state)
   return (
     <div className={`rounded-xl border p-4 ${completed ? 'border-emerald-200 bg-emerald-50' : failed ? 'border-red-200 bg-red-50' : 'border-sky-200 bg-sky-50'}`}>
       <div className="flex items-center gap-2 text-sm font-semibold">
         {completed ? <BadgeCheck className="size-5 text-emerald-700" /> : failed ? <RefreshCw className="size-5 text-red-700" /> : <Loader2 className="size-5 animate-spin text-sky-700" />}
-        {completed ? '数字签名已完成' : failed ? '签名未完成' : 'Java 正在增量签名'}
+        {completed ? signedTitle(lastSigner) : failed ? '签名未完成' : '正在生成签名'}
       </div>
-      <dl className="mt-3 grid grid-cols-[5rem_1fr] gap-y-1 text-xs">
-        <dt className="text-slate-500">状态</dt><dd className="font-medium">{operation.state} / {operation.stage}</dd>
-        <dt className="text-slate-500">执行账本</dt><dd className="font-medium">{operation.java_execution_state ?? '等待注册'}</dd>
-        {operation.error_code ? <><dt className="text-slate-500">错误码</dt><dd className="break-all font-medium text-red-700">{operation.error_code}</dd></> : null}
-      </dl>
+      <p className="mt-2 text-xs leading-5">
+        {completed
+          ? signedText(lastSigner)
+          : failed
+            ? signingFailureText(operation.error_code, operation.state)
+            : '正在处理，请稍候，不要关闭页面。'}
+      </p>
     </div>
   )
 }
+
 
 function WorkspaceCard({ title, icon: Icon, children }: { title: string; icon: typeof Upload; children: React.ReactNode }) {
   return (

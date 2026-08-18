@@ -40,6 +40,9 @@ final class PadesCmsSigner {
 
     byte[] sign(InputStream content, SigningKeyMaterial material) throws Exception {
         ensureProvider();
+        // Before the private key, not after it: a signature this method cannot
+        // finish is worse than one it never starts.
+        timestampClient.requireReadyConfiguration();
         X509Certificate signingCertificate = (X509Certificate) material.certificateChain()[0];
         ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256withRSA")
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME)

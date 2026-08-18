@@ -72,7 +72,6 @@ class IncrementalSigningServiceTest {
         byte[] source = createSourcePdf();
         List<IncrementalSigningService.FieldPlan> plans = List.of(
                 plan("approval_inspector", 0, "0.08", "0.68", "0.24", "0.08", false),
-                plan("approval_inspector", 1, "0.08", "0.68", "0.24", "0.08", false),
                 plan("approval_reviewer", 0, "0.38", "0.68", "0.24", "0.08", false),
                 plan("approval_issuer", 1, "0.08", "0.12", "0.24", "0.08", false),
                 plan("seal_homepage", 0, "0.74", "0.08", "0.16", "0.16", true)
@@ -96,7 +95,7 @@ class IncrementalSigningServiceTest {
                 .filter(field -> field.fieldName().equals("approval_inspector"))
                 .findFirst()
                 .orElseThrow();
-        assertThat(inspectorField.widgetCount()).isEqualTo(2);
+        assertThat(inspectorField.widgetCount()).isEqualTo(1);
         assertThat(inspectorField.widgets()).extracting(
                 IncrementalSigningService.WidgetInspection::pageIndex,
                 widget -> widget.normalizedRectangle().x(),
@@ -104,8 +103,7 @@ class IncrementalSigningServiceTest {
                 widget -> widget.normalizedRectangle().width(),
                 widget -> widget.normalizedRectangle().height()
         ).containsExactly(
-                org.assertj.core.groups.Tuple.tuple(0, "0.080000", "0.680000", "0.240000", "0.080000"),
-                org.assertj.core.groups.Tuple.tuple(1, "0.080000", "0.680000", "0.240000", "0.080000")
+                org.assertj.core.groups.Tuple.tuple(0, "0.080000", "0.680000", "0.240000", "0.080000")
         );
 
         byte[] inspector = sign(prepared, "approval_inspector", "certification_p2", Color.BLUE);
@@ -114,7 +112,7 @@ class IncrementalSigningServiceTest {
         try (PDDocument document = Loader.loadPDF(inspector)) {
             PDSignatureField field = (PDSignatureField) document.getDocumentCatalog()
                     .getAcroForm().getField("approval_inspector");
-            assertThat(field.getWidgets()).hasSize(2).allSatisfy(widget -> {
+            assertThat(field.getWidgets()).hasSize(1).allSatisfy(widget -> {
                 assertThat(widget.getAppearance()).isNotNull();
                 assertThat(widget.getAppearance().getNormalAppearance()).isNotNull();
                 assertThat(widget.getRectangle().getWidth()).isPositive();
@@ -150,6 +148,56 @@ class IncrementalSigningServiceTest {
         assertThatThrownBy(() -> sign(sealed, "dynamic_field", "approval", Color.BLUE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("does not exist");
+    }
+
+    /**
+     * A field carrying widgets in /Kids must not also present itself as one.
+     *
+     * PDSignatureField hands back a field merged with its own widget, which is
+     * only legal while the field has no kids. Left merged, the field declared
+     * /Subtype /Widget while carrying no /Rect, and Acrobat refused to open the
+     * signature, reporting that it expected a dictionary object.
+     */
+    @Test
+    void preparedFieldsDoNotAlsoClaimToBeWidgets() throws Exception {
+        byte[] prepared = service.prepareFields(createSourcePdf(), List.of(
+                plan("approval_inspector", 0, "0.08", "0.68", "0.24", "0.08", false),
+                plan("approval_reviewer", 1, "0.08", "0.68", "0.24", "0.08", false)
+        ));
+
+        try (PDDocument document = Loader.loadPDF(prepared)) {
+            PDAcroForm acroForm = document.getDocumentCatalog().getAcroForm();
+            for (PDField field : acroForm.getFieldTree()) {
+                COSDictionary dictionary = field.getCOSObject();
+                COSArray kids = dictionary.getCOSArray(COSName.KIDS);
+                if (kids == null || kids.size() == 0) {
+                    continue;
+                }
+                assertThat(dictionary.getItem(COSName.SUBTYPE)).isNull();
+                assertThat(dictionary.getItem(COSName.TYPE)).isNull();
+                // Every widget entry belongs to the kids, which carry the /Rect
+                // that makes them annotations in the first place.
+                for (int index = 0; index < kids.size(); index++) {
+                    COSDictionary kid = (COSDictionary) kids.getObject(index);
+                    assertThat(kid.getItem(COSName.RECT)).isNotNull();
+                    assertThat(kid.getNameAsString(COSName.SUBTYPE)).isEqualTo("Widget");
+                }
+            }
+        }
+    }
+
+    /**
+     * The visible signature PDFBox builds covers one widget.
+     *
+     * A field with a second widget would show an empty box exactly where a
+     * signature is supposed to be, so the plan is refused rather than half met.
+     */
+    @Test
+    void refusesASecondWidgetOnTheSameField() {
+        assertThatThrownBy(() -> service.prepareFields(createSourcePdf(), List.of(
+                plan("approval_inspector", 0, "0.08", "0.68", "0.24", "0.08", false),
+                plan("approval_inspector", 1, "0.08", "0.68", "0.24", "0.08", false)
+        ))).hasMessageContaining("exactly one widget");
     }
 
     @Test

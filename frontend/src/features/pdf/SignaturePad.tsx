@@ -77,7 +77,7 @@ export function SignaturePad({
     const next = point(canvas, clientX, clientY)
     const context = canvas.getContext('2d')
     if (!context) return
-    context.strokeStyle = '#173f72'
+    context.strokeStyle = '#000000'
     context.lineWidth = width * 2.1
     context.lineCap = 'round'
     context.lineJoin = 'round'
@@ -187,9 +187,6 @@ export function SignaturePad({
           </div>
         ) : null}
       </div>
-      <p className="text-xs leading-5 text-slate-500">
-        预览只展示笔迹外观；提交时系统会再次要求当前密码，并由 Java 使用单位证书生成 PAdES-B-T 数字签名。
-      </p>
     </div>
   )
 }

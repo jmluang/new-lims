@@ -186,7 +186,7 @@ export async function confirmAndFinalizeSigningSource(input: { sourceUuid: strin
   )
   const operation = await waitForSigningOperation(response.data.data)
   if (operation.state !== 'completed' || !operation.result_revision_uuid) {
-    throw new Error(operation.error_code ?? 'PDF 定稿 operation 未完成')
+    throw new Error(operation.error_code ?? 'PDF 定稿未完成')
   }
   const file = await downloadRevision(operation.result_revision_uuid)
   const revision: FinalizedPlanningRevision = {
@@ -234,7 +234,7 @@ export async function createPreparedSigningWorkflow(input: {
   )
   const operation = await waitForSigningOperation(prepared.data.data)
   if (operation.state !== 'completed') {
-    throw new Error(operation.error_code ?? 'PDF 字段准备 operation 未完成')
+    throw new Error(operation.error_code ?? '签名位置准备未完成')
   }
   const result = await api.get<{ data: { workflow_uuid: string; status: string } }>(
     `/api/pdf/signing-workflows/${workflow.data.data.workflow_uuid}`,
@@ -304,5 +304,5 @@ async function waitForSigningOperation(initial: SigningOperation): Promise<Signi
     await new Promise((resolve) => window.setTimeout(resolve, 500))
     current = await fetchSigningOperation(current.operation_uuid)
   }
-  throw new Error('PDF operation 等待超时，请稍后按原操作重试')
+  throw new Error('处理超时，请稍后重试')
 }

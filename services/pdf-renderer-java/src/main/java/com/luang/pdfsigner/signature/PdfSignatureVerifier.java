@@ -1,6 +1,7 @@
 package com.luang.pdfsigner.signature;
 
 import java.security.MessageDigest;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HexFormat;
@@ -37,6 +38,19 @@ public class PdfSignatureVerifier {
     ) {
         this.trustedDocumentRootFingerprints = parseFingerprints(signerFingerprints);
         this.trustedTsaFingerprints = parseFingerprints(tsaFingerprints);
+        // Every verification below asks for the BC provider by name, but the
+        // only code that registered it was the signer. Verification therefore
+        // worked only in a process that had already signed something: after a
+        // restart the first approval signature read a perfectly good document
+        // as invalid. Registering here, in a component built at startup, means
+        // no caller depends on that ordering.
+        ensureProvider();
+    }
+
+    private static void ensureProvider() {
+        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+            Security.addProvider(new BouncyCastleProvider());
+        }
     }
 
     public VerificationReport verify(byte[] pdf) {

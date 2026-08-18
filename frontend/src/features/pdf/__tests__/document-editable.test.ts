@@ -37,15 +37,15 @@ describe('editableReason', () => {
   })
 
   it('blocks published documents', () => {
-    expect(editableReason({ ...draft, status: 'published', stage: 'published' })).toBe('已发布的文档不可修改')
+    expect(editableReason({ ...draft, status: 'published', stage: 'published' })).toBe('已发布的报告不可修改')
   })
 
   it('blocks documents under an evidence hold', () => {
-    expect(editableReason({ ...draft, evidence_hold_state: 'active' })).toBe('文档处于证据保全中')
+    expect(editableReason({ ...draft, evidence_hold_state: 'active' })).toBe('该报告处于证据保全中')
   })
 
   it('blocks documents with work still running', () => {
-    expect(editableReason({ ...draft, has_running_work: true })).toBe('文档有进行中的任务')
+    expect(editableReason({ ...draft, has_running_work: true })).toBe('该报告有正在处理的操作')
   })
 
   it('blocks documents that already carry a signature revision', () => {
@@ -57,7 +57,7 @@ describe('editableReason', () => {
         revision_role: 'approval_signature',
         integrity_state: 'ready',
       }],
-    })).toBe('文档已有签名')
+    })).toBe('该报告已有签名')
   })
 
   // prepare_fields adds the empty signature fields before the first signature.
@@ -80,7 +80,7 @@ describe('editableReason', () => {
   it('holds renaming back while a workflow still owns the document', () => {
     const live = { ...draft, workflow_uuid: 'wf-1', workflow_status: 'ready' }
 
-    expect(editableReason(live)).toBe('文档有进行中的工作流，请先在编排页取消')
+    expect(editableReason(live)).toBe('该报告正在签署中，需先在编排页取消')
     // Planning stays open: cancelling it is done from there.
     expect(planReason(live)).toBeNull()
   })
@@ -100,6 +100,6 @@ describe('editableReason', () => {
         status: 'signed',
         act_status: 'completed',
       }],
-    })).toBe('文档已有签名')
+    })).toBe('该报告已有签名')
   })
 })
