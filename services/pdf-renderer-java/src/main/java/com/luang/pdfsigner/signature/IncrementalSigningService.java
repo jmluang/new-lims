@@ -5,6 +5,7 @@ import com.luang.pdfsigner.service.Pkcs12SigningKeyProvider.SigningKeyMaterial;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -45,6 +46,8 @@ import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.ExternalSigningSupport;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSigProperties;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.visible.PDVisibleSignDesigner;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import org.apache.pdfbox.pdmodel.interactive.form.PDField;
 import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
@@ -72,6 +75,7 @@ public final class IncrementalSigningService {
 
     private final Pkcs12SigningKeyProvider signingKeyProvider;
     private final DocumentSigningCertificatePolicy certificatePolicy;
+    private final Rfc3161TimestampClient timestampClient;
     private final PadesCmsSigner cmsSigner;
 
     public IncrementalSigningService(
@@ -80,8 +84,32 @@ public final class IncrementalSigningService {
             DocumentSigningCertificatePolicy certificatePolicy
     ) {
         this.signingKeyProvider = signingKeyProvider;
+        this.timestampClient = timestampClient;
         this.cmsSigner = new PadesCmsSigner(timestampClient);
         this.certificatePolicy = certificatePolicy;
+    }
+
+    /**
+     * Fails when signing could not finish, for reasons knowable before it starts.
+     *
+     * Callers run this while a failure is still cheap — before the private key
+     * is touched — so a configuration mistake costs nothing instead of costing
+     * a real signature.
+     *
+     * Everything here is repeated during signing, where it is authoritative;
+     * this is the same judgement made early. Loading the keystore and reading
+     * its certificates uses no private key.
+     */
+    public void requireReadySigningConfiguration(String expectedCertificateFingerprint) throws Exception {
+        timestampClient.requireReadyConfiguration();
+
+        String actual = certificatePolicy.validate(signingKeyProvider.load());
+        if (expectedCertificateFingerprint != null
+                && !MessageDigest.isEqual(
+                actual.getBytes(StandardCharsets.US_ASCII),
+                expectedCertificateFingerprint.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII))) {
+            throw new IllegalArgumentException("The active document-signing certificate does not match the frozen operation");
+        }
     }
 
     public Inspection inspect(byte[] pdfBytes) throws Exception {
@@ -185,12 +213,24 @@ public final class IncrementalSigningService {
                     field.setPartialName(plan.fieldName());
                     field.getCOSObject().setItem(LOCK, selfOnlyLock(plan.fieldName()));
                     field.getCOSObject().setItem(COSName.KIDS, new COSArray());
+                    // PDSignatureField hands back a field merged with its own
+                    // widget, which is only legal while the field has no kids.
+                    // A field may carry up to eight widgets here, so the widgets
+                    // live in /Kids and the field must stop claiming to be one:
+                    // left in place, it declared /Subtype /Widget while carrying
+                    // no /Rect, and readers walking the field tree met an
+                    // annotation missing everything an annotation needs.
+                    field.getCOSObject().removeItem(COSName.TYPE);
+                    field.getCOSObject().removeItem(COSName.SUBTYPE);
+                    field.getCOSObject().removeItem(COSName.F);
                     acroForm.getFields().add(field);
                     fields.put(plan.fieldName(), field);
                 }
                 COSArray kids = field.getCOSObject().getCOSArray(COSName.KIDS);
-                if (kids.size() >= 8) {
-                    throw new IllegalArgumentException("A signature field supports at most eight widgets");
+                // The visible signature is built for one widget, so a second one
+                // would be left blank while looking like a place someone signed.
+                if (kids.size() >= 1) {
+                    throw new IllegalArgumentException("A signature field supports exactly one widget");
                 }
                 PDAnnotationWidget widget = new PDAnnotationWidget();
                 widget.setParent(field);
@@ -264,15 +304,6 @@ public final class IncrementalSigningService {
                 addDocMdpReference(signature, document.getDocumentCatalog());
             }
 
-            List<PDRectangle> widgetRectangles = field.getWidgets().stream()
-                    .map(PDAnnotationWidget::getRectangle)
-                    .map(rectangle -> new PDRectangle(
-                            rectangle.getLowerLeftX(),
-                            rectangle.getLowerLeftY(),
-                            rectangle.getWidth(),
-                            rectangle.getHeight()
-                    ))
-                    .toList();
             field.getCOSObject().setItem(COSName.V, signature.getCOSObject());
             SigningKeyMaterial keyMaterial = signingKeyProvider.load();
             String actualCertificateFingerprint = certificatePolicy.validate(keyMaterial);
@@ -283,12 +314,20 @@ public final class IncrementalSigningService {
                 throw new IllegalArgumentException("The active document-signing certificate does not match the frozen operation");
             }
 
+            // The appearance is handed to addSignature, not patched in afterwards.
+            // Widgets edited after registration produced a document Acrobat
+            // refused to validate at all — it reported that it expected a
+            // dictionary object and would not open the signature.
+            PDAnnotationWidget widget = field.getWidgets().get(0);
+            PDRectangle target = widget.getRectangle();
+            int pageIndex = widgetPageIndex(document, widget);
+
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             try (SignatureOptions options = new SignatureOptions()) {
                 options.setPreferredSignatureSize(signatureReservedSize());
+                options.setPage(pageIndex);
+                options.setVisualSignature(visibleSignature(appearancePng, document, target, pageIndex));
                 document.addSignature(signature, options);
-                restoreWidgetRectangles(field, widgetRectangles);
-                applyAppearance(document, field, appearancePng);
                 ExternalSigningSupport externalSigning = document.saveIncrementalForExternalSigning(output);
                 externalSigning.setSignature(cmsSigner.sign(externalSigning.getContent(), keyMaterial));
             }
@@ -556,7 +595,11 @@ public final class IncrementalSigningService {
         reference.setItem(COSName.TYPE, SIG_REF);
         reference.setItem(TRANSFORM_METHOD, FIELD_MDP);
         reference.setItem(TRANSFORM_PARAMS, parameters);
-        reference.setItem(DATA, catalog.getCOSObject());
+        // /Data names the object the transform is applied to. FieldMDP detects
+        // changes to form field values, so that object is the interactive form
+        // dictionary; the document catalog belongs to DocMDP, which acts on the
+        // document as a whole.
+        reference.setItem(DATA, catalog.getAcroForm().getCOSObject());
         COSArray references = new COSArray();
         references.add(reference);
         signature.getCOSObject().setItem(REFERENCE, references);
@@ -610,37 +653,41 @@ public final class IncrementalSigningService {
         return null;
     }
 
-    private static void applyAppearance(PDDocument document, PDSignatureField field, byte[] appearancePng) throws Exception {
-        if (field.getWidgets().isEmpty()) {
-            throw new IllegalArgumentException("The target signature field has no widget");
-        }
+    /**
+     * The visible signature handed to addSignature, drawn at the frozen rect.
+     *
+     * PDFBox rebuilds the widget while registering a signature, so an appearance
+     * written beforehand is discarded and one written afterwards leaves the
+     * incremental update inconsistent — Acrobat then refuses to validate the
+     * signature at all. Supplying it through SignatureOptions is the one point
+     * where PDFBox will keep it.
+     */
+    private static InputStream visibleSignature(
+            byte[] appearancePng,
+            PDDocument document,
+            PDRectangle target,
+            int pageIndex
+    ) throws Exception {
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(appearancePng));
         if (image == null) {
             throw new IllegalArgumentException("The appearance is not a supported image");
         }
-        PDImageXObject imageObject = LosslessFactory.createFromImage(document, image);
-        for (PDAnnotationWidget widget : field.getWidgets()) {
-            PDRectangle rectangle = widget.getRectangle();
-            PDAppearanceStream stream = new PDAppearanceStream(document);
-            stream.setBBox(new PDRectangle(rectangle.getWidth(), rectangle.getHeight()));
-            stream.setResources(new PDResources());
-            try (PDPageContentStream content = new PDPageContentStream(document, stream)) {
-                content.drawImage(imageObject, 0, 0, rectangle.getWidth(), rectangle.getHeight());
-            }
-            PDAppearanceDictionary appearance = new PDAppearanceDictionary();
-            appearance.setNormalAppearance(stream);
-            widget.setAppearance(appearance);
-            widget.setPrinted(true);
-        }
-    }
+        PDPage page = document.getPage(pageIndex);
+        PDVisibleSignDesigner designer = new PDVisibleSignDesigner(document, image, pageIndex + 1);
+        // The designer measures y from the top of the page; the frozen rect is
+        // in PDF user space, which measures from the bottom.
+        designer.xAxis(target.getLowerLeftX())
+                .yAxis(page.getMediaBox().getHeight() - target.getUpperRightY())
+                .width(target.getWidth())
+                .height(target.getHeight());
 
-    private static void restoreWidgetRectangles(PDSignatureField field, List<PDRectangle> rectangles) {
-        if (field.getWidgets().size() != rectangles.size()) {
-            throw new IllegalStateException("The target widget set changed while registering the signature");
-        }
-        for (int index = 0; index < rectangles.size(); index++) {
-            field.getWidgets().get(index).setRectangle(rectangles.get(index));
-        }
+        PDVisibleSigProperties properties = new PDVisibleSigProperties()
+                .page(pageIndex + 1)
+                .visualSignEnabled(true)
+                .setPdVisibleSignature(designer);
+        properties.buildSignature();
+
+        return properties.getVisibleSignature();
     }
 
     private static PDAppearanceDictionary blankAppearance(PDDocument document, float width, float height) {
