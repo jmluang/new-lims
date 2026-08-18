@@ -37,6 +37,7 @@ import {
   submitSignatureAppearance,
   type Placement,
   type SignatureRole,
+  type SigningRequestSummary,
 } from './handwrittenApi'
 import { PdfPlacementWorkspace } from './PdfPlacementWorkspace'
 import { fieldAspectRatio } from './fieldAspect'
@@ -45,7 +46,9 @@ import { canFreeze, workflowIdempotencyKey as buildWorkflowIdempotencyKey } from
 import { SignaturePad } from './SignaturePad'
 import {
   drawingStateForKey,
+  isSigningTerminalState,
   operationUuidForRequest,
+  signingTaskSwitchUnavailable,
   type RequestOperationState,
   type SignatureDrawingState,
 } from './signingTaskState'
@@ -473,11 +476,13 @@ function SigningWorkspace() {
   const [selectedRequestUuid, setSelectedRequestUuid] = useState(() => requestedSigningUuid() ?? '')
   const effectiveRequestUuid = selectedRequestUuid || requests.data?.[0]?.request_uuid || ''
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
+  const [pinnedRequest, setPinnedRequest] = useState<SigningRequestSummary | null>(null)
   const [pageSizeState, setPageSizeState] = useState<{
     requestUuid: string
     size: { width: number; height: number }
   } | null>(null)
-  const current = requests.data?.find((request) => request.request_uuid === effectiveRequestUuid) ?? null
+  const listedCurrent = requests.data?.find((request) => request.request_uuid === effectiveRequestUuid) ?? null
+  const current = listedCurrent ?? (pinnedRequest?.request_uuid === effectiveRequestUuid ? pinnedRequest : null)
   const taskCount = requests.data?.length ?? 0
   const detail = useQuery({
     queryKey: ['pdf', 'handwritten', 'request', effectiveRequestUuid],
@@ -504,7 +509,7 @@ function SigningWorkspace() {
     enabled: Boolean(operationUuid),
     refetchInterval: (query) => {
       const state = query.state.data?.state
-      return state && ['completed', 'failed', 'irreversible_failed', 'manual_review', 'cancelled'].includes(state) ? false : 2000
+      return isSigningTerminalState(state) ? false : 2000
     },
   })
   const submit = useMutation({
@@ -537,6 +542,7 @@ function SigningWorkspace() {
       setOperationState({ requestUuid: '', operationUuid: '' })
       setDrawingState({ key: '', previewUrl: null, ready: false })
       setPageSizeState(null)
+      setPinnedRequest(null)
       setRejectOpen(false)
       await queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'requests'] })
     },
@@ -547,7 +553,7 @@ function SigningWorkspace() {
   const lastSigner = detail.data?.semantic_role === 'issuer'
 
   useEffect(() => {
-    if (operation.data?.state === 'completed') {
+    if (isSigningTerminalState(operation.data?.state)) {
       void queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'requests'] })
     }
   }, [operation.data?.state, queryClient])
@@ -573,7 +579,7 @@ function SigningWorkspace() {
       showToast({
         variant: 'error',
         title: '签名未完成',
-        description: signingFailureText(operation.data?.error_code),
+        description: signingFailureText(operation.data?.error_code, state),
       })
     }
   }, [operation.data?.state, operation.data?.error_code, operationUuid, lastSigner])
@@ -598,11 +604,12 @@ function SigningWorkspace() {
   const terminalState = operation.data?.state
   const operationPending = Boolean(
     operationUuid
-      && (!terminalState || !['completed', 'failed', 'irreversible_failed', 'manual_review', 'cancelled'].includes(terminalState)),
+      && !isSigningTerminalState(terminalState),
   )
   // A pre-key failure remains retryable. Completed, ambiguous and irreversible
   // outcomes retire the controls so the UI cannot contradict the recovery rule.
   const signingControlsLocked = signingControlsUnavailable(terminalState)
+  const taskSwitchLocked = signingTaskSwitchUnavailable(submit.isPending, operationPending)
 
   return (
     <div className="space-y-3">
@@ -641,7 +648,7 @@ function SigningWorkspace() {
               拒绝
             </Button>
           )}
-          <Button variant="secondary" onClick={() => setTaskPickerOpen(true)}>
+          <Button variant="secondary" disabled={taskSwitchLocked} onClick={() => setTaskPickerOpen(true)}>
             <RefreshCw className="size-4" />
             切换任务{taskCount > 1 ? `（${taskCount}）` : ''}
           </Button>
@@ -700,7 +707,13 @@ function SigningWorkspace() {
               variant="primary"
               className="mt-3 w-full"
               disabled={!detail.data || !activeDrawing.ready || submit.isPending || operationPending}
-              onClick={() => setConfirmOpen(true)}
+              onClick={() => {
+                if (current) {
+                  setSelectedRequestUuid(current.request_uuid)
+                  setPinnedRequest(current)
+                }
+                setConfirmOpen(true)
+              }}
             >
               {submit.isPending || operationPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {operationPending ? '正在生成签名…' : '确认身份并签名'}
@@ -798,6 +811,7 @@ function SigningWorkspace() {
             <button
               key={request.request_uuid}
               type="button"
+              disabled={taskSwitchLocked}
               className={`w-full rounded-lg border p-3 text-left transition ${
                 effectiveRequestUuid === request.request_uuid
                   ? 'border-emerald-500 bg-emerald-50 shadow-sm'
@@ -808,6 +822,7 @@ function SigningWorkspace() {
                 setOperationState({ requestUuid: '', operationUuid: '' })
                 setDrawingState({ key: '', previewUrl: null, ready: false })
                 setPageSizeState(null)
+                setPinnedRequest(request)
                 setCurrentPassword('')
                 setTaskPickerOpen(false)
               }}
@@ -844,7 +859,7 @@ function OperationState({
         {completed
           ? signedText(lastSigner)
           : failed
-            ? signingFailureText(operation.error_code)
+            ? signingFailureText(operation.error_code, operation.state)
             : '正在处理，请稍候，不要关闭页面。'}
       </p>
     </div>

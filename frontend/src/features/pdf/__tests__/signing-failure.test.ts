@@ -27,6 +27,13 @@ describe('signingFailureText', () => {
     expect(signingFailureText(undefined)).toContain('联系管理员')
   })
 
+  it('never recommends retrying an unknown manual-review outcome', () => {
+    expect(signingFailureText('PROMOTED_FINAL_INTEGRITY_FAILURE', 'manual_review')).toContain('不要重复提交')
+    expect(signingFailureText('DOWNSTREAM_CANDIDATE_AMBIGUOUS', 'manual_review')).not.toContain('请重新提交')
+    expect(signingFailureText('GENERATED_REVISION_VERIFICATION_FAILED', 'manual_review')).toContain('联系管理员')
+    expect(signingFailureText('UNKNOWN_PRE_KEY_FAILURE', 'failed')).toContain('重新提交')
+  })
+
   it('only keeps the form for retryable failures', () => {
     expect(signingControlsUnavailable('failed')).toBe(false)
     expect(signingControlsUnavailable('completed')).toBe(true)
