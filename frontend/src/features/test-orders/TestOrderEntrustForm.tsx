@@ -69,7 +69,7 @@ export function TestOrderEntrustForm({
         <h2 className="py-4 text-center text-2xl font-semibold tracking-[0.25em]">实验委托单</h2>
 
         <div className="border-t border-emerald-900/15">
-          <div className="grid grid-cols-[7rem_1fr_7rem_1fr] border-b border-emerald-900/15">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[7rem_minmax(0,1fr)_7rem_minmax(0,1fr)]">
             <CellLabel>委托日期</CellLabel>
             <Cell><TextCell form={form} editable={editable} name={'order_date'} type="date" /></Cell>
             <CellLabel>紧急程度</CellLabel>
@@ -77,7 +77,7 @@ export function TestOrderEntrustForm({
               <SelectCell form={form} editable={editable} name={'urgency'} placeholder="" options={urgencyOptions} />
             </Cell>
           </div>
-          <div className="grid grid-cols-[7rem_1fr_7rem_1fr] border-b border-emerald-900/15">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[7rem_minmax(0,1fr)_7rem_minmax(0,1fr)]">
             <CellLabel>计划结束时间</CellLabel>
             <Cell><TextCell form={form} editable={editable} name={'planned_end_date'} type="date" /></Cell>
             <CellLabel>样品状态</CellLabel>
@@ -85,7 +85,7 @@ export function TestOrderEntrustForm({
               <SelectCell form={form} editable={editable} name={'sample_status'} placeholder="" options={sampleStatusOptions} />
             </Cell>
           </div>
-          <div className="grid grid-cols-[7rem_1fr_7rem_1fr]">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] md:grid-cols-[7rem_minmax(0,1fr)_7rem_minmax(0,1fr)]">
             <CellLabel>委托编号</CellLabel><Cell><span className="px-3">{order.order_no}</span></Cell>
             <CellLabel>合同编号</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'contract_no'} /></Cell>
           </div>
@@ -106,28 +106,28 @@ export function TestOrderEntrustForm({
                   <TableCell><div className="grid grid-cols-2 gap-1"><TextCell form={form} editable={editable} name={`standards.${index}.standard_code`} placeholder="标准号" /><TextCell form={form} editable={editable} name={`standards.${index}.standard_name`} placeholder="标准名称" /></div></TableCell>
                   <TableCell><TextCell form={form} editable={editable} name={`standards.${index}.qualifications_text`} placeholder="CMA, CNAS" /></TableCell>
                   <TableCell><SelectCell form={form} editable={editable} name={`standards.${index}.report_language`} placeholder="" options={reportLanguageOptions} /></TableCell>
-                  {editable ? <TableCell><button className="text-slate-500 hover:text-red-600 disabled:opacity-40" type="button" disabled={standards.fields.length === 1} onClick={() => standards.remove(index)} aria-label="移除标准"><Trash2 className="mx-auto size-4" /></button></TableCell> : null}
+                  {editable ? <TableCell><button className="min-h-11 min-w-11 text-slate-500 hover:text-red-600 disabled:opacity-40" type="button" disabled={standards.fields.length === 1} onClick={() => standards.remove(index)} aria-label="移除标准"><Trash2 className="mx-auto size-4" /></button></TableCell> : null}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {editable ? <button className="m-2 inline-flex items-center gap-1 text-sm text-emerald-700 hover:text-emerald-900" type="button" onClick={() => standards.append(emptyStandard())}><Plus className="size-4" />新增标准</button> : null}
+        {editable ? <button className="m-2 inline-flex min-h-11 items-center gap-1 px-2 text-sm text-emerald-700 hover:text-emerald-900" type="button" onClick={() => standards.append(emptyStandard())}><Plus className="size-4" />新增标准</button> : null}
         <div className="border-t border-emerald-900/15 text-sm">
-          <div className="grid grid-cols-[7rem_1fr] border-b border-emerald-900/15">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15">
             <CellLabel>报告形式</CellLabel>
             <Cell className="border-r-0">{editable
-              ? <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2">{reportFormOptions.map((option) => <label className="inline-flex items-center gap-1" key={option}><input type="checkbox" value={option} {...form.register('report_forms')} />{reportFormLabel(option)}</label>)}</div>
+              ? <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 py-2">{reportFormOptions.map((option) => <label className="inline-flex min-h-11 items-center gap-1" key={option}><input type="checkbox" value={option} {...form.register('report_forms')} />{reportFormLabel(option)}</label>)}</div>
               : <ReadOnly value={(form.watch('report_forms') ?? []).map(reportFormLabel).join('、')} />}</Cell>
           </div>
-          <div className="grid grid-cols-[7rem_1fr_7rem_1fr] border-b border-emerald-900/15">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[7rem_minmax(0,1fr)_7rem_minmax(0,1fr)]">
             <CellLabel>样品是否返还</CellLabel><Cell><SelectCell form={form} editable={editable} name={'sample_return'} options={sampleReturnOptions.map((option) => ({ value: option, label: option === 'return' ? '是' : '否（销毁处理）' }))} /></Cell>
             <CellLabel>报告提交</CellLabel><Cell className="border-r-0"><SelectCell form={form} editable={editable} name={'delivery_method'} options={reportSubmissionOptions.map((option) => ({ value: option, label: option === 'self_pick' ? '自取' : '邮寄' }))} /></Cell>
           </div>
-          <div className="grid grid-cols-[7rem_1fr] border-b border-emerald-900/15">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15">
             <CellLabel>准许检测分包</CellLabel><Cell className="border-r-0"><SelectCell form={form} editable={editable} name={'outsourcing_option'} options={outsourcingOptions.map((option) => ({ value: option, label: option === 'allowed' ? '允许' : '不允许' }))} /></Cell>
           </div>
-          <div className="grid grid-cols-[7rem_1fr]">
+          <div className="grid grid-cols-[7rem_minmax(0,1fr)]">
             <CellLabel>备注</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'remark'} /></Cell>
           </div>
         </div>
@@ -135,46 +135,77 @@ export function TestOrderEntrustForm({
         <SectionTitle>*样品信息</SectionTitle>
         {samples.fields.map((row, index) => (
           <div className="border-b border-emerald-900/15" key={row.id}>
-            <div className="grid grid-cols-[6rem_1fr_6rem_1fr_6rem_1fr] border-b border-emerald-900/15">
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[6rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_minmax(0,1fr)]">
               <CellLabel>名称*</CellLabel><Cell><TextCell form={form} editable={editable} name={`samples.${index}.sample_name`} /></Cell>
               <CellLabel>额定电流</CellLabel><Cell><TextCell form={form} editable={editable} name={`samples.${index}.rated_current`} /></Cell>
               <CellLabel>状态</CellLabel><Cell className="border-r-0"><SelectCell form={form} editable={editable} name={`samples.${index}.sample_condition`} options={sampleConditionOptions.map((option) => ({ value: option, label: option === 'good' ? '完好' : '异常' }))} /></Cell>
             </div>
-            <div className="grid grid-cols-[6rem_1fr_6rem_1fr_6rem_1fr] border-b border-emerald-900/15">
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[6rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_minmax(0,1fr)]">
               <CellLabel>型号*</CellLabel><Cell><TextCell form={form} editable={editable} name={`samples.${index}.model`} /></Cell>
               <CellLabel>额定功率*</CellLabel><Cell><TextCell form={form} editable={editable} name={`samples.${index}.power`} /></Cell>
               <CellLabel>样品数量</CellLabel><Cell className="border-r-0">{editable
-                ? <div className="flex"><input className={cellInput} type="number" min={1} {...form.register(`samples.${index}.quantity`, { valueAsNumber: true })} /><input className="w-12 border-l border-emerald-900/15 px-1 text-center text-sm outline-none focus:bg-emerald-50/70" {...form.register(`samples.${index}.quantity_unit`)} /></div>
+                ? <div className="flex"><input className={cellInput} type="number" min={1} {...form.register(`samples.${index}.quantity`, { valueAsNumber: true })} /><input className="min-h-11 w-12 border-l border-emerald-900/15 px-1 text-center text-sm outline-none focus:bg-emerald-50/70 md:min-h-9" {...form.register(`samples.${index}.quantity_unit`)} /></div>
                 : <ReadOnly value={`${form.watch(`samples.${index}.quantity`) ?? ''} ${form.watch(`samples.${index}.quantity_unit`) ?? ''}`.trim()} />}</Cell>
             </div>
-            <div className="grid grid-cols-[6rem_1fr_6rem_1fr_6rem_1fr] border-b border-emerald-900/15">
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[6rem_minmax(0,1fr)_6rem_minmax(0,1fr)_6rem_minmax(0,1fr)]">
               <CellLabel>额定电压*</CellLabel><Cell><TextCell form={form} editable={editable} name={`samples.${index}.input_voltage`} /></Cell>
               <CellLabel>额定频率</CellLabel><Cell><TextCell form={form} editable={editable} name={`samples.${index}.rated_frequency`} /></Cell>
               <CellLabel>异常说明</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`samples.${index}.sample_condition_note`} /></Cell>
             </div>
-            <div className="grid grid-cols-[6rem_1fr]"><CellLabel>备注</CellLabel><Cell className="flex gap-2"><TextCell form={form} editable={editable} name={`samples.${index}.remark`} />{editable ? <button className="px-2 text-slate-500 hover:text-red-600 disabled:opacity-40" type="button" disabled={samples.fields.length === 1} onClick={() => samples.remove(index)} aria-label="移除样品"><Trash2 className="size-4" /></button> : null}</Cell></div>
+            <div className="grid grid-cols-[6rem_minmax(0,1fr)]"><CellLabel>备注</CellLabel><Cell className="flex gap-2"><TextCell form={form} editable={editable} name={`samples.${index}.remark`} />{editable ? <button className="min-h-11 min-w-11 px-2 text-slate-500 hover:text-red-600 disabled:opacity-40" type="button" disabled={samples.fields.length === 1} onClick={() => samples.remove(index)} aria-label="移除样品"><Trash2 className="size-4" /></button> : null}</Cell></div>
           </div>
         ))}
-        {editable ? <button className="m-2 inline-flex items-center gap-1 text-sm text-emerald-700 hover:text-emerald-900" type="button" onClick={() => samples.append(emptySample())}><Plus className="size-4" />新增样品</button> : null}
+        {editable ? <button className="m-2 inline-flex min-h-11 items-center gap-1 px-2 text-sm text-emerald-700 hover:text-emerald-900" type="button" onClick={() => samples.append(emptySample())}><Plus className="size-4" />新增样品</button> : null}
 
         <SectionTitle>*样品寄送地址</SectionTitle>
-        <div className="grid grid-cols-[7rem_1fr] border-b border-emerald-900/15"><CellLabel>实验室名称</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'address_lab_name'} /></Cell></div>
-        <div className="grid grid-cols-[7rem_1fr] border-b border-emerald-900/15"><CellLabel>实验室地址</CellLabel><Cell className="border-r-0"><AreaCell form={form} editable={editable} name={'address_detail'} minHeight="min-h-16" /></Cell></div>
-        <div className="grid grid-cols-[7rem_1fr] border-b border-emerald-900/15"><CellLabel>联系人</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'address_contact'} /></Cell></div>
-        <div className="grid grid-cols-[7rem_1fr] border-b border-emerald-900/15"><CellLabel>联系电话</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'address_phone'} /></Cell></div>
-        <div className="grid grid-cols-[7rem_1fr]"><CellLabel>特别说明</CellLabel><Cell className="border-r-0"><AreaCell form={form} editable={editable} name={'shipping_notes'} minHeight="min-h-20" /></Cell></div>
+        <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15"><CellLabel>实验室名称</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'address_lab_name'} /></Cell></div>
+        <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15"><CellLabel>实验室地址</CellLabel><Cell className="border-r-0"><AreaCell form={form} editable={editable} name={'address_detail'} minHeight="min-h-16" /></Cell></div>
+        <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15"><CellLabel>联系人</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'address_contact'} /></Cell></div>
+        <div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15"><CellLabel>联系电话</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={'address_phone'} /></Cell></div>
+        <div className="grid grid-cols-[7rem_minmax(0,1fr)]"><CellLabel>特别说明</CellLabel><Cell className="border-r-0"><AreaCell form={form} editable={editable} name={'shipping_notes'} minHeight="min-h-20" /></Cell></div>
 
-        <div className="border-t border-emerald-900/15 p-4"><div className="grid grid-cols-[1fr_15rem] items-center gap-4"><p className="text-base font-medium">委托单位声明：上述提供资料正确无误！</p><label className="text-sm">委托人（客户）签字{editable ? <input className="mt-1 w-full border-b border-emerald-900/15 px-2 py-1 outline-none" {...form.register('client_signature')} /> : <div className="mt-1 min-h-8 border-b border-emerald-900/15 px-2 py-1">{form.watch('client_signature')}</div>}</label></div><div className="mt-3 flex justify-end"><label className="text-sm">日期{editable ? <input type="date" className="ml-2 border-b border-emerald-900/15 px-2 py-1 outline-none" {...form.register('client_sign_date')} /> : <span className="ml-2 inline-block min-w-28 border-b border-emerald-900/15 px-2 py-1">{form.watch('client_sign_date')}</span>}</label></div></div>
-        <div className="grid grid-cols-5 border-t border-emerald-900/15 text-center text-sm"><CellLabel>实验室资源满足*</CellLabel><CellLabel>综合部确认</CellLabel><Cell><TextCell form={form} editable={editable} name={'dept_confirm'} /></Cell><CellLabel>日期</CellLabel><Cell><TextCell form={form} editable={editable} name={'dept_confirm_date'} type="date" /></Cell><CellLabel>客户要求的评审*</CellLabel><CellLabel>检测部确认</CellLabel><Cell><TextCell form={form} editable={editable} name={'lab_confirm'} /></Cell><CellLabel>日期</CellLabel><Cell><TextCell form={form} editable={editable} name={'lab_confirm_date'} type="date" /></Cell></div>
+        <div className="border-t border-emerald-900/15 p-4"><div className="grid items-center gap-4 md:grid-cols-[minmax(0,1fr)_15rem]"><p className="text-base font-medium">委托单位声明：上述提供资料正确无误！</p><label className="text-sm">委托人（客户）签字{editable ? <input className="mt-1 min-h-11 w-full border-b border-emerald-900/15 px-2 py-1 outline-none" {...form.register('client_signature')} /> : <div className="mt-1 min-h-8 border-b border-emerald-900/15 px-2 py-1">{form.watch('client_signature')}</div>}</label></div><div className="mt-3 flex justify-start md:justify-end"><label className="text-sm">日期{editable ? <input type="date" className="ml-2 min-h-11 border-b border-emerald-900/15 px-2 py-1 outline-none" {...form.register('client_sign_date')} /> : <span className="ml-2 inline-block min-w-28 border-b border-emerald-900/15 px-2 py-1">{form.watch('client_sign_date')}</span>}</label></div></div>
+        <div className="divide-y divide-emerald-900/15 border-t border-emerald-900/15 text-center text-sm">
+          <ConfirmationRow form={form} editable={editable} title="实验室资源满足*" confirmLabel="综合部确认" confirmName="dept_confirm" dateName="dept_confirm_date" />
+          <ConfirmationRow form={form} editable={editable} title="客户要求的评审*" confirmLabel="检测部确认" confirmName="lab_confirm" dateName="lab_confirm_date" />
+        </div>
       </section>
 
-      {editable ? <div className="mx-auto flex max-w-[210mm] justify-end gap-2"><Button type="submit" variant="primary" disabled={submitting}><Save className="size-4" />保存</Button><Button type="button" variant="secondary" disabled={submitting} onClick={run('print')}><Printer className="size-4" />保存并重新打印</Button></div> : null}
+      {editable ? <div className="mx-auto flex max-w-[210mm] flex-wrap justify-end gap-2"><Button type="submit" variant="primary" disabled={submitting}><Save className="size-4" />保存</Button><Button type="button" variant="secondary" disabled={submitting} onClick={run('print')}><Printer className="size-4" />保存并重新打印</Button></div> : null}
     </form>
   )
 }
 
 function PartyRows({ form, editable, prefix, title }: { form: UseFormReturn<TestOrderFormValues>; editable: boolean; prefix: 'client' | 'manufacturer' | 'maker'; title: string }) {
-  return <div className="border-t border-emerald-900/15 text-sm"><div className="grid grid-cols-[7rem_1fr_4rem_1fr_3rem_1fr] border-b border-emerald-900/15"><CellLabel>{title}</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_company`} /></Cell><CellLabel>联系人</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_contact`} /></Cell><CellLabel>电话</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_phone`} /></Cell></div><div className="grid grid-cols-[7rem_1fr_3rem_1fr]"><CellLabel>地址</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_address`} /></Cell><CellLabel>邮箱</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_email`} type="email" /></Cell></div></div>
+  return <div className="border-t border-emerald-900/15 text-sm"><div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[7rem_minmax(0,1fr)_4rem_minmax(0,1fr)_3rem_minmax(0,1fr)]"><CellLabel>{title}</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_company`} /></Cell><CellLabel>联系人</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_contact`} /></Cell><CellLabel>电话</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_phone`} /></Cell></div><div className="grid grid-cols-[7rem_minmax(0,1fr)] md:grid-cols-[7rem_minmax(0,1fr)_3rem_minmax(0,1fr)]"><CellLabel>地址</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_address`} /></Cell><CellLabel>邮箱</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_email`} type="email" /></Cell></div></div>
+}
+
+function ConfirmationRow({
+  form,
+  editable,
+  title,
+  confirmLabel,
+  confirmName,
+  dateName,
+}: {
+  form: UseFormReturn<TestOrderFormValues>
+  editable: boolean
+  title: string
+  confirmLabel: string
+  confirmName: 'dept_confirm' | 'lab_confirm'
+  dateName: 'dept_confirm_date' | 'lab_confirm_date'
+}) {
+  return (
+    <div className="grid grid-cols-[7rem_minmax(0,1fr)] md:grid-cols-5">
+      <CellLabel>{title}</CellLabel>
+      <div className="grid grid-cols-[4rem_minmax(0,1fr)] md:contents">
+        <CellLabel>{confirmLabel}</CellLabel>
+        <Cell><TextCell form={form} editable={editable} name={confirmName} /></Cell>
+        <CellLabel>日期</CellLabel>
+        <Cell className="border-r-0"><TextCell form={form} editable={editable} name={dateName} type="date" /></Cell>
+      </div>
+    </div>
+  )
 }
 
 
@@ -269,7 +300,7 @@ const reportLanguageOptions = [
   { value: 'en', label: '英文' },
 ]
 
-const cellInput = 'h-9 min-w-0 w-full rounded-none border-0 bg-transparent px-3 text-sm text-slate-900 outline-none focus:bg-emerald-50/70 focus:ring-1 focus:ring-inset focus:ring-emerald-600/30'
+const cellInput = 'h-11 min-w-0 w-full rounded-none border-0 bg-transparent px-3 text-sm text-slate-900 outline-none focus:bg-emerald-50/70 focus:ring-1 focus:ring-inset focus:ring-emerald-600/30 md:h-9'
 
 /**
  * Two vocabularies reach this field. The form offers `*_report` codes while
