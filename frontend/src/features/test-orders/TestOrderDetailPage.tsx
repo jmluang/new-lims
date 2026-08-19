@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil, X } from 'lucide-react'
 import { useState } from 'react'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
 import type { Customer } from '../customers/CustomerListPage'
+import type { Standard } from '../standards/StandardListPage'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { Button, ErrorNotice, LoadingState, PageShell } from '../system/shared'
@@ -16,6 +17,7 @@ import { printEntrustOrder } from './testOrderPrint'
 
 type TestOrderFormOptions = {
   customers: Customer[]
+  standards: Standard[]
 }
 
 export function TestOrderDetailPage() {
@@ -36,7 +38,7 @@ export function TestOrderDetailPage() {
     queryKey: ['test-order-form-options'],
     enabled: canUpdate,
     queryFn: async () => {
-      const response = await api.get<{ data: TestOrderFormOptions & { standards: unknown[] } }>('/api/test-orders/form-options', { params: { limit: 100 } })
+      const response = await api.get<{ data: TestOrderFormOptions }>('/api/test-orders/form-options', { params: { limit: 100 } })
 
       return response.data.data
     },
@@ -104,6 +106,7 @@ export function TestOrderDetailPage() {
             key={`${order.id}:${editing ? 'edit' : 'read'}`}
             order={order}
             customers={formOptionsQuery.data?.customers ?? []}
+            standardOptions={formOptionsQuery.data?.standards ?? []}
             editable={canUpdate && editing}
             submitting={saveOrder.isPending}
             error={saveOrder.error}

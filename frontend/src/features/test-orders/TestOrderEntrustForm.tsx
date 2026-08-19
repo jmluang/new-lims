@@ -1,12 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Printer, Save, Trash2 } from 'lucide-react'
 import { createContext, useContext, useEffect } from 'react'
-import { type UseFormReturn, useFieldArray, useForm } from 'react-hook-form'
+import { Controller, type UseFormReturn, useFieldArray, useForm } from 'react-hook-form'
 import { ErrorNotice, Button } from '../system/shared'
 import type { Customer } from '../customers/CustomerListPage'
+import type { Standard } from '../standards/StandardListPage'
 import { zhText } from '../../lib/zh'
 import type { TestOrder } from './TestOrderListPage'
 import { CustomerCompanySearchInput } from './CustomerCompanySearchInput'
+import { StandardSearchInput } from './StandardSearchInput'
 import { testOrderDefaultValues } from './testOrderDefaults'
 import {
   normalizeTestOrderPayload,
@@ -26,6 +28,7 @@ const EntrustOrderCompactContext = createContext(false)
 export function TestOrderEntrustForm({
   order,
   customers = [],
+  standardOptions = [],
   editable,
   submitting,
   error,
@@ -33,6 +36,7 @@ export function TestOrderEntrustForm({
 }: {
   order: TestOrder
   customers?: Customer[]
+  standardOptions?: Standard[]
   editable: boolean
   submitting: boolean
   error: unknown
@@ -59,14 +63,33 @@ export function TestOrderEntrustForm({
 
   function applyClientCustomerSearch(value: string) {
     const customer = customerForSearchValue(customers, value)
+    const originalCustomerId = order.client_customer_id
+    const isOriginalCustomer = customer !== null
+      && (originalCustomerId !== null && originalCustomerId !== undefined
+        ? String(customer.id) === String(originalCustomerId)
+        : customer.name === order.client_company)
+    const originalSnapshot = isOriginalCustomer
+      ? {
+          address: order.client_address,
+          contact: order.client_contact,
+          phone: order.client_phone,
+          email: order.client_email,
+        }
+      : undefined
 
-    Object.entries(customerSnapshotValues('client', customer, value)).forEach(([field, fieldValue]) => {
-      form.setValue(field as keyof TestOrderFormValues, fieldValue as never, { shouldDirty: true, shouldValidate: true })
+    Object.entries(customerSnapshotValues('client', customer, value, originalSnapshot)).forEach(([field, fieldValue]) => {
+      form.setValue(field as keyof TestOrderFormValues, fieldValue as never, { shouldDirty: true, shouldValidate: false })
     })
   }
 
+  function applyStandard(index: number, standard: Standard) {
+    form.setValue(`standards.${index}.standard_id`, standard.id, { shouldDirty: true })
+    form.setValue(`standards.${index}.standard_code`, standard.std_no, { shouldDirty: true })
+    form.setValue(`standards.${index}.standard_name`, standard.chinese_name, { shouldDirty: true })
+  }
+
   return (
-    <form className="space-y-4" onSubmit={run('save')}>
+    <form className="space-y-4" autoComplete="off" onSubmit={run('save')}>
       {error ? <ErrorNotice error={error} fallback="Unable to save test order" /> : null}
       {form.formState.errors.root ? <ErrorNotice error={form.formState.errors.root.message} fallback="Unable to save test order" /> : null}
 
@@ -121,13 +144,13 @@ export function TestOrderEntrustForm({
         >
           检测要求以及报告要求
         </SectionTitle>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-hidden">
           <table className="w-full min-w-[38rem] border-collapse text-sm">
             <thead><tr className="bg-slate-50"><TableHead className="w-[60%]">标准号及版本</TableHead><TableHead>资质要求</TableHead><TableHead>报告语言</TableHead>{editable ? <TableHead className="w-12">操作</TableHead> : null}</tr></thead>
             <tbody>
               {standards.fields.map((row, index) => (
                 <tr key={row.id}>
-                  <TableCell>{editable ? <div className="flex min-w-0"><TextCell form={form} editable name={`standards.${index}.standard_code`} placeholder="标准号" /><TextCell form={form} editable name={`standards.${index}.standard_name`} placeholder="标准名称" /></div> : <ReadOnly value={[form.watch(`standards.${index}.standard_code`), form.watch(`standards.${index}.standard_name`)].filter(Boolean).join(' ')} />}</TableCell>
+                  <TableCell>{editable ? <StandardSearchInput value={[form.watch(`standards.${index}.standard_code`), form.watch(`standards.${index}.standard_name`)].filter(Boolean).join(' ')} standards={standardOptions} className={cellInput} ariaLabel={`搜索选择标准 ${index + 1}`} onSelect={(standard) => applyStandard(index, standard)} /> : <ReadOnly value={[form.watch(`standards.${index}.standard_code`), form.watch(`standards.${index}.standard_name`)].filter(Boolean).join(' ')} />}</TableCell>
                   <TableCell><TextCell form={form} editable={editable} name={`standards.${index}.qualifications_text`} placeholder="CMA, CNAS" readOnlyClassName="w-full text-center" /></TableCell>
                   <TableCell><SelectCell form={form} editable={editable} name={`standards.${index}.report_language`} placeholder="" options={reportLanguageOptions} readOnlyClassName="w-full text-center" ariaLabel={`标准 ${index + 1} 报告语言`} /></TableCell>
                   {editable ? <TableCell><button className="min-h-11 min-w-11 text-slate-500 hover:text-red-600 disabled:opacity-40 md:min-h-6 md:min-w-6" type="button" disabled={standards.fields.length === 1} onClick={() => standards.remove(index)} aria-label="移除标准"><Trash2 className="mx-auto size-4 md:size-3" /></button></TableCell> : null}
@@ -222,7 +245,7 @@ function PartyRows({
   const companyValue = String(form.watch(`${prefix}_company`) ?? '')
   const addressValue = String(form.watch(`${prefix}_address`) ?? '')
 
-  return <div className={`border-t border-emerald-900/15 ${compact ? 'text-[9pt]' : 'text-sm md:text-[9pt]'}`}><div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[minmax(0,15fr)_minmax(0,40fr)_minmax(0,7fr)_minmax(0,15fr)_minmax(0,7fr)_minmax(0,16fr)]"><CellLabel>{title}</CellLabel><Cell>{editable && prefix === 'client' && onCompanySearch ? <CustomerCompanySearchInput prefix="client" className={cellInput} value={companyValue} customers={customers} onChange={onCompanySearch} /> : <TextCell form={form} editable={editable} name={`${prefix}_company`} readOnlySingleLine />}</Cell><CellLabel>联系人</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_contact`} readOnlySingleLine /></Cell><CellLabel>电话</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_phone`} readOnlySingleLine /></Cell></div><div className="grid grid-cols-[7rem_minmax(0,1fr)] md:grid-cols-[minmax(0,15fr)_minmax(0,56fr)_minmax(0,7fr)_minmax(0,22fr)]"><CellLabel>地址</CellLabel><Cell>{editable && prefix === 'client' ? <input className={`${cellInput} cursor-not-allowed bg-slate-100 text-slate-600`} value={addressValue} readOnly aria-label="委托单位地址（由所选公司同步）" /> : <TextCell form={form} editable={editable} name={`${prefix}_address`} />}</Cell><CellLabel>邮箱</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_email`} type="email" readOnlySingleLine /></Cell></div></div>
+  return <div className={`border-t border-emerald-900/15 ${compact ? 'text-[9pt]' : 'text-sm md:text-[9pt]'}`}><div className="grid grid-cols-[7rem_minmax(0,1fr)] border-b border-emerald-900/15 md:grid-cols-[minmax(0,15fr)_minmax(0,40fr)_minmax(0,7fr)_minmax(0,15fr)_minmax(0,7fr)_minmax(0,16fr)]"><CellLabel>{title}</CellLabel><Cell>{editable && prefix === 'client' && onCompanySearch ? <CustomerCompanySearchInput prefix="client" className={cellInput} value={companyValue} customers={customers} onChange={onCompanySearch} /> : <TextCell form={form} editable={editable} name={`${prefix}_company`} readOnlySingleLine />}</Cell><CellLabel>联系人</CellLabel><Cell><TextCell form={form} editable={editable} name={`${prefix}_contact`} readOnlySingleLine controlled={prefix === 'client'} /></Cell><CellLabel>电话</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_phone`} readOnlySingleLine controlled={prefix === 'client'} /></Cell></div><div className="grid grid-cols-[7rem_minmax(0,1fr)] md:grid-cols-[minmax(0,15fr)_minmax(0,56fr)_minmax(0,7fr)_minmax(0,22fr)]"><CellLabel>地址</CellLabel><Cell>{editable && prefix === 'client' ? <input className={`${cellInput} cursor-not-allowed bg-slate-100 text-slate-600`} value={addressValue} readOnly aria-label="委托单位地址（由所选公司同步）" /> : <TextCell form={form} editable={editable} name={`${prefix}_address`} />}</Cell><CellLabel>邮箱</CellLabel><Cell className="border-r-0"><TextCell form={form} editable={editable} name={`${prefix}_email`} type="email" readOnlySingleLine controlled={prefix === 'client'} /></Cell></div></div>
 }
 
 function ConfirmationRow({
@@ -286,11 +309,30 @@ type CellProps = {
   readOnlySingleLine?: boolean
   readOnlyClassName?: string
   ariaLabel?: string
+  controlled?: boolean
 }
 
-function TextCell({ form, editable, name, type = 'text', placeholder, readOnlySingleLine = false, readOnlyClassName = '' }: CellProps) {
+function TextCell({ form, editable, name, type = 'text', placeholder, readOnlySingleLine = false, readOnlyClassName = '', controlled = false }: CellProps) {
   if (!editable) {
     return <ReadOnly value={form.watch(name)} singleLine={readOnlySingleLine} className={readOnlyClassName} />
+  }
+
+  if (controlled) {
+    return (
+      <Controller
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+          <input
+            {...field}
+            className={cellInput}
+            type={type}
+            placeholder={placeholder}
+            value={String(field.value ?? '')}
+          />
+        )}
+      />
+    )
   }
 
   return <input className={cellInput} type={type} placeholder={placeholder} {...form.register(name)} />

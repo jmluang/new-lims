@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { useId, useMemo, useState, type FocusEvent, type KeyboardEvent } from 'react'
 import type { Customer } from '../customers/CustomerListPage'
 import { cn } from '../../lib/utils'
@@ -89,7 +89,7 @@ export function CustomerCompanySearchInput({
   return (
     <div className="relative min-w-0 w-full" onBlur={handleBlur}>
       <input
-        className={cn(className, 'pr-10')}
+        className={cn(className, value && !disabled ? 'pr-20' : 'pr-10')}
         value={value}
         readOnly={disabled}
         placeholder={zhText('Search') ?? undefined}
@@ -114,6 +114,21 @@ export function CustomerCompanySearchInput({
         }}
         onKeyDown={handleKeyDown}
       />
+      {value && !disabled ? (
+        <button
+          className="absolute inset-y-0 right-10 flex w-8 items-center justify-center text-slate-400 transition-colors hover:text-red-600"
+          type="button"
+          aria-label={`清除${prefixLabels[prefix]}`}
+          onClick={() => {
+            onChange('')
+            setQuery('')
+            setActiveIndex(0)
+            setOpen(true)
+          }}
+        >
+          <X className="size-3.5" aria-hidden="true" />
+        </button>
+      ) : null}
       <button
         className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-500 transition-colors hover:text-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
         type="button"

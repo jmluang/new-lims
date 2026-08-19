@@ -87,6 +87,13 @@ export type TestOrderFormValues = z.infer<typeof testOrderSchema>
 type ApiPayload = Record<string, unknown>
 export type PartyPrefix = 'client' | 'manufacturer' | 'maker'
 
+export type PartySnapshotFallback = {
+  address?: string | null
+  contact?: string | null
+  phone?: string | null
+  email?: string | null
+}
+
 export type PartyCustomer = {
   id: number
   name: string
@@ -96,6 +103,7 @@ export type PartyCustomer = {
   address?: string | null
   status?: 'active' | 'disabled'
   default_contact?: PartyContact | null
+  contacts?: PartyContact[]
 }
 
 type PartyContact = {
@@ -161,17 +169,27 @@ export function customerForSearchValue(customers: PartyCustomer[], value: string
   return customers.find((customer) => customer.name === value || customerSearchValue(customer) === value) ?? null
 }
 
-export function customerSnapshotValues(prefix: PartyPrefix, customer: PartyCustomer | null, companyValue = ''): Partial<TestOrderFormValues> {
-  const defaultContact = contactOptionsForCustomer(customer)[0]
+export function customerSnapshotValues(
+  prefix: PartyPrefix,
+  customer: PartyCustomer | null,
+  companyValue = '',
+  fallback: PartySnapshotFallback = {},
+): Partial<TestOrderFormValues> {
+  const defaultContact = contactOptionsForCustomer(customer, customer?.contacts)[0]
+  const linkedFallback = customer ? fallback : {}
 
   return {
     [`${prefix}_customer_id`]: customer?.id ?? null,
     [`${prefix}_company`]: customer?.name ?? companyValue,
-    [`${prefix}_address`]: customer?.address ?? '',
-    [`${prefix}_contact`]: defaultContact?.name ?? '',
-    [`${prefix}_phone`]: defaultContact?.phone ?? customer?.phone ?? '',
-    [`${prefix}_email`]: defaultContact?.email ?? customer?.email ?? '',
+    [`${prefix}_address`]: firstNonBlank(customer?.address, linkedFallback.address),
+    [`${prefix}_contact`]: firstNonBlank(defaultContact?.name, linkedFallback.contact),
+    [`${prefix}_phone`]: firstNonBlank(defaultContact?.phone, customer?.phone, linkedFallback.phone),
+    [`${prefix}_email`]: firstNonBlank(defaultContact?.email, customer?.email, linkedFallback.email),
   }
+}
+
+function firstNonBlank(...values: Array<string | null | undefined>) {
+  return values.find((value) => typeof value === 'string' && value.trim() !== '') ?? ''
 }
 
 export function contactOptionsForCustomer(customer?: PartyCustomer | null, contacts?: PartyContact[]) {

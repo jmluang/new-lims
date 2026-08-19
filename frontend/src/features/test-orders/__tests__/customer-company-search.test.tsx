@@ -45,4 +45,18 @@ describe('customer company search', () => {
     expect(markup).not.toContain('<datalist')
     expect(markup).not.toContain('list=')
   })
+
+  it('renders an explicit clear action for a selected company', () => {
+    const markup = renderToStaticMarkup(
+      <CustomerCompanySearchInput
+        prefix="client"
+        value="中山市明辉照明有限公司"
+        customers={customers}
+        className="input"
+        onChange={() => undefined}
+      />,
+    )
+
+    expect(markup).toContain('aria-label="清除委托单位"')
+  })
 })

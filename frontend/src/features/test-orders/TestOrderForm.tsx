@@ -8,6 +8,7 @@ import type { Customer } from '../customers/CustomerListPage'
 import type { Standard } from '../standards/StandardListPage'
 import { zhText } from '../../lib/zh'
 import { CustomerCompanySearchInput } from './CustomerCompanySearchInput'
+import { StandardSearchInput } from './StandardSearchInput'
 import {
   contactOptionsForCustomer,
   copyClientPartyValues,
@@ -89,7 +90,7 @@ export function TestOrderForm({
 
   function setCustomerSnapshot(prefix: PartyPrefix, customer: PartyCustomer | null, companyValue = '') {
     Object.entries(customerSnapshotValues(prefix, customer, companyValue)).forEach(([field, value]) => {
-      form.setValue(field as keyof TestOrderFormValues, value as never, { shouldDirty: true, shouldValidate: prefix === 'client' })
+      form.setValue(field as keyof TestOrderFormValues, value as never, { shouldDirty: true, shouldValidate: false })
     })
   }
 
@@ -118,15 +119,8 @@ export function TestOrderForm({
     }
   }
 
-  function applyStandard(index: number, standardId: string) {
-    const standard = standards.find((item) => String(item.id) === standardId)
-
-    form.setValue(`standards.${index}.standard_id`, standard ? standard.id : null)
-
-    if (!standard) {
-      return
-    }
-
+  function applyStandard(index: number, standard: Standard) {
+    form.setValue(`standards.${index}.standard_id`, standard.id)
     form.setValue(`standards.${index}.standard_code`, standard.std_no)
     form.setValue(`standards.${index}.standard_name`, standard.chinese_name)
   }
@@ -219,14 +213,13 @@ export function TestOrderForm({
               </div>
               <div className="grid gap-3 md:grid-cols-4">
                 <Field label="Standard library">
-                  <select className={inputClass} value={watchedStandards?.[index]?.standard_id ?? ''} onChange={(event) => applyStandard(index, event.target.value)}>
-                    <option value="">{zhText('Manual')}</option>
-                    {standards.map((standard) => (
-                      <option value={standard.id} key={standard.id}>
-                        {standard.std_no}
-                      </option>
-                    ))}
-                  </select>
+                  <StandardSearchInput
+                    value={standards.find((standard) => standard.id === watchedStandards?.[index]?.standard_id)?.std_no ?? ''}
+                    standards={standards}
+                    className={inputClass}
+                    ariaLabel={`搜索选择标准 ${index + 1}`}
+                    onSelect={(standard) => applyStandard(index, standard)}
+                  />
                 </Field>
                 <Field label="Standard code">
                   <input className={inputClass} {...form.register(`standards.${index}.standard_code`)} />

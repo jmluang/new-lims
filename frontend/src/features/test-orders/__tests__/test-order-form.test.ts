@@ -247,6 +247,41 @@ describe('test order form', () => {
     })
   })
 
+  it('uses the first active customer contact when no default contact is present', () => {
+    expect(
+      customerSnapshotValues('client', {
+        id: 9,
+        name: '联系人列表客户',
+        address: '中山市联系人路9号',
+        status: 'active',
+        contacts: [
+          { id: 31, name: '列表联系人', phone: '13900000031', email: 'list@example.test', status: 'active' },
+        ],
+      }),
+    ).toMatchObject({
+      client_address: '中山市联系人路9号',
+      client_contact: '列表联系人',
+      client_phone: '13900000031',
+      client_email: 'list@example.test',
+    })
+  })
+
+  it('falls back to the original order snapshot only when customer master contact data is missing', () => {
+    expect(
+      customerSnapshotValues(
+        'client',
+        { id: 1, name: '主档缺联系人公司', address: '主档地址', phone: '', email: '', status: 'active' },
+        '',
+        { contact: '快照联系人', phone: '13800000001', email: 'snapshot@example.test' },
+      ),
+    ).toMatchObject({
+      client_address: '主档地址',
+      client_contact: '快照联系人',
+      client_phone: '13800000001',
+      client_email: 'snapshot@example.test',
+    })
+  })
+
   it('uses customer contacts as selectable party contacts with default fallback', () => {
     expect(
       contactOptionsForCustomer(

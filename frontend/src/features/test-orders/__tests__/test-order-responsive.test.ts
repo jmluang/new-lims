@@ -22,10 +22,12 @@ describe('test order detail responsive layout', () => {
 
   it('matches the printed standards and report requirement layout', () => {
     expect(source).toContain("filter(Boolean).join(' ')")
+    expect(source).toContain('className="overflow-x-auto overflow-y-hidden"')
     expect(source).toContain('readOnlyClassName="w-full text-center"')
     expect(source).toContain('md:grid-cols-[minmax(0,15fr)_minmax(0,50fr)_minmax(0,15fr)_minmax(0,20fr)]')
     expect(source).toContain('md:grid-cols-[minmax(0,15fr)_minmax(0,35fr)_minmax(0,15fr)_minmax(0,35fr)]')
     expect(source).toContain('<ReadonlyChoiceList')
+    expect(source).toContain('<StandardSearchInput')
   })
 
   it('uses an A4 sheet ratio and the same 15mm content margin as the PDF renderer', () => {
