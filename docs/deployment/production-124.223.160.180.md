@@ -45,9 +45,18 @@ variable makes the path independent of which directory boots the application.
 The Java PDF renderer is deployed from the same committed revision as the web
 application. Its source is copied to `shared/pdf-renderer-java/source`, while
 the signing keys remain in `shared/pdf-renderer-java/keys` and are never stored
-in Git. The deploy script builds and health-checks a temporary container before
-switching the internal port-8080 service. It skips rebuilding when the deployed
-renderer commit already matches; use `--force` only for renderer recovery.
+in Git. Its runtime secrets live in `shared/pdf-renderer-java/.env`, mode `0600`,
+and the deploy script passes that persistent file to both the smoke container
+and Docker Compose. The deploy script builds and health-checks a temporary
+container before switching the internal port-8080 service. It skips rebuilding
+when the deployed renderer commit already matches; use `--force` only for
+renderer recovery.
+
+The renderer environment must contain the PFX password, the same versioned HMAC
+key ring used by Laravel, the pinned document-signing root and TSA responder
+fingerprints, the RFC 3161 endpoint and policy OID, a least-privilege execution
+ledger account, and an absolute host path for durable execution results. Never
+put those values in a release directory or a shell profile.
 
 `scripts/deploy-production.sh` invokes this renderer deployment automatically.
 Use `--skip-pdf-service` only for an intentional, temporary web-only rollback.

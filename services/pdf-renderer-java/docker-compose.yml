@@ -6,6 +6,8 @@ services:
     image: pdf-signer:local
     ports:
       - "127.0.0.1:8080:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
     # 内存限额。没有这一项时 JVM 的 MaxRAMPercentage 是按*宿主机*内存算的，
     # 于是在与数据库共用的小主机上它会一路涨到把整机拖进 swap —— 生产曾因此
