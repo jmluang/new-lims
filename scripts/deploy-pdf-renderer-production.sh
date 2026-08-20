@@ -146,7 +146,7 @@ render_check() {
   output_file="$(mktemp /tmp/lims-pdf-renderer-check-XXXXXX.pdf)"
   if ! sudo -u "$deploy_user" env \
     PDF_SMOKE_BASE_URL="$base_url" PDF_SMOKE_OUTPUT_FILE="$output_file" \
-    "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" tinker --execute='config(["pdf_service.base_url" => getenv("PDF_SMOKE_BASE_URL")]); $payload = ["base" => [], "client" => [], "manufacturer" => [], "producer" => [], "requirements" => [], "samples" => [], "logistics" => ["laboratory_name" => "中山市鑫普达检测有限公司"], "signatures" => [], "meta" => []]; file_put_contents(getenv("PDF_SMOKE_OUTPUT_FILE"), app(\\App\\Services\\Pdf\\PdfRendererClient::class)->renderEntrustOrder($payload));'; then
+    "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" tinker --execute='config(["pdf_service.base_url" => getenv("PDF_SMOKE_BASE_URL")]); $payload = ["base" => [], "client" => [], "manufacturer" => [], "producer" => [], "requirements" => [], "samples" => [], "logistics" => ["laboratory_name" => "中山市鑫普达检测有限公司"], "signatures" => [], "meta" => []]; file_put_contents(getenv("PDF_SMOKE_OUTPUT_FILE"), app(\App\Services\Pdf\PdfRendererClient::class)->renderEntrustOrder($payload));'; then
     rm -f -- "$output_file"
     return 1
   fi
