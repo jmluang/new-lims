@@ -12,6 +12,7 @@ use App\Http\Controllers\EquipmentLabelController;
 use App\Http\Controllers\EquipmentLocationController;
 use App\Http\Controllers\EquipmentSystemController;
 use App\Http\Controllers\EquipmentUsageRecordController;
+use App\Http\Controllers\IntegratingSphereInspectionRecordController;
 use App\Http\Controllers\Pdf\CertificateTemplateController;
 use App\Http\Controllers\Pdf\DigitalSignatureController;
 use App\Http\Controllers\Pdf\HomepageFunctionStampController;
@@ -177,6 +178,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/equipment-usage-records/batch-end', [EquipmentUsageRecordController::class, 'batchEnd']);
         Route::post('/equipment-usage-records/{equipmentUsageRecord}/end', [EquipmentUsageRecordController::class, 'end']);
         Route::apiResource('/equipment-usage-records', EquipmentUsageRecordController::class)->parameters(['equipment-usage-records' => 'equipmentUsageRecord'])->only(['index', 'update', 'destroy']);
+        // Literal route must precede the resource routes so implicit model binding
+        // does not try to resolve "lookup" as a record id.
+        Route::get('/integrating-sphere-inspection-records/lookup', [IntegratingSphereInspectionRecordController::class, 'lookup']);
+        Route::get('/integrating-sphere-inspection-records/equipment', [IntegratingSphereInspectionRecordController::class, 'equipmentLedger']);
+        Route::apiResource('/integrating-sphere-inspection-records', IntegratingSphereInspectionRecordController::class)
+            ->parameters(['integrating-sphere-inspection-records' => 'inspectionRecord'])
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
         Route::apiResource('/equipment', EquipmentController::class);
         Route::post('/equipment-labels/preview', [EquipmentLabelController::class, 'preview']);

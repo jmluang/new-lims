@@ -8,6 +8,7 @@ import { EquipmentListPage } from '../features/equipment/EquipmentListPage'
 import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocationTreePage'
 import { EquipmentSystemPage } from '../features/equipment/EquipmentSystemPage'
 import { EquipmentUsageRecordPage } from '../features/equipment/EquipmentUsageRecordPage'
+import { IntegratingSphereInspectionPage } from '../features/equipment/IntegratingSphereInspectionPage'
 import { CalibrationProjectPage } from '../features/equipment/CalibrationProjectPage'
 import { EquipmentCalibrationListPage } from '../features/equipment/EquipmentCalibrationListPage'
 import { EquipmentCalibrationFormPage } from '../features/equipment/EquipmentCalibrationFormPage'
@@ -308,6 +309,13 @@ const equipmentUsageRecordsRoute = createRoute({
   component: EquipmentUsageRecordPage,
 })
 
+const integratingSphereInspectionsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/integrating-sphere-inspections',
+  beforeLoad: () => requireRoutePermission('integrating_sphere_inspection_records'),
+  component: IntegratingSphereInspectionPage,
+})
+
 const equipmentCalibrationsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment/calibrations',
@@ -476,6 +484,7 @@ export const routeTree = rootRoute.addChildren([
     equipmentSystemsRoute,
     equipmentLabelsRoute,
     equipmentUsageRecordsRoute,
+    integratingSphereInspectionsRoute,
     equipmentCalibrationsRoute,
     equipmentCalibrationCreateRoute,
     equipmentCalibrationDetailRoute,

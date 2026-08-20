@@ -40,6 +40,7 @@ class CanonicalAcceptanceSeederTest extends TestCase
         foreach (['read', 'create', 'update', 'delete'] as $action) {
             $this->assertTrue($equipmentManager->hasPermissionTo("equipment_systems.{$action}"));
             $this->assertTrue($equipmentManager->hasPermissionTo("temp_humidity_records.{$action}"));
+            $this->assertTrue($equipmentManager->hasPermissionTo("integrating_sphere_inspection_records.{$action}"));
         }
 
         foreach (['device_image', 'manual_files', 'instruction_files', 'calibration_files', 'other_files'] as $field) {
@@ -61,6 +62,10 @@ class CanonicalAcceptanceSeederTest extends TestCase
         $this->assertTrue($sampleManager->hasPermissionTo('sample_flows.create'));
         $this->assertTrue($sampleManager->hasPermissionTo('sample_flows.return_room'));
         $this->assertTrue($sampleManager->hasPermissionTo('equipment_locations.read'));
+        foreach (['read', 'create', 'update'] as $action) {
+            $this->assertTrue($sampleManager->hasPermissionTo("integrating_sphere_inspection_records.{$action}"));
+        }
+        $this->assertFalse($sampleManager->hasPermissionTo('integrating_sphere_inspection_records.delete'));
         $this->assertFalse($sampleManager->hasPermissionTo('test_orders.create'));
     }
 }

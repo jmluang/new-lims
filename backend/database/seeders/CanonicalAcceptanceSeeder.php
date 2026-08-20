@@ -109,6 +109,10 @@ class CanonicalAcceptanceSeeder extends Seeder
             'equipment_usage_records.create',
             'equipment_usage_records.update',
             'equipment_usage_records.delete',
+            'integrating_sphere_inspection_records.read',
+            'integrating_sphere_inspection_records.create',
+            'integrating_sphere_inspection_records.update',
+            'integrating_sphere_inspection_records.delete',
             'temp_humidity_records.read',
             'temp_humidity_records.create',
             'temp_humidity_records.update',
@@ -162,6 +166,9 @@ class CanonicalAcceptanceSeeder extends Seeder
             'equipment_usage_records.read',
             'equipment_usage_records.create',
             'equipment_usage_records.update',
+            'integrating_sphere_inspection_records.read',
+            'integrating_sphere_inspection_records.create',
+            'integrating_sphere_inspection_records.update',
         ]);
         $auditor = $this->group('auditor', [
             'system.audit_logs.read',
