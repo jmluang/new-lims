@@ -34,6 +34,13 @@ export type IntegratingSphereEquipmentOption = {
   next_calibration_date?: string | null
 }
 
+export type IntegratingSphereSystemOption = {
+  id: number
+  code: string
+  name?: string | null
+  status?: string | null
+}
+
 export type IntegratingSphereSampleOption = {
   id: number
   sample_no: string
@@ -56,6 +63,8 @@ export type IntegratingSphereInspectionRecord = {
   id: number
   sample_id: number | null
   sample_no: string
+  equipment_system_id: number | null
+  system_code: string | null
   chromaticity_x: string
   chromaticity_y: string
   dominant_wavelength: string
@@ -109,8 +118,26 @@ export type IntegratingSphereFormSample = {
   model?: string | null
 }
 
+/**
+ * The equipment system of the editor, carrying the same retained/selected split as
+ * the sample.
+ *
+ * The code is an independent operator input: it is scanned or typed on its own and
+ * is never derived from the selected devices. `retained` is the snapshot already
+ * stored on the record, kept verbatim so renaming, disabling or deleting the system
+ * cannot rewrite the code a past measurement was filed under; `selected` is a fresh
+ * lookup, which is the operator explicitly asking for that replacement.
+ */
+export type IntegratingSphereFormSystem = {
+  source: 'retained' | 'selected'
+  id: number | null
+  code: string
+  name?: string | null
+}
+
 export type IntegratingSphereInspectionForm = {
   sample: IntegratingSphereFormSample | null
+  system: IntegratingSphereFormSystem | null
   equipment: IntegratingSphereFormEquipment[]
   recorded_at: string
   remark: string
@@ -181,7 +208,7 @@ export function emptyIntegratingSphereInspectionForm(recordedAt = ''): Integrati
     integratingSphereMeasurementFields.map((field) => [field.name, '']),
   ) as Record<IntegratingSphereMeasurementField, string>
 
-  return { sample: null, equipment: [], recorded_at: recordedAt, remark: '', ...measurements }
+  return { sample: null, system: null, equipment: [], recorded_at: recordedAt, remark: '', ...measurements }
 }
 
 /**
@@ -303,6 +330,7 @@ export type IntegratingSphereInspectionPayload = IntegratingSphereMeasurementPay
   remark: string | null
   equipment_ids: number[]
   sample_id?: number
+  equipment_system_id?: number
   retained_equipment_ids?: number[]
 }
 
@@ -329,6 +357,15 @@ export const integratingSphereInspectionSchema = z.object({
     },
     { error: '请先录入样品编号' },
   ),
+  // A record written before the system code existed carries no system at all, so the
+  // field is nullable here and only `create` insists on a live one below.
+  system: z
+    .object({
+      source: z.enum(['retained', 'selected']),
+      id: z.number().int().positive().nullable(),
+      code: z.string().min(1),
+    })
+    .nullable(),
   equipment: z
     .array(z.object({ child_id: z.number().int().positive().nullable(), equipment_id: z.number().int().positive().nullable() }))
     .min(1, '请至少录入一台设备'),
@@ -357,13 +394,28 @@ export function buildIntegratingSphereInspectionPayload(
   values: IntegratingSphereInspectionForm,
   mode: 'create' | 'update' = 'create',
 ): IntegratingSphereInspectionPayload {
-  const parsed = integratingSphereInspectionSchema.parse(values)
+  const result = integratingSphereInspectionSchema.safeParse(values)
+  const issues: FormIssue[] = result.success ? [] : [...result.error.issues]
 
-  // A new record must point at a live sample; an edit may keep the snapshot of one
-  // that has since been removed from the ledger.
-  if (mode === 'create' && parsed.sample.id === null) {
-    throw new IntegratingSphereFormError([{ path: ['sample'], message: '请先录入样品编号' }])
+  // A new record must point at a live sample and a live active system; an edit may
+  // keep the snapshot of either after its ledger row was renamed or removed. These
+  // checks are collected rather than thrown so one failed save marks every field the
+  // operator still has to fix, not just the first one.
+  if (mode === 'create') {
+    if (values.sample !== null && values.sample.id === null) {
+      issues.push({ path: ['sample'], message: '请先录入样品编号' })
+    }
+
+    if (values.system === null || values.system.id === null) {
+      issues.push({ path: ['system'], message: '请先录入系统编码' })
+    }
   }
+
+  if (!result.success || issues.length > 0) {
+    throw new IntegratingSphereFormError(issues)
+  }
+
+  const parsed = result.data
 
   const measurements = integratingSphereMeasurementFields.reduce<IntegratingSphereMeasurementPayload>(
     (carry, field) => ({ ...carry, [field.name]: measurementPayloadValue(field, values[field.name]) }),
@@ -380,7 +432,12 @@ export function buildIntegratingSphereInspectionPayload(
   }
 
   if (mode === 'create') {
-    return { sample_id: parsed.sample.id as number, equipment_ids: addedEquipmentIds, ...common }
+    return {
+      sample_id: parsed.sample.id as number,
+      equipment_system_id: (parsed.system as IntegratingSphereFormSystem).id as number,
+      equipment_ids: addedEquipmentIds,
+      ...common,
+    }
   }
 
   return {
@@ -388,6 +445,11 @@ export function buildIntegratingSphereInspectionPayload(
     // is the default for a sample loaded from the record, whether or not its ledger
     // row still exists — only an explicit re-scan asks for a replacement.
     ...(parsed.sample.source === 'selected' && parsed.sample.id !== null ? { sample_id: parsed.sample.id } : {}),
+    // The same rule for the system: retained means the stored code stays, and only an
+    // explicit scan or manual lookup asks the server to re-snapshot.
+    ...(parsed.system !== null && parsed.system.source === 'selected' && parsed.system.id !== null
+      ? { equipment_system_id: parsed.system.id }
+      : {}),
     equipment_ids: addedEquipmentIds,
     retained_equipment_ids: values.equipment
       .filter((device) => device.child_id !== null)
@@ -423,6 +485,11 @@ export function integratingSphereFieldErrors(error: unknown): Record<string, str
 /** Wraps a lookup result as the operator's explicit replacement for the sample. */
 export function selectedSample(sample: IntegratingSphereSampleOption): IntegratingSphereFormSample {
   return { source: 'selected', id: sample.id, sample_no: sample.sample_no, sample_name: sample.sample_name, model: sample.model }
+}
+
+/** Wraps a lookup result as the operator's explicit replacement for the system. */
+export function selectedSystem(system: IntegratingSphereSystemOption): IntegratingSphereFormSystem {
+  return { source: 'selected', id: system.id, code: system.code, name: system.name }
 }
 
 /** Stable identity for a device row, whether it is a stored snapshot or a new scan. */
@@ -486,6 +553,7 @@ export function inspectionFormFromRecord(record: IntegratingSphereInspectionReco
 
   return {
     sample: { source: 'retained', id: record.sample_id, sample_no: record.sample_no },
+    system: record.system_code === null ? null : { source: 'retained', id: record.equipment_system_id, code: record.system_code },
     equipment: record.equipment.map((device) => ({
       child_id: device.id,
       equipment_id: device.equipment_id,

@@ -27,6 +27,7 @@ import {
   normalizeMeasurementInput,
   removeEquipmentSnapshot,
   selectedSample,
+  selectedSystem,
   type IntegratingSphereEquipmentFilters,
   type IntegratingSphereEquipmentLedgerRow,
   type IntegratingSphereEquipmentOption,
@@ -35,6 +36,7 @@ import {
   type IntegratingSphereInspectionForm,
   type IntegratingSphereInspectionRecord,
   type IntegratingSphereSampleOption,
+  type IntegratingSphereSystemOption,
   type IntegratingSphereView,
 } from './integratingSphereInspectionSchema'
 
@@ -106,6 +108,21 @@ export function IntegratingSphereInspectionPage() {
       setFieldErrors((current) => ({ ...current, sample: '' }))
     },
   })
+  const lookupSystem = useMutation({
+    mutationFn: async (code: string) => {
+      const response = await api.get<ApiResource<IntegratingSphereSystemOption>>('/api/integrating-sphere-inspection-records/lookup', {
+        params: { type: 'system', code },
+      })
+
+      return response.data.data
+    },
+    onSuccess: (system) => {
+      // The system code is scanned or typed on its own, never derived from the
+      // selected devices, and a lookup is the operator explicitly replacing it.
+      setForm((current) => ({ ...current, system: selectedSystem(system) }))
+      setFieldErrors((current) => ({ ...current, system: '' }))
+    },
+  })
   const mutationHandlers = integratingSphereMutationHandlers(queryClient, closeEditor)
   const saveRecord = useMutation({
     mutationFn: async () => {
@@ -139,6 +156,7 @@ export function IntegratingSphereInspectionPage() {
     saveRecord.reset()
     lookupEquipment.reset()
     lookupSample.reset()
+    lookupSystem.reset()
     setEditorOpen(true)
   }
 
@@ -149,6 +167,7 @@ export function IntegratingSphereInspectionPage() {
     saveRecord.reset()
     lookupEquipment.reset()
     lookupSample.reset()
+    lookupSystem.reset()
     setEditorOpen(true)
   }
 
@@ -175,7 +194,7 @@ export function IntegratingSphereInspectionPage() {
   return (
     <PageShell
       title="积分球点检记录"
-      description="扫码或手输设备编号后选择样品，记录积分球点检测量值并保留使用设备的历史快照。"
+      description="扫码或手输设备编号、样品编号与系统编码（三者独立录入），再记录积分球点检测量值并保留使用设备的历史快照。"
       actions={
         <PermissionGate resource={RESOURCE} action="create">
           <Button variant="primary" onClick={openCreate}>
@@ -208,7 +227,7 @@ export function IntegratingSphereInspectionPage() {
         <>
           <Panel title="Filters">
             <div className="grid gap-3 md:grid-cols-4">
-              <Field label="样品/设备">
+              <Field label="样品/系统编码">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden="true" />
                   <input
@@ -218,7 +237,7 @@ export function IntegratingSphereInspectionPage() {
                       setFilters({ ...filters, search: event.target.value })
                       setPage(1)
                     }}
-                    placeholder="样品编号/设备编号/设备名称"
+                    placeholder="样品编号/系统编码"
                   />
                 </div>
               </Field>
@@ -262,7 +281,7 @@ export function IntegratingSphereInspectionPage() {
           {deleteRecord.error ? <ErrorNotice error={deleteRecord.error} fallback="无法删除积分球点检记录" /> : null}
           {recordsQuery.isPending ? <LoadingState label="正在加载积分球点检记录" /> : null}
           {!recordsQuery.isPending && records.length === 0 ? (
-            <EmptyState title="暂无积分球点检记录" description="新增点检记录后会显示测量值、记录日期和操作人。" />
+            <EmptyState title="暂无积分球点检记录" description="新增点检记录后会显示样品编号、系统编码、测量值、记录日期和操作人。" />
           ) : null}
 
           {records.length > 0 ? (
@@ -391,8 +410,10 @@ export function IntegratingSphereInspectionPage() {
           fieldErrors={fieldErrors}
           equipmentLookupFailed={lookupEquipment.isError}
           sampleLookupFailed={lookupSample.isError}
+          systemLookupFailed={lookupSystem.isError}
           onEquipmentCode={(code) => lookupEquipment.mutate(code)}
           onSampleCode={(code) => lookupSample.mutate(code)}
+          onSystemCode={(code) => lookupSystem.mutate(code)}
           onRemoveEquipment={(key) => setForm((current) => ({ ...current, equipment: removeEquipmentSnapshot(current.equipment, key) }))}
           onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
         />
@@ -423,9 +444,10 @@ type RecordActionProps = {
 }
 
 /**
- * The desktop table stays at the measurements an operator scans a list for; the
- * complete device snapshot lives in the detail modal so the row set keeps fitting
- * a common laptop width.
+ * The desktop table stays at the measurements an operator scans a list for, keyed by
+ * the sample number and the system code it was measured on. The complete device
+ * snapshot lives in the detail modal and in the global used-equipment ledger, so the
+ * row set keeps fitting a common laptop width.
  */
 export function InspectionRecordTable({ records, canDelete, onDetail, onEdit, onDelete }: RecordActionProps) {
   return (
@@ -434,6 +456,7 @@ export function InspectionRecordTable({ records, canDelete, onDetail, onEdit, on
         <tr>
           <th className="px-3 py-2 font-medium">ID</th>
           <th className="px-3 py-2 font-medium">样品编号</th>
+          <th className="px-3 py-2 font-medium">系统编码</th>
           <th className="px-3 py-2 font-medium">色品坐标 X</th>
           <th className="px-3 py-2 font-medium">色品坐标 Y</th>
           <th className="px-3 py-2 font-medium">主波长</th>
@@ -441,7 +464,6 @@ export function InspectionRecordTable({ records, canDelete, onDetail, onEdit, on
           <th className="px-3 py-2 font-medium">色温</th>
           <th className="px-3 py-2 font-medium">显色指数 Ra</th>
           <th className="px-3 py-2 font-medium">光通量</th>
-          <th className="px-3 py-2 font-medium">使用设备</th>
           <th className="px-3 py-2 font-medium">记录日期</th>
           <th className="px-3 py-2 font-medium">操作人</th>
           <th className="px-3 py-2 font-medium">操作</th>
@@ -452,6 +474,7 @@ export function InspectionRecordTable({ records, canDelete, onDetail, onEdit, on
           <tr className="align-top" key={record.id}>
             <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.id}</td>
             <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.sample_no}</td>
+            <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.system_code ?? '-'}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.chromaticity_x}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.chromaticity_y}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.dominant_wavelength}</td>
@@ -459,7 +482,6 @@ export function InspectionRecordTable({ records, canDelete, onDetail, onEdit, on
             <td className="px-3 py-3 text-sm text-slate-700">{record.color_temperature}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.color_rendering_index}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.luminous_flux}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{equipmentSummary(record)}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.recorded_at}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.operator_name ?? '-'}</td>
             <td className="px-3 py-3">
@@ -479,7 +501,9 @@ export function InspectionRecordCards({ records, canDelete, onDetail, onEdit, on
         <article className="rounded-lg border border-emerald-900/10 bg-white p-4 shadow-sm" key={record.id}>
           <div className="min-w-0">
             <h3 className="truncate text-sm font-semibold text-slate-950">样品 {record.sample_no}</h3>
-            <p className="mt-0.5 truncate text-xs text-slate-500">{equipmentSummary(record)}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-500" data-mobile-system-code>
+              系统编码 {record.system_code ?? '-'}
+            </p>
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <CardEntry label="ID" value={record.id} />
@@ -619,6 +643,7 @@ export function InspectionRecordDetail({ record }: { record: IntegratingSphereIn
     <div className="space-y-4">
       <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <DetailEntry label="样品编号" value={record.sample_no} />
+        <DetailEntry label="系统编码" value={record.system_code ?? '-'} />
         <DetailEntry label="记录日期" value={record.recorded_at} />
         <DetailEntry label="操作人" value={record.operator_name ?? '-'} />
         <DetailEntry label="备注" value={record.remark ?? '-'} />
@@ -670,8 +695,10 @@ export function InspectionRecordFormFields({
   fieldErrors,
   equipmentLookupFailed,
   sampleLookupFailed,
+  systemLookupFailed,
   onEquipmentCode,
   onSampleCode,
+  onSystemCode,
   onRemoveEquipment,
   onChange,
 }: {
@@ -679,8 +706,10 @@ export function InspectionRecordFormFields({
   fieldErrors: Record<string, string>
   equipmentLookupFailed: boolean
   sampleLookupFailed: boolean
+  systemLookupFailed: boolean
   onEquipmentCode: (code: string) => void
   onSampleCode: (code: string) => void
+  onSystemCode: (code: string) => void
   onRemoveEquipment: (key: string) => void
   onChange: (patch: Partial<IntegratingSphereInspectionForm>) => void
 }) {
@@ -725,6 +754,38 @@ export function InspectionRecordFormFields({
         </QrScannerPanel>
         {sampleLookupFailed ? <ErrorNotice error="未找到样品" fallback="未找到样品" /> : null}
         <FieldError message={fieldErrors.sample} />
+      </div>
+
+      <div className="space-y-2">
+        <QrScannerPanel title="系统编码" placeholder="扫码/手输系统编码" onDetected={onSystemCode}>
+          {form.system ? (
+            <div className="space-y-1">
+              <p className="text-xs text-slate-600">
+                <span className="font-semibold text-slate-900">{form.system.code}</span>
+                {form.system.name ? ` · ${form.system.name}` : ''}
+              </p>
+              {form.system.source === 'retained' && form.system.id === null ? (
+                <p className="text-xs text-amber-700" data-orphan-system-notice>
+                  该系统已从设备系统台账删除，保存时保留历史快照；如需更换请重新扫码。
+                </p>
+              ) : null}
+              {form.system.source === 'retained' && form.system.id !== null ? (
+                <p className="text-xs text-slate-500" data-retained-system-notice>
+                  沿用记录中的系统编码快照；重新扫码或手输才会替换为台账当前编码。
+                </p>
+              ) : null}
+              {form.system.source === 'selected' ? (
+                <p className="text-xs text-emerald-700" data-selected-system-notice>
+                  本次录入，保存时按台账当前编码记录。
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500">尚未录入系统编码</p>
+          )}
+        </QrScannerPanel>
+        {systemLookupFailed ? <ErrorNotice error="未找到系统编码" fallback="未找到系统编码" /> : null}
+        <FieldError message={fieldErrors.system} />
       </div>
 
       <Panel title="测量值">
@@ -846,12 +907,4 @@ function SelectedEquipment({ devices, onRemove }: { devices: IntegratingSphereFo
       </div>
     </div>
   )
-}
-
-function equipmentSummary(record: IntegratingSphereInspectionRecord) {
-  if (record.equipment.length === 0) {
-    return '-'
-  }
-
-  return record.equipment.map((device) => device.equipment_no).join('、')
 }

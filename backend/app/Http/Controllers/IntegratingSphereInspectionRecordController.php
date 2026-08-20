@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Equipment;
+use App\Models\EquipmentSystem;
 use App\Models\IntegratingSphereInspectionEquipment;
 use App\Models\IntegratingSphereInspectionRecord;
 use App\Models\Sample;
@@ -123,16 +124,16 @@ class IntegratingSphereInspectionRecordController extends Controller
     }
 
     /**
-     * Equipment and sample numbers arrive from the camera scanner or from manual
-     * typing, so the lookup is open to anyone who may create or edit a record and
-     * deliberately does not require read access to the ledgers themselves.
+     * Equipment, sample and system codes arrive from the camera scanner or from
+     * manual typing, so the lookup is open to anyone who may create or edit a record
+     * and deliberately does not require read access to the ledgers themselves.
      */
     public function lookup(Request $request): JsonResponse
     {
         $this->authorizeLookupPermission($request);
 
         $payload = $request->validate([
-            'type' => ['required', 'in:equipment,sample'],
+            'type' => ['required', 'in:equipment,sample,system'],
             'code' => ['required', 'string', 'max:255'],
         ]);
 
@@ -140,6 +141,15 @@ class IntegratingSphereInspectionRecordController extends Controller
             $equipment = Equipment::query()->where('equipment_no', $payload['code'])->firstOrFail();
 
             return response()->json(['data' => $this->serializeEquipmentOption($equipment)]);
+        }
+
+        // A system code is an independent operator input, never inferred from the
+        // devices. Only an active system can answer a fresh scan; a disabled one stays
+        // valid history on the records that already carry its snapshot.
+        if ($payload['type'] === 'system') {
+            $system = EquipmentSystem::query()->where('code', $payload['code'])->where('status', 'active')->firstOrFail();
+
+            return response()->json(['data' => $this->serializeSystemOption($system)]);
         }
 
         $sample = Sample::query()->where('sample_no', $payload['code'])->firstOrFail();
@@ -153,12 +163,15 @@ class IntegratingSphereInspectionRecordController extends Controller
 
         $payload = $request->validate($this->storeRules());
         $sample = Sample::query()->findOrFail($payload['sample_id']);
+        $system = $this->activeSystemFor((int) $payload['equipment_system_id']);
         $equipment = $this->equipmentFor($payload['equipment_ids']);
 
-        $record = DB::transaction(function () use ($request, $payload, $sample, $equipment): IntegratingSphereInspectionRecord {
+        $record = DB::transaction(function () use ($request, $payload, $sample, $system, $equipment): IntegratingSphereInspectionRecord {
             $record = IntegratingSphereInspectionRecord::query()->create([
                 'sample_id' => $sample->id,
                 'sample_no' => $sample->sample_no,
+                'equipment_system_id' => $system->id,
+                'system_code' => $system->code,
                 ...$this->measurementValues($payload),
                 'remark' => $this->normalizedRemark($payload),
                 'recorded_at' => $this->recordedAt($payload),
@@ -195,13 +208,19 @@ class IntegratingSphereInspectionRecordController extends Controller
         // snapshot already on the record, which is the only evidence left once the
         // ledger row is gone.
         $sample = isset($payload['sample_id']) ? Sample::query()->findOrFail($payload['sample_id']) : null;
+        // Same retained/selected split as the sample: an omitted system keeps the code
+        // snapshot the record already holds, which is the only evidence left once the
+        // system has been renamed, disabled or deleted.
+        $system = isset($payload['equipment_system_id']) ? $this->activeSystemFor((int) $payload['equipment_system_id']) : null;
         $equipment = $this->equipmentFor($addedIds);
         $before = $this->serializeRecord($inspectionRecord->load('equipment'));
 
-        DB::transaction(function () use ($inspectionRecord, $payload, $sample, $equipment, $addedIds, $retainedIds): void {
+        DB::transaction(function () use ($inspectionRecord, $payload, $sample, $system, $equipment, $addedIds, $retainedIds): void {
             $inspectionRecord->update([
                 'sample_id' => $sample?->id ?? $inspectionRecord->sample_id,
                 'sample_no' => $sample?->sample_no ?? $inspectionRecord->sample_no,
+                'equipment_system_id' => $system?->id ?? $inspectionRecord->equipment_system_id,
+                'system_code' => $system?->code ?? $inspectionRecord->system_code,
                 ...$this->measurementValues($payload),
                 'remark' => $this->normalizedRemark($payload),
                 'recorded_at' => $this->recordedAt($payload, $inspectionRecord->recorded_at),
@@ -310,6 +329,27 @@ class IntegratingSphereInspectionRecordController extends Controller
     }
 
     /**
+     * Resolves an explicitly scanned or typed system.
+     *
+     * The `exists` rule already rejects an unknown id, so a failure here means the row
+     * is not selectable: it was disabled, or a concurrent request deleted it. Either
+     * way a new selection must point at a live active system, while the records that
+     * already reference it keep their snapshot untouched.
+     */
+    private function activeSystemFor(int $systemId): EquipmentSystem
+    {
+        $system = EquipmentSystem::query()->whereKey($systemId)->first();
+
+        if ($system === null || $system->status !== 'active') {
+            throw ValidationException::withMessages([
+                'equipment_system_id' => ['integrating_sphere_system_inactive'],
+            ]);
+        }
+
+        return $system;
+    }
+
+    /**
      * Resolves the selected devices up front. The `exists` rule already rejects an
      * unknown id, so this only fires when a concurrent request deletes the ledger row
      * in between; reporting it beats silently writing a snapshot without the device.
@@ -399,6 +439,7 @@ class IntegratingSphereInspectionRecordController extends Controller
                 $search = $request->string('search')->toString();
                 $query->where(fn (Builder $builder): Builder => $builder
                     ->where('sample_no', 'like', "%{$search}%")
+                    ->orWhere('system_code', 'like', "%{$search}%")
                     ->orWhereHas('equipment', fn (Builder $equipment): Builder => $equipment
                         ->where('equipment_no', 'like', "%{$search}%")
                         ->orWhere('equipment_name', 'like', "%{$search}%")));
@@ -479,6 +520,7 @@ class IntegratingSphereInspectionRecordController extends Controller
     {
         return [
             'sample_id' => ['required', 'integer', 'exists:samples,id'],
+            'equipment_system_id' => ['required', 'integer', 'exists:equipment_systems,id'],
             'equipment_ids' => ['required', 'array', 'min:1'],
             'equipment_ids.*' => ['integer', 'distinct', 'exists:equipment,id'],
             ...$this->sharedRules(),
@@ -486,9 +528,9 @@ class IntegratingSphereInspectionRecordController extends Controller
     }
 
     /**
-     * An edit re-declares only what it sends. Both ledger references are optional so a
-     * record whose sample or devices were removed from the ledger stays editable
-     * without the API having to resurrect the deleted rows.
+     * An edit re-declares only what it sends. Every ledger reference is optional so a
+     * record whose sample, system or devices were removed from the ledger stays
+     * editable without the API having to resurrect the deleted rows.
      *
      * @return array<string, mixed>
      */
@@ -496,6 +538,7 @@ class IntegratingSphereInspectionRecordController extends Controller
     {
         return [
             'sample_id' => ['nullable', 'integer', 'exists:samples,id'],
+            'equipment_system_id' => ['nullable', 'integer', 'exists:equipment_systems,id'],
             'equipment_ids' => ['sometimes', 'array'],
             'equipment_ids.*' => ['integer', 'distinct', 'exists:equipment,id'],
             'retained_equipment_ids' => ['sometimes', 'array'],
@@ -560,6 +603,19 @@ class IntegratingSphereInspectionRecordController extends Controller
     /**
      * @return array<string, mixed>
      */
+    private function serializeSystemOption(EquipmentSystem $system): array
+    {
+        return [
+            'id' => $system->id,
+            'code' => $system->code,
+            'name' => $system->name,
+            'status' => $system->status,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function serializeSampleOption(Sample $sample): array
     {
         return [
@@ -580,6 +636,8 @@ class IntegratingSphereInspectionRecordController extends Controller
             'id' => $record->id,
             'sample_id' => $record->sample_id,
             'sample_no' => $record->sample_no,
+            'equipment_system_id' => $record->equipment_system_id,
+            'system_code' => $record->system_code,
             'chromaticity_x' => $record->chromaticity_x,
             'chromaticity_y' => $record->chromaticity_y,
             'dominant_wavelength' => $record->dominant_wavelength,

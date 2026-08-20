@@ -4,6 +4,7 @@ namespace Tests\Feature\Equipment;
 
 use App\Models\AuditLog;
 use App\Models\Equipment;
+use App\Models\EquipmentSystem;
 use App\Models\IntegratingSphereInspectionEquipment;
 use App\Models\IntegratingSphereInspectionRecord;
 use App\Models\Sample;
@@ -93,9 +94,11 @@ class IntegratingSphereInspectionRecordTest extends TestCase
         $first = $this->equipment('XPD-S-001');
         $second = $this->equipment('XPD-S-002', name: '光谱仪', serialNo: 'SN-XPD-002');
         $sample = $this->sample('26010058874-1-1/1');
+        $system = $this->system('sys-01');
 
         $response = $this->postJsonAs($operator, '/api/integrating-sphere-inspection-records', [
             'sample_id' => $sample->id,
+            'equipment_system_id' => $system->id,
             'equipment_ids' => [$first->id, $second->id],
             'recorded_at' => '2026-08-20 12:27:00',
             ...$this->measurements(),
@@ -149,6 +152,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
 
         $response = $this->postJsonAs($operator, '/api/integrating-sphere-inspection-records', [
             'sample_id' => $sample->id,
+            'equipment_system_id' => $this->system()->id,
             'equipment_ids' => [$equipment->id],
             ...$this->measurements(),
         ])->assertCreated();
@@ -168,6 +172,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
         $sample = $this->sample('S-VALIDATION');
         $base = [
             'sample_id' => $sample->id,
+            'equipment_system_id' => $this->system()->id,
             'equipment_ids' => [$equipment->id],
             ...$this->measurements(),
         ];
@@ -213,6 +218,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
         $sample = $this->sample('S-STRING');
         $base = [
             'sample_id' => $sample->id,
+            'equipment_system_id' => $this->system()->id,
             'equipment_ids' => [$equipment->id],
             ...$this->measurements(),
         ];
@@ -238,6 +244,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
         $sample = $this->sample('S-NOTATION');
         $base = [
             'sample_id' => $sample->id,
+            'equipment_system_id' => $this->system()->id,
             'equipment_ids' => [$equipment->id],
             ...$this->measurements(),
         ];
@@ -285,6 +292,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
 
         $response = $this->postJsonAs($operator, '/api/integrating-sphere-inspection-records', [
             'sample_id' => $sample->id,
+            'equipment_system_id' => $this->system()->id,
             'equipment_ids' => [$equipment->id],
             ...$limits,
         ])->assertCreated();
@@ -311,6 +319,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
         $sample = $this->sample('S-OVERFLOW');
         $base = [
             'sample_id' => $sample->id,
+            'equipment_system_id' => $this->system()->id,
             'equipment_ids' => [$equipment->id],
             ...$this->measurements(),
         ];
@@ -905,6 +914,278 @@ class IntegratingSphereInspectionRecordTest extends TestCase
             ->assertJsonPath('data.equipment.0.equipment_name', '积分球');
     }
 
+    public function test_lookup_resolves_active_system_codes_without_equipment_system_read_permission(): void
+    {
+        $operator = $this->userWithPermissions(['integrating_sphere_inspection_records.create']);
+        $system = $this->system('sys-01');
+
+        $this->getJsonAs($operator, '/api/equipment-systems')->assertForbidden();
+
+        $this->getJsonAs($operator, '/api/integrating-sphere-inspection-records/lookup?type=system&code=sys-01')
+            ->assertOk()
+            ->assertJsonPath('data.id', $system->id)
+            ->assertJsonPath('data.code', 'sys-01')
+            ->assertJsonPath('data.name', '系统1')
+            ->assertJsonPath('data.status', 'active');
+    }
+
+    public function test_system_lookup_is_available_to_editors_without_create_permission(): void
+    {
+        $editor = $this->userWithPermissions(['integrating_sphere_inspection_records.update']);
+        $this->system('sys-edit');
+
+        $this->getJsonAs($editor, '/api/integrating-sphere-inspection-records/lookup?type=system&code=sys-edit')
+            ->assertOk()
+            ->assertJsonPath('data.code', 'sys-edit');
+    }
+
+    public function test_lookup_refuses_disabled_and_unknown_system_codes(): void
+    {
+        $operator = $this->userWithPermissions(['integrating_sphere_inspection_records.create']);
+        $this->system('sys-off', status: 'disabled');
+
+        // A disabled system is still valid history, but it can never be the answer to a
+        // fresh scan, so the lookup that feeds new selections refuses it outright.
+        $this->getJsonAs($operator, '/api/integrating-sphere-inspection-records/lookup?type=system&code=sys-off')
+            ->assertNotFound();
+        $this->getJsonAs($operator, '/api/integrating-sphere-inspection-records/lookup?type=system&code=sys-nope')
+            ->assertNotFound();
+        $this->getJsonAs($operator, '/api/integrating-sphere-inspection-records/lookup?type=nonsense&code=sys-01')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('type');
+    }
+
+    public function test_creating_a_record_requires_a_live_active_system_and_snapshots_its_code(): void
+    {
+        $operator = $this->userWithPermissions(['integrating_sphere_inspection_records.create', 'integrating_sphere_inspection_records.read']);
+        $equipment = $this->equipment('XPD-S-001');
+        $sample = $this->sample('S-SYSTEM');
+        $system = $this->system('sys-01');
+
+        $this->postJsonAs($operator, '/api/integrating-sphere-inspection-records', [
+            'sample_id' => $sample->id,
+            'equipment_ids' => [$equipment->id],
+            ...$this->measurements(),
+        ])->assertStatus(422)->assertJsonValidationErrors('equipment_system_id');
+
+        $this->postJsonAs($operator, '/api/integrating-sphere-inspection-records', [
+            'sample_id' => $sample->id,
+            'equipment_system_id' => $system->id,
+            'equipment_ids' => [$equipment->id],
+            ...$this->measurements(),
+        ])->assertCreated()
+            ->assertJsonPath('data.equipment_system_id', $system->id)
+            ->assertJsonPath('data.system_code', 'sys-01');
+
+        $this->assertDatabaseHas('integrating_sphere_inspection_records', [
+            'equipment_system_id' => $system->id,
+            'system_code' => 'sys-01',
+        ]);
+    }
+
+    public function test_creation_rejects_an_unknown_or_disabled_system(): void
+    {
+        $operator = $this->userWithPermissions(['integrating_sphere_inspection_records.create']);
+        $equipment = $this->equipment('XPD-S-001');
+        $sample = $this->sample('S-SYSTEM-INVALID');
+        $disabled = $this->system('sys-off', status: 'disabled');
+        $base = [
+            'sample_id' => $sample->id,
+            'equipment_system_id' => $this->system()->id,
+            'equipment_ids' => [$equipment->id],
+            ...$this->measurements(),
+        ];
+
+        $this->postJsonAs($operator, '/api/integrating-sphere-inspection-records', [...$base, 'equipment_system_id' => $disabled->id + 999])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('equipment_system_id');
+        $this->postJsonAs($operator, '/api/integrating-sphere-inspection-records', [...$base, 'equipment_system_id' => $disabled->id])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('equipment_system_id');
+
+        $this->assertDatabaseCount('integrating_sphere_inspection_records', 0);
+    }
+
+    public function test_a_default_edit_preserves_the_system_code_after_a_rename(): void
+    {
+        $operator = $this->editor();
+        $system = $this->system('sys-01');
+        $record = $this->record($this->sample('S-SYS-RENAME'), [$this->equipment('XPD-S-001')], system: $system);
+
+        $system->update(['code' => 'sys-01-renamed']);
+
+        $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
+            ...$this->measurements(),
+            'luminous_flux' => '1300.0',
+        ])->assertOk()
+            ->assertJsonPath('data.equipment_system_id', $system->id)
+            ->assertJsonPath('data.system_code', 'sys-01')
+            ->assertJsonPath('data.luminous_flux', '1300.0');
+    }
+
+    public function test_a_default_edit_preserves_the_system_code_after_the_system_is_disabled(): void
+    {
+        $operator = $this->editor();
+        $system = $this->system('sys-01');
+        $record = $this->record($this->sample('S-SYS-DISABLE'), [$this->equipment('XPD-S-001')], system: $system);
+
+        $system->update(['status' => 'disabled']);
+
+        $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
+            ...$this->measurements(),
+            'voltage' => '221.0',
+        ])->assertOk()
+            ->assertJsonPath('data.equipment_system_id', $system->id)
+            ->assertJsonPath('data.system_code', 'sys-01')
+            ->assertJsonPath('data.voltage', '221.0');
+    }
+
+    public function test_a_default_edit_preserves_the_system_code_after_the_system_is_deleted(): void
+    {
+        $operator = $this->editor();
+        $system = $this->system('sys-01');
+        $record = $this->record($this->sample('S-SYS-DELETE'), [$this->equipment('XPD-S-001')], system: $system);
+
+        $system->delete();
+
+        // The foreign key is cleared by the database, but the snapshot is the only
+        // evidence left of which system the measurement was taken on, so it stays.
+        $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
+            ...$this->measurements(),
+            'voltage' => '221.0',
+        ])->assertOk()
+            ->assertJsonPath('data.equipment_system_id', null)
+            ->assertJsonPath('data.system_code', 'sys-01');
+
+        $this->assertDatabaseHas('integrating_sphere_inspection_records', [
+            'id' => $record->id,
+            'equipment_system_id' => null,
+            'system_code' => 'sys-01',
+        ]);
+    }
+
+    public function test_explicitly_selecting_a_system_snapshots_its_current_code(): void
+    {
+        $operator = $this->editor();
+        $system = $this->system('sys-01');
+        $other = $this->system('sys-02', name: '系统2');
+        $record = $this->record($this->sample('S-SYS-REPLACE'), [$this->equipment('XPD-S-001')], system: $system);
+
+        $system->update(['code' => 'sys-01-renamed']);
+
+        // Re-scanning the same label is a deliberate refresh of the snapshot.
+        $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
+            'equipment_system_id' => $system->id,
+            ...$this->measurements(),
+        ])->assertOk()
+            ->assertJsonPath('data.equipment_system_id', $system->id)
+            ->assertJsonPath('data.system_code', 'sys-01-renamed');
+
+        // Scanning a different label switches the record over to that system.
+        $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
+            'equipment_system_id' => $other->id,
+            ...$this->measurements(),
+        ])->assertOk()
+            ->assertJsonPath('data.equipment_system_id', $other->id)
+            ->assertJsonPath('data.system_code', 'sys-02');
+    }
+
+    public function test_an_explicit_replacement_must_be_an_active_system(): void
+    {
+        $operator = $this->editor();
+        $system = $this->system('sys-01');
+        $disabled = $this->system('sys-off', status: 'disabled');
+        $record = $this->record($this->sample('S-SYS-INACTIVE'), [$this->equipment('XPD-S-001')], system: $system);
+
+        $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
+            'equipment_system_id' => $disabled->id,
+            ...$this->measurements(),
+        ])->assertStatus(422)->assertJsonValidationErrors('equipment_system_id');
+
+        $this->assertDatabaseHas('integrating_sphere_inspection_records', [
+            'id' => $record->id,
+            'system_code' => 'sys-01',
+        ]);
+    }
+
+    public function test_index_search_matches_the_system_code(): void
+    {
+        $operator = $this->userWithPermissions(['integrating_sphere_inspection_records.read']);
+        $matching = $this->record($this->sample('S-SYS-A'), [$this->equipment('XPD-S-A')], system: $this->system('sys-01'));
+        $this->record($this->sample('S-SYS-B'), [$this->equipment('XPD-S-B')], system: $this->system('sys-02', name: '系统2'));
+
+        $this->getJsonAs($operator, '/api/integrating-sphere-inspection-records?search=sys-01')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matching->id)
+            ->assertJsonPath('data.0.system_code', 'sys-01');
+
+        // The device search the list has always offered keeps working alongside it.
+        $this->getJsonAs($operator, '/api/integrating-sphere-inspection-records?search=XPD-S-B')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.sample_no', 'S-SYS-B');
+    }
+
+    public function test_legacy_records_without_a_system_stay_readable_and_editable(): void
+    {
+        $operator = $this->editor();
+        $record = $this->record($this->sample('S-LEGACY'), [$this->equipment('XPD-S-LEGACY')]);
+
+        $this->getJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}")
+            ->assertOk()
+            ->assertJsonPath('data.equipment_system_id', null)
+            ->assertJsonPath('data.system_code', null);
+
+        $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
+            ...$this->measurements(),
+            'voltage' => '221.0',
+        ])->assertOk()
+            ->assertJsonPath('data.equipment_system_id', null)
+            ->assertJsonPath('data.system_code', null)
+            ->assertJsonPath('data.voltage', '221.0');
+    }
+
+    public function test_audit_payloads_carry_the_system_snapshot_fields(): void
+    {
+        $operator = $this->userWithPermissions([
+            'integrating_sphere_inspection_records.create',
+            'integrating_sphere_inspection_records.read',
+            'integrating_sphere_inspection_records.update',
+            'integrating_sphere_inspection_records.delete',
+        ]);
+        $equipment = $this->equipment('XPD-S-001');
+        $sample = $this->sample('S-SYS-AUDIT');
+        $system = $this->system('sys-01');
+        $other = $this->system('sys-02', name: '系统2');
+
+        $recordId = $this->postJsonAs($operator, '/api/integrating-sphere-inspection-records', [
+            'sample_id' => $sample->id,
+            'equipment_system_id' => $system->id,
+            'equipment_ids' => [$equipment->id],
+            ...$this->measurements(),
+        ])->assertCreated()->json('data.id');
+
+        $created = AuditLog::query()->where('action', 'integrating_sphere_inspection_records.create')->latest('id')->firstOrFail();
+        $this->assertSame($system->id, data_get($created->after_values, 'equipment_system_id'));
+        $this->assertSame('sys-01', data_get($created->after_values, 'system_code'));
+
+        $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$recordId}", [
+            'equipment_system_id' => $other->id,
+            ...$this->measurements(),
+        ])->assertOk();
+
+        $updated = AuditLog::query()->where('action', 'integrating_sphere_inspection_records.update')->latest('id')->firstOrFail();
+        $this->assertSame('sys-01', data_get($updated->before_values, 'system_code'));
+        $this->assertSame('sys-02', data_get($updated->after_values, 'system_code'));
+        $this->assertSame($other->id, data_get($updated->after_values, 'equipment_system_id'));
+
+        $this->deleteJsonAs($operator, "/api/integrating-sphere-inspection-records/{$recordId}")->assertOk();
+
+        $deleted = AuditLog::query()->where('action', 'integrating_sphere_inspection_records.delete')->latest('id')->firstOrFail();
+        $this->assertSame('sys-02', data_get($deleted->before_values, 'system_code'));
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -928,13 +1209,22 @@ class IntegratingSphereInspectionRecordTest extends TestCase
     }
 
     /**
+     * Passing no system builds a legacy row: the historical columns stay null exactly
+     * as they are for every record written before the system code existed.
+     *
      * @param  list<Equipment>  $devices
      */
-    private function record(Sample $sample, array $devices, string $recordedAt = '2026-08-20 12:27:00'): IntegratingSphereInspectionRecord
-    {
+    private function record(
+        Sample $sample,
+        array $devices,
+        string $recordedAt = '2026-08-20 12:27:00',
+        ?EquipmentSystem $system = null,
+    ): IntegratingSphereInspectionRecord {
         $record = IntegratingSphereInspectionRecord::query()->create([
             'sample_id' => $sample->id,
             'sample_no' => $sample->sample_no,
+            'equipment_system_id' => $system?->id,
+            'system_code' => $system?->code,
             'recorded_at' => $recordedAt,
             'operator_name' => '点检员',
             ...collect($this->measurements())->except('remark')->all(),
@@ -953,6 +1243,11 @@ class IntegratingSphereInspectionRecordTest extends TestCase
         }
 
         return $record->fresh(['equipment']);
+    }
+
+    private function system(string $code = 'SYS-01', string $name = '系统1', string $status = 'active'): EquipmentSystem
+    {
+        return EquipmentSystem::query()->create(['code' => $code, 'name' => $name, 'status' => $status]);
     }
 
     private function equipment(

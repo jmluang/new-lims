@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'sample_id',
     'sample_no',
+    'equipment_system_id',
+    'system_code',
     'chromaticity_x',
     'chromaticity_y',
     'dominant_wavelength',
@@ -55,6 +57,11 @@ class IntegratingSphereInspectionRecord extends Model
     public function sample(): BelongsTo
     {
         return $this->belongsTo(Sample::class);
+    }
+
+    public function equipmentSystem(): BelongsTo
+    {
+        return $this->belongsTo(EquipmentSystem::class);
     }
 
     public function operator(): BelongsTo

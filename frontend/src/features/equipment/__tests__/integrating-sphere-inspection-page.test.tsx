@@ -46,6 +46,8 @@ const record: IntegratingSphereInspectionRecord = {
   id: 1,
   sample_id: 3,
   sample_no: '26010058874-1-1/1',
+  equipment_system_id: 5,
+  system_code: 'sys-01',
   chromaticity_x: '0.3633',
   chromaticity_y: '0.3549',
   dominant_wavelength: '580.5',
@@ -88,9 +90,20 @@ const record: IntegratingSphereInspectionRecord = {
 
 const noop = () => {}
 const actionProps = { canDelete: false, onDetail: noop, onEdit: noop, onDelete: noop }
+const formProps = {
+  fieldErrors: {},
+  equipmentLookupFailed: false,
+  sampleLookupFailed: false,
+  systemLookupFailed: false,
+  onEquipmentCode: noop,
+  onSampleCode: noop,
+  onSystemCode: noop,
+  onRemoveEquipment: noop,
+  onChange: noop,
+}
 
 describe('integrating sphere inspection list rendering', () => {
-  it('shows the record id, measurement columns, devices, date and operator in the desktop table', () => {
+  it('shows the record id, measurement columns, date and operator in the desktop table', () => {
     const html = renderToStaticMarkup(<InspectionRecordTable records={[record]} {...actionProps} />)
 
     expect(html).toContain('>ID</th>')
@@ -103,9 +116,29 @@ describe('integrating sphere inspection list rendering', () => {
     expect(html).toContain('4360')
     expect(html).toContain('88.4')
     expect(html).toContain('1234.5')
-    expect(html).toContain('XPD-S-001、XPD-S-002')
     expect(html).toContain('2026-08-20 12:27:00')
     expect(html).toContain('点检员')
+  })
+
+  it('places the system code immediately after the sample number and drops the used-equipment column', () => {
+    const html = renderToStaticMarkup(<InspectionRecordTable records={[record]} {...actionProps} />)
+    const headers = [...html.matchAll(/<th[^>]*>([^<]*)<\/th>/g)].map((match) => match[1])
+
+    expect(headers.slice(0, 3)).toEqual(['ID', '样品编号', '系统编码'])
+    expect(headers).not.toContain('使用设备')
+    expect(html).toContain('sys-01')
+    // The device numbers belong to the detail view and the global ledger now.
+    expect(html).not.toContain('XPD-S-001')
+    expect(html).not.toContain('XPD-S-002')
+  })
+
+  it('falls back to a placeholder for a legacy record that carries no system code', () => {
+    const html = renderToStaticMarkup(
+      <InspectionRecordTable records={[{ ...record, equipment_system_id: null, system_code: null }]} {...actionProps} />,
+    )
+
+    expect(html).toContain('>系统编码</th>')
+    expect(html).toContain('>-</td>')
   })
 
   it('keeps the records readable on mobile with a card list instead of the table', () => {
@@ -120,6 +153,15 @@ describe('integrating sphere inspection list rendering', () => {
     expect(html).toContain('1234.5 lm')
     expect(html).toContain('点检员')
     expect(html).not.toContain('<table')
+  })
+
+  it('shows the system code on mobile cards instead of the used-equipment summary', () => {
+    const html = renderToStaticMarkup(<InspectionRecordCards records={[record]} {...actionProps} />)
+
+    expect(html).toContain('data-mobile-system-code')
+    expect(html).toContain('sys-01')
+    expect(html).not.toContain('XPD-S-001')
+    expect(html).not.toContain('XPD-S-002')
   })
 
   it('renders the granted actions and leaves out the ungranted delete action', () => {
@@ -151,26 +193,62 @@ describe('integrating sphere inspection list rendering', () => {
 })
 
 describe('integrating sphere inspection form', () => {
-  it('puts equipment entry before the sample and reuses the shared QR scanner for both', () => {
+  it('puts equipment entry first, then the sample and the system, all on the shared QR scanner', () => {
     const html = renderToStaticMarkup(
-      <InspectionRecordFormFields
-        form={emptyIntegratingSphereInspectionForm('2026-08-20T12:27')}
-        fieldErrors={{}}
-        equipmentLookupFailed={false}
-        sampleLookupFailed={false}
-        onEquipmentCode={noop}
-        onSampleCode={noop}
-        onRemoveEquipment={noop}
-        onChange={noop}
-      />,
+      <InspectionRecordFormFields form={emptyIntegratingSphereInspectionForm('2026-08-20T12:27')} {...formProps} />,
     )
 
     expect(html.indexOf('使用设备（先录入）')).toBeGreaterThan(-1)
     expect(html.indexOf('使用设备（先录入）')).toBeLessThan(html.indexOf('样品编号'))
-    expect(html.match(/data-scanner-selection/g)).toHaveLength(2)
+    // The system scanner is an independent input that follows the sample scanner.
+    expect(html.indexOf('样品编号')).toBeLessThan(html.indexOf('系统编码'))
+    expect(html.indexOf('系统编码')).toBeLessThan(html.indexOf('测量值'))
+    expect(html.match(/data-scanner-selection/g)).toHaveLength(3)
+    expect(html).toContain('扫码/手输系统编码')
     expect(html).toContain('打开扫码')
     expect(html).toContain('尚未录入设备')
     expect(html).toContain('尚未录入样品')
+    expect(html).toContain('尚未录入系统编码')
+  })
+
+  it('shows the resolved system code with its name and a lookup failure notice', () => {
+    const base = emptyIntegratingSphereInspectionForm('2026-08-20T12:27')
+    const html = renderToStaticMarkup(
+      <InspectionRecordFormFields
+        form={{ ...base, system: { source: 'selected', id: 5, code: 'sys-01', name: '系统1' } }}
+        {...formProps}
+      />,
+    )
+    const failed = renderToStaticMarkup(<InspectionRecordFormFields form={base} {...formProps} systemLookupFailed />)
+
+    expect(html).toContain('sys-01')
+    expect(html).toContain('系统1')
+    expect(failed).toContain('未找到系统编码')
+  })
+
+  it('tells the operator whether the system code will be kept as a snapshot or replaced', () => {
+    const base = emptyIntegratingSphereInspectionForm('2026-08-20T12:27')
+    const retained = renderToStaticMarkup(
+      <InspectionRecordFormFields form={{ ...base, system: { source: 'retained', id: 5, code: 'sys-01' } }} {...formProps} />,
+    )
+    const orphaned = renderToStaticMarkup(
+      <InspectionRecordFormFields form={{ ...base, system: { source: 'retained', id: null, code: 'sys-01' } }} {...formProps} />,
+    )
+    const replaced = renderToStaticMarkup(
+      <InspectionRecordFormFields form={{ ...base, system: { source: 'selected', id: 9, code: 'sys-02' } }} {...formProps} />,
+    )
+
+    // A live ledger row is not enough to re-declare the system: the record's own code
+    // stays until the operator scans a replacement.
+    expect(retained).toContain('data-retained-system-notice')
+    expect(retained).not.toContain('data-selected-system-notice')
+    expect(retained).not.toContain('data-orphan-system-notice')
+    expect(orphaned).toContain('data-orphan-system-notice')
+    expect(orphaned).not.toContain('data-retained-system-notice')
+    expect(orphaned).not.toContain('data-selected-system-notice')
+    expect(replaced).toContain('data-selected-system-notice')
+    expect(replaced).not.toContain('data-retained-system-notice')
+    expect(replaced).not.toContain('data-orphan-system-notice')
   })
 
   it('renders every measurement input with its scale hint and shows resolved device details', () => {
@@ -192,16 +270,7 @@ describe('integrating sphere inspection form', () => {
       chromaticity_x: '0.3633',
     }
     const html = renderToStaticMarkup(
-      <InspectionRecordFormFields
-        form={form}
-        fieldErrors={{ chromaticity_y: '最多保留 4 位小数' }}
-        equipmentLookupFailed={false}
-        sampleLookupFailed={false}
-        onEquipmentCode={noop}
-        onSampleCode={noop}
-        onRemoveEquipment={noop}
-        onChange={noop}
-      />,
+      <InspectionRecordFormFields form={form} {...formProps} fieldErrors={{ chromaticity_y: '最多保留 4 位小数' }} />,
     )
 
     expect(html).toContain('data-selected-equipment-details')
@@ -247,18 +316,7 @@ describe('integrating sphere inspection form', () => {
         },
       ],
     }
-    const html = renderToStaticMarkup(
-      <InspectionRecordFormFields
-        form={form}
-        fieldErrors={{}}
-        equipmentLookupFailed={false}
-        sampleLookupFailed={false}
-        onEquipmentCode={noop}
-        onSampleCode={noop}
-        onRemoveEquipment={noop}
-        onChange={noop}
-      />,
-    )
+    const html = renderToStaticMarkup(<InspectionRecordFormFields form={form} {...formProps} />)
 
     // The orphaned device and sample must still be visible and explained, otherwise
     // the operator cannot tell that saving keeps them.
@@ -276,25 +334,16 @@ describe('integrating sphere inspection form', () => {
 
   it('tells the operator whether the sample will be kept as a snapshot or replaced', () => {
     const base = emptyIntegratingSphereInspectionForm('2026-08-20T12:27')
-    const props = {
-      fieldErrors: {},
-      equipmentLookupFailed: false,
-      sampleLookupFailed: false,
-      onEquipmentCode: noop,
-      onSampleCode: noop,
-      onRemoveEquipment: noop,
-      onChange: noop,
-    }
     const retained = renderToStaticMarkup(
       <InspectionRecordFormFields
         form={{ ...base, sample: { source: 'retained', id: 3, sample_no: '26010058874-1-1/1' } }}
-        {...props}
+        {...formProps}
       />,
     )
     const replaced = renderToStaticMarkup(
       <InspectionRecordFormFields
         form={{ ...base, sample: { source: 'selected', id: 9, sample_no: '26010058874-2-1/1' } }}
-        {...props}
+        {...formProps}
       />,
     )
 
@@ -440,6 +489,51 @@ describe('integrating sphere page views', () => {
     expect(pageSource).toContain("'/api/integrating-sphere-inspection-records/equipment'")
     expect(pageSource).toContain("enabled: view === 'equipment'")
     expect(pageSource).toContain('buildIntegratingSphereEquipmentListParams(equipmentFilters, equipmentPage, equipmentPerPage)')
+  })
+
+  it('shows the system code on the record detail next to the sample number', () => {
+    const html = renderToStaticMarkup(<InspectionRecordDetail record={record} />)
+    const legacy = renderToStaticMarkup(<InspectionRecordDetail record={{ ...record, equipment_system_id: null, system_code: null }} />)
+
+    expect(html).toContain('系统编码')
+    expect(html).toContain('sys-01')
+    expect(html.indexOf('样品编号')).toBeLessThan(html.indexOf('系统编码'))
+    expect(legacy).toContain('系统编码')
+  })
+
+  it('keeps the global used-equipment ledger table untouched by the system code', () => {
+    const html = renderToStaticMarkup(<InspectionEquipmentTable rows={ledgerRows} />)
+
+    expect(html).not.toContain('系统编码')
+    expect(html).toContain('XPD-S-001')
+  })
+
+  it('announces all three scanned inputs in the page description so the system code is visible on entry', () => {
+    const description = /<PageShell[\s\S]*?description="([^"]*)"/.exec(pageSource)?.[1] ?? ''
+
+    // Every one of the three lookups is an independent scan-or-type step, and the
+    // system code is required, so the entry copy must not stop at the devices.
+    expect(description).toContain('设备编号')
+    expect(description).toContain('样品编号')
+    expect(description).toContain('系统编码')
+    expect(description.indexOf('系统编码')).toBeLessThan(description.indexOf('测量值'))
+    expect(pageSource).not.toContain('扫码或手输设备编号后选择样品')
+  })
+
+  it('mentions the system code in the empty state that previews the list columns', () => {
+    const description = /<EmptyState title="暂无积分球点检记录" description="([^"]*)"/.exec(pageSource)?.[1] ?? ''
+
+    expect(description).toContain('样品编号')
+    expect(description).toContain('系统编码')
+    // The used-equipment column is gone from the list, so the preview must not promise it.
+    expect(description).not.toContain('使用设备')
+  })
+
+  it('names both the sample number and the system code in the record list search field', () => {
+    expect(pageSource).toContain('<Field label="样品/系统编码">')
+    expect(pageSource).toContain('placeholder="样品编号/系统编码"')
+    // The search still reaches the backend unchanged, which keeps matching devices.
+    expect(pageSource).toContain('buildIntegratingSphereInspectionListParams(filters, page, perPage)')
   })
 
   it('keeps the per-record detail snapshot table unchanged', () => {

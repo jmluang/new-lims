@@ -10,6 +10,7 @@ import {
   emptyIntegratingSphereInspectionFilters,
   equipmentEntryKey,
   integratingSphereFieldErrors,
+  selectedSystem,
   integratingSphereMeasurementFields,
   inspectionFormFromRecord,
   measurementValueError,
@@ -42,9 +43,13 @@ const firstLookup = {
 }
 const secondLookup = { ...firstLookup, id: 8, equipment_no: 'XPD-S-002', equipment_name: '光谱仪' }
 
+// What the system lookup returns: a live, active equipment system keyed by `id`.
+const systemLookup = { id: 5, code: 'sys-01', name: '系统1', status: 'active' }
+
 const validForm = {
   ...emptyIntegratingSphereInspectionForm(),
   sample: { source: 'selected' as const, id: 3, sample_no: '26010058874-1-1/1', sample_name: '灯具', model: 'LD-1' },
+  system: { source: 'selected' as const, id: 5, code: 'sys-01', name: '系统1' },
   equipment: [liveDevice, secondDevice],
   recorded_at: '2026-08-20T12:27',
   chromaticity_x: '0.3633',
@@ -66,6 +71,8 @@ const storedRecord: IntegratingSphereInspectionRecord = {
   id: 1,
   sample_id: 3,
   sample_no: '26010058874-1-1/1',
+  equipment_system_id: 5,
+  system_code: 'sys-01',
   chromaticity_x: '0.3633',
   chromaticity_y: '0.3549',
   dominant_wavelength: '580.5',
@@ -208,6 +215,7 @@ describe('buildIntegratingSphereInspectionPayload', () => {
 
     expect(payload).toEqual({
       sample_id: 3,
+      equipment_system_id: 5,
       equipment_ids: [7, 8],
       recorded_at: '2026-08-20 12:27:00',
       chromaticity_x: '0.3600',
@@ -263,14 +271,37 @@ describe('buildIntegratingSphereInspectionPayload', () => {
     ).toThrow()
   })
 
+  it('requires a live active system on create and sends its ledger id', () => {
+    expect(buildIntegratingSphereInspectionPayload(validForm, 'create').equipment_system_id).toBe(5)
+    expect(() => buildIntegratingSphereInspectionPayload({ ...validForm, system: null }, 'create')).toThrow()
+    expect(() =>
+      buildIntegratingSphereInspectionPayload({ ...validForm, system: { source: 'selected', id: null, code: 'sys-gone' } }, 'create'),
+    ).toThrow()
+    expect(() =>
+      buildIntegratingSphereInspectionPayload({ ...validForm, system: { source: 'retained', id: null, code: 'sys-gone' } }, 'create'),
+    ).toThrow()
+  })
+
+  it('accepts a retained system with a live id on create', () => {
+    expect(
+      buildIntegratingSphereInspectionPayload(
+        { ...validForm, system: { source: 'retained', id: 5, code: 'sys-01' } },
+        'create',
+      ).equipment_system_id,
+    ).toBe(5)
+  })
+
   it('maps thrown issues back to the field that has to be corrected', () => {
     try {
-      buildIntegratingSphereInspectionPayload({ ...validForm, sample: null, chromaticity_y: '0.35491', equipment: [] }, 'create')
+      buildIntegratingSphereInspectionPayload(
+        { ...validForm, sample: null, system: { source: 'selected', id: null, code: 'sys-gone' }, chromaticity_y: '0.35491', equipment: [] },
+        'create',
+      )
       throw new Error('expected the payload build to fail')
     } catch (error) {
       const fieldErrors = integratingSphereFieldErrors(error)
 
-      expect(Object.keys(fieldErrors).sort()).toEqual(['chromaticity_y', 'equipment', 'sample'])
+      expect(Object.keys(fieldErrors).sort()).toEqual(['chromaticity_y', 'equipment', 'sample', 'system'])
       expect(fieldErrors.chromaticity_y).toContain('4')
     }
   })
@@ -338,6 +369,42 @@ describe('update payload retention contract', () => {
     expect(payload.sample_id).toBe(9)
   })
 
+  it('omits equipment_system_id for a retained system so the stored code survives', () => {
+    // The ledger row is alive and its id is known, but the operator did not re-scan
+    // it. Sending the id would let the server re-snapshot a renamed system code over
+    // the one this measurement was actually filed under.
+    const live = buildIntegratingSphereInspectionPayload(
+      { ...validForm, system: { source: 'retained', id: 5, code: 'sys-01' }, equipment: [{ ...liveDevice, child_id: 11 }] },
+      'update',
+    )
+    const orphaned = buildIntegratingSphereInspectionPayload(
+      { ...validForm, system: { source: 'retained', id: null, code: 'sys-01' }, equipment: [{ ...liveDevice, child_id: 11 }] },
+      'update',
+    )
+
+    expect('equipment_system_id' in live).toBe(false)
+    expect('equipment_system_id' in orphaned).toBe(false)
+  })
+
+  it('sends equipment_system_id only once the operator scans or types a replacement', () => {
+    const payload = buildIntegratingSphereInspectionPayload(
+      { ...validForm, system: { source: 'selected', id: 9, code: 'sys-02' }, equipment: [{ ...liveDevice, child_id: 11 }] },
+      'update',
+    )
+
+    expect(payload.equipment_system_id).toBe(9)
+  })
+
+  it('leaves a legacy record without a system editable and re-declares nothing', () => {
+    const payload = buildIntegratingSphereInspectionPayload(
+      { ...validForm, system: null, equipment: [{ ...liveDevice, child_id: 11 }] },
+      'update',
+    )
+
+    expect('equipment_system_id' in payload).toBe(false)
+    expect(payload.retained_equipment_ids).toEqual([11])
+  })
+
   it('still refuses an edit that would leave the record without any device', () => {
     expect(() => buildIntegratingSphereInspectionPayload({ ...validForm, equipment: [] }, 'update')).toThrow()
   })
@@ -374,6 +441,12 @@ describe('equipment selection', () => {
   })
 })
 
+describe('system selection', () => {
+  it('wraps a lookup result as the operator\'s explicit replacement', () => {
+    expect(selectedSystem(systemLookup)).toEqual({ source: 'selected', id: 5, code: 'sys-01', name: '系统1' })
+  })
+})
+
 describe('list params and edit prefill', () => {
   it('drops blank filters and keeps pagination', () => {
     expect(
@@ -392,6 +465,7 @@ describe('list params and edit prefill', () => {
     const form = inspectionFormFromRecord(storedRecord)
 
     expect(form.sample).toEqual({ source: 'retained', id: 3, sample_no: '26010058874-1-1/1' })
+    expect(form.system).toEqual({ source: 'retained', id: 5, code: 'sys-01' })
     expect(form.equipment).toHaveLength(1)
     expect(form.equipment[0]).toMatchObject({ child_id: 11, equipment_id: 7, equipment_no: 'XPD-S-001' })
     expect(form.chromaticity_x).toBe('0.3633')
@@ -401,15 +475,17 @@ describe('list params and edit prefill', () => {
     expect(form.remark).toBe('')
   })
 
-  it('round trips a record with a live sample without ever re-declaring it', () => {
+  it('round trips a record with a live sample and system without ever re-declaring them', () => {
     const form = inspectionFormFromRecord(storedRecord)
     const payload = buildIntegratingSphereInspectionPayload(
-      { ...form, ...validForm, sample: form.sample, equipment: form.equipment },
+      { ...form, ...validForm, sample: form.sample, system: form.system, equipment: form.equipment },
       'update',
     )
 
     expect(form.sample).toMatchObject({ source: 'retained', id: 3 })
+    expect(form.system).toMatchObject({ source: 'retained', id: 5 })
     expect('sample_id' in payload).toBe(false)
+    expect('equipment_system_id' in payload).toBe(false)
     expect(payload.retained_equipment_ids).toEqual([11])
     expect(payload.equipment_ids).toEqual([])
   })
@@ -419,6 +495,7 @@ describe('list params and edit prefill', () => {
       ...storedRecord,
       sample_id: null,
       sample_no: 'S-HISTORY',
+      equipment_system_id: null,
       equipment: [
         storedRecord.equipment[0],
         {
@@ -436,6 +513,7 @@ describe('list params and edit prefill', () => {
     const form = inspectionFormFromRecord(orphaned)
 
     expect(form.sample).toEqual({ source: 'retained', id: null, sample_no: 'S-HISTORY' })
+    expect(form.system).toEqual({ source: 'retained', id: null, code: 'sys-01' })
     expect(form.equipment.map((device) => device.equipment_no)).toEqual(['XPD-S-001', 'XPD-S-002'])
     expect(form.equipment[1]).toMatchObject({
       child_id: 12,
@@ -447,11 +525,21 @@ describe('list params and edit prefill', () => {
     })
 
     // Editing only a measurement must send every snapshot back for retention.
-    const payload = buildIntegratingSphereInspectionPayload({ ...form, ...validForm, sample: form.sample, equipment: form.equipment }, 'update')
+    const payload = buildIntegratingSphereInspectionPayload(
+      { ...form, ...validForm, sample: form.sample, system: form.system, equipment: form.equipment },
+      'update',
+    )
 
     expect(payload.retained_equipment_ids).toEqual([11, 12])
     expect(payload.equipment_ids).toEqual([])
     expect('sample_id' in payload).toBe(false)
+    expect('equipment_system_id' in payload).toBe(false)
+  })
+
+  it('prefills no system for a legacy record that never had one', () => {
+    const form = inspectionFormFromRecord({ ...storedRecord, equipment_system_id: null, system_code: null })
+
+    expect(form.system).toBeNull()
   })
 })
 
