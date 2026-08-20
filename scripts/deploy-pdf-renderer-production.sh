@@ -108,7 +108,7 @@ rsync -a --delete --exclude='.git/' --exclude='/keys/' --exclude='/target/' --ex
   -e "$rsync_ssh" "$source_dir/" "$target:$remote_staging/"
 
 remote_args=()
-for arg in "$release_sha" "$pdf_root" "$remote_staging" "$legacy_service_root" "$deploy_user" "$force"; do
+for arg in "$release_sha" "$pdf_root" "$deploy_root" "$remote_staging" "$legacy_service_root" "$deploy_user" "$force"; do
   printf -v quoted_arg '%q' "$arg"
   remote_args+=("$quoted_arg")
 done
@@ -118,10 +118,11 @@ set -Eeuo pipefail
 
 release_sha="$1"
 pdf_root="$2"
-staging_source="$3"
-legacy_service_root="$4"
-deploy_user="$5"
-force="$6"
+deploy_root="$3"
+staging_source="$4"
+legacy_service_root="$5"
+deploy_user="$6"
+force="$7"
 source_dir="$pdf_root/source"
 keys_dir="$pdf_root/keys"
 fonts_dir="$pdf_root/fonts"
