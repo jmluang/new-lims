@@ -194,7 +194,7 @@ if [[ "$force" != '1' && -r "$marker" && "$(<"$marker")" == "$release_sha" ]]; t
 fi
 
 sudo install -d -m 0755 -o "$deploy_user" -g www "$pdf_root" "$state_dir"
-[[ -f "$env_file" ]] || { printf '%s\n' "Missing PDF renderer environment: $env_file" >&2; exit 1; }
+[[ -r "$env_file" ]] || { printf '%s\n' "Missing PDF renderer environment: $env_file" >&2; exit 1; }
 [[ -x "$php_bin" && -f "$backend_dir/artisan" ]] || { printf '%s\n' 'Laravel smoke client is unavailable.' >&2; exit 1; }
 if [[ ! -d "$keys_dir" ]]; then
   [[ -d "$legacy_service_root/keys" ]] || { printf '%s\n' 'Missing existing PDF signing keys; refusing to deploy.' >&2; exit 1; }
