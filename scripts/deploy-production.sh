@@ -226,8 +226,13 @@ sudo -u "$deploy_user" "$php_bin" "$composer_bin" --working-dir="$backend_dir" i
 
 sudo -u "$deploy_user" npm --prefix "$frontend_dir" ci
 sudo -u "$deploy_user" npm --prefix "$frontend_dir" run build
-sudo install -d -m 2775 -o "$deploy_user" -g "$deploy_group" "$backend_dir/public/app"
-sudo rsync -a --delete "$frontend_dir/dist/" "$backend_dir/public/app/"
+# `npm run build` produces two bundles: the default `dist/` output used for
+# local preview, then the Laravel-targeted bundle via vite.backend.config.ts.
+# The latter is already written to public/app with base `/app/`.  Copying
+# `dist/` over it rewrites asset URLs to `/assets/...`, which Nginx correctly
+# resolves under public/ (where those files do not exist).
+test -f "$backend_dir/public/app/index.html" \
+  || fail 'Laravel-targeted frontend build did not create public/app/index.html'
 sudo chown -R "$deploy_user:$deploy_group" "$backend_dir/public/app"
 
 sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" storage:link --force
