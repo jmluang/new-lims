@@ -127,6 +127,8 @@ keys_dir="$pdf_root/keys"
 fonts_dir="$pdf_root/fonts"
 state_dir="$pdf_root/state"
 env_file="$pdf_root/.env"
+backend_dir="$deploy_root/current/backend"
+php_bin="${PDF_SMOKE_PHP:-/www/server/php/83/bin/php}"
 marker="$state_dir/source-commit"
 bundled_song_font="$staging_source/src/main/resources/fonts/LimsSongSC-Regular.ttf"
 compose=(sudo docker compose --env-file "$env_file" --project-name lims-pdf-signer --file "$source_dir/docker-compose.yml")
@@ -141,10 +143,9 @@ render_check() {
   local base_url="$1"
   local output_file
   output_file="$(mktemp /tmp/lims-pdf-renderer-check-XXXXXX.pdf)"
-  if ! curl -fsS --max-time 30 -X POST "$base_url/api/pdf/entrust-order" \
-    -H 'Content-Type: application/json' \
-    --data-binary '{"base":{},"client":{},"manufacturer":{},"producer":{},"requirements":{},"samples":[],"logistics":{"laboratory_name":"中山市鑫普达检测有限公司"},"signatures":{},"meta":{}}' \
-    -o "$output_file"; then
+  if ! sudo -u "$deploy_user" env \
+    PDF_SMOKE_BASE_URL="$base_url" PDF_SMOKE_OUTPUT_FILE="$output_file" \
+    "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" tinker --execute='config(["pdf_service.base_url" => getenv("PDF_SMOKE_BASE_URL")]); $payload = ["base" => [], "client" => [], "manufacturer" => [], "producer" => [], "requirements" => [], "samples" => [], "logistics" => ["laboratory_name" => "中山市鑫普达检测有限公司"], "signatures" => [], "meta" => []]; file_put_contents(getenv("PDF_SMOKE_OUTPUT_FILE"), app(\\App\\Services\\Pdf\\PdfRendererClient::class)->renderEntrustOrder($payload));'; then
     rm -f -- "$output_file"
     return 1
   fi
@@ -194,6 +195,7 @@ fi
 
 sudo install -d -m 0755 -o "$deploy_user" -g www "$pdf_root" "$state_dir"
 [[ -f "$env_file" ]] || { printf '%s\n' "Missing PDF renderer environment: $env_file" >&2; exit 1; }
+[[ -x "$php_bin" && -f "$backend_dir/artisan" ]] || { printf '%s\n' 'Laravel smoke client is unavailable.' >&2; exit 1; }
 if [[ ! -d "$keys_dir" ]]; then
   [[ -d "$legacy_service_root/keys" ]] || { printf '%s\n' 'Missing existing PDF signing keys; refusing to deploy.' >&2; exit 1; }
   sudo cp -a "$legacy_service_root/keys" "$keys_dir"
@@ -238,6 +240,7 @@ sudo docker rm -f "$smoke_name" >/dev/null 2>&1 || true
 sudo docker run -d --rm --name "$smoke_name" -p 127.0.0.1:18081:8081 \
   --env-file "$env_file" --add-host host.docker.internal:host-gateway \
   -e PDF_SERVICE_BIND_ADDRESS=0.0.0.0 -e PDF_EXECUTION_LEDGER_ENABLED=true \
+  -e PDF_SERVICE_HMAC_NONCE_STORE=memory \
   -v "$keys_dir:/keys:ro" -v "$fonts_dir:/fonts:ro" \
   -v "$result_root_host:/data/signing-results" pdf-signer:local >/dev/null
 smoke_ok=0
