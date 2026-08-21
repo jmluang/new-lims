@@ -728,6 +728,7 @@ export function InspectionRecordFormFields({
           title="照片"
           collection="photos"
           recordId={recordId}
+          baseUrl={BASE}
           form={form}
           error={fieldErrors.photos}
           onChange={onChange}
@@ -736,6 +737,7 @@ export function InspectionRecordFormFields({
           title="文件"
           collection="files"
           recordId={recordId}
+          baseUrl={BASE}
           form={form}
           error={fieldErrors.files}
           onChange={onChange}

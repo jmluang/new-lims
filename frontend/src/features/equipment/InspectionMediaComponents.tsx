@@ -1,8 +1,9 @@
-import { Download, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Download, FileText, Image as ImageIcon, X } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../../lib/api'
-import { Button, Panel } from '../system/shared'
-import { formatBytes, inputClass } from '../system/utils'
+import { cn } from '../../lib/utils'
+import { Button, FileDropZone, Panel } from '../system/shared'
+import { formatBytes } from '../system/utils'
 
 import { type InspectionMedia, type MediaFormState, inspectionMediaLimits } from './inspectionShared'
 
@@ -64,14 +65,18 @@ export function MediaGallery({
 }
 
 /**
- * Loads one photo through the authenticated endpoint and shows it from an object
- * URL. The URL is revoked when the thumbnail goes away, so switching records does
+ * Loads one attachment through the authenticated endpoint and hands back an
+ * object URL that is revoked when the caller unmounts, so switching records does
  * not leak a blob per photo for the lifetime of the tab.
  */
-export function MediaThumbnail({ baseUrl, recordId, media }: { baseUrl: string; recordId: number; media: InspectionMedia }) {
+function useMediaObjectUrl(baseUrl: string | undefined, recordId: number | null, media: InspectionMedia) {
   const [source, setSource] = useState<string | null>(null)
 
   useEffect(() => {
+    if (baseUrl === undefined || recordId === null) {
+      return
+    }
+
     let objectUrl: string | null = null
     let cancelled = false
 
@@ -95,6 +100,12 @@ export function MediaThumbnail({ baseUrl, recordId, media }: { baseUrl: string; 
       }
     }
   }, [baseUrl, recordId, media.id])
+
+  return source
+}
+
+export function MediaThumbnail({ baseUrl, recordId, media }: { baseUrl: string; recordId: number; media: InspectionMedia }) {
+  const source = useMediaObjectUrl(baseUrl, recordId, media)
 
   return (
     <figure className="w-24">
@@ -142,6 +153,57 @@ export function MediaDownloadButton({ baseUrl, recordId, media }: { baseUrl: str
   )
 }
 
+/** Spells the accept list back to the operator: `.pdf,.xls` reads as `PDF / XLS`. */
+function acceptSummary(accept: string) {
+  return accept
+    .split(',')
+    .map((entry) => entry.trim().replace(/^image\//, '').replace(/^\./, '').toUpperCase())
+    .filter((entry) => entry.length > 0)
+    .join(' / ')
+}
+
+/**
+ * The same check the file dialog applies, repeated for dropped files: dropping
+ * bypasses the input's accept list entirely.
+ */
+function matchesAccept(file: File, accept: string) {
+  const rules = accept
+    .split(',')
+    .map((rule) => rule.trim().toLowerCase())
+    .filter((rule) => rule.length > 0)
+
+  if (rules.length === 0) {
+    return true
+  }
+
+  const name = file.name.toLowerCase()
+  const type = file.type.toLowerCase()
+
+  return rules.some((rule) => {
+    if (rule.startsWith('.')) {
+      return name.endsWith(rule)
+    }
+
+    if (rule.endsWith('/*')) {
+      return type.startsWith(rule.slice(0, -1))
+    }
+
+    return type === rule
+  })
+}
+
+/** Previews for freshly picked images, revoked whenever the selection changes. */
+function useLocalPreviews(files: File[], enabled: boolean) {
+  const urls = useMemo(
+    () => (enabled && typeof URL.createObjectURL === 'function' ? files.map((file) => URL.createObjectURL(file)) : []),
+    [files, enabled],
+  )
+
+  useEffect(() => () => urls.forEach((url) => URL.revokeObjectURL(url)), [urls])
+
+  return urls
+}
+
 /**
  * One attachment collection of the editor: the media the record already carries,
  * which stay unless the operator removes them, plus the files picked in this session.
@@ -150,6 +212,7 @@ export function AttachmentPicker<T extends MediaFormState>({
   title,
   collection,
   recordId,
+  baseUrl,
   form,
   error,
   onChange,
@@ -157,76 +220,231 @@ export function AttachmentPicker<T extends MediaFormState>({
   title: string
   collection: 'photos' | 'files'
   recordId: number | null
+  baseUrl?: string
   form: T
   error?: string
   onChange: (patch: Partial<T>) => void
 }) {
   const limits = inspectionMediaLimits[collection]
+  const isPhotos = collection === 'photos'
   const retained = form.retained_media.filter((media) => media.collection === collection)
-  const picked = collection === 'photos' ? form.new_photos : form.new_files
+  const picked = isPhotos ? form.new_photos : form.new_files
+  const previews = useLocalPreviews(picked, isPhotos)
+  const [skipped, setSkipped] = useState<string[]>([])
+  const total = retained.length + picked.length
+  const room = Math.max(limits.maxItems - total, 0)
 
   function setPicked(files: File[]) {
-    onChange((collection === 'photos' ? { new_photos: files } : { new_files: files }) as Partial<T>)
+    setSkipped([])
+    onChange((isPhotos ? { new_photos: files } : { new_files: files }) as Partial<T>)
+  }
+
+  function addFiles(incoming: File[]) {
+    const accepted: File[] = []
+    const rejected: string[] = []
+
+    for (const file of incoming) {
+      if (!matchesAccept(file, limits.accept)) {
+        rejected.push(`${file.name}（格式不支持）`)
+        continue
+      }
+
+      if (picked.some((entry) => entry.name === file.name && entry.size === file.size)) {
+        rejected.push(`${file.name}（已选择）`)
+        continue
+      }
+
+      if (accepted.length >= room) {
+        rejected.push(`${file.name}（超出 ${limits.maxItems} 个上限）`)
+        continue
+      }
+
+      accepted.push(file)
+    }
+
+    if (accepted.length > 0) {
+      onChange((isPhotos ? { new_photos: [...picked, ...accepted] } : { new_files: [...picked, ...accepted] }) as Partial<T>)
+    }
+
+    setSkipped(rejected)
+  }
+
+  function removeRetained(id: number) {
+    setSkipped([])
+    onChange({ retained_media: form.retained_media.filter((entry) => entry.id !== id) } as Partial<T>)
   }
 
   return (
-    <Panel title={`${title}（${retained.length + picked.length}/${limits.maxItems}）`}>
-      <input
-        className={inputClass}
-        type="file"
-        multiple
+    <Panel title={`${title}（${total}/${limits.maxItems}）`}>
+      <FileDropZone
+        label={room === 0 ? `已达 ${limits.maxItems} 个上限` : `点击选择或将${title}拖到此处`}
+        hint={`${acceptSummary(limits.accept)} · 单个不超过 ${formatBytes(limits.maxBytes)}${room > 0 ? ` · 还可添加 ${room} 个` : ''}`}
         accept={limits.accept}
-        aria-label={`选择${title}`}
-        onChange={(event) => {
-          setPicked([...picked, ...Array.from(event.target.files ?? [])])
-          event.target.value = ''
-        }}
+        multiple
+        disabled={room === 0}
+        inputProps={{ 'aria-label': `选择${title}` }}
+        onFiles={addFiles}
       />
-      {retained.length > 0 ? (
-        <ul className="mt-3 space-y-1" data-retained-media>
+
+      {skipped.length > 0 ? (
+        <p className="mt-2 text-xs text-amber-700" data-skipped-media>
+          已忽略 {skipped.length} 个：{skipped.slice(0, 2).join('、')}
+          {skipped.length > 2 ? ' 等' : ''}
+        </p>
+      ) : null}
+
+      {total === 0 ? <p className="mt-3 text-xs text-slate-500">尚未选择{title}</p> : null}
+
+      {total > 0 ? (
+        <ul className={cn('mt-3', isPhotos ? 'grid grid-cols-3 gap-2 sm:grid-cols-4' : 'space-y-1.5')}>
           {retained.map((media) => (
-            <li className="flex items-center justify-between gap-2 text-xs" key={media.id}>
-              <span className="min-w-0 truncate text-slate-700">
-                {recordId !== null ? `#${media.id} · ` : ''}
-                {media.file_name}
-                <span className="ml-1 text-slate-400">{formatBytes(media.size)}</span>
-              </span>
-              <button
-                type="button"
-                className="text-slate-500 hover:text-red-600"
-                aria-label={`移除 ${media.file_name}`}
-                onClick={() =>
-                  onChange({ retained_media: form.retained_media.filter((entry) => entry.id !== media.id) } as Partial<T>)
-                }
-              >
-                <X className="size-3" aria-hidden="true" />
-              </button>
+            <li key={`retained-${media.id}`} data-retained-media>
+              {isPhotos ? (
+                <AttachmentTile
+                  name={media.file_name}
+                  meta={`${recordId !== null ? `#${media.id} · ` : ''}${formatBytes(media.size)}`}
+                  preview={<RetainedPhotoPreview baseUrl={baseUrl} recordId={recordId} media={media} />}
+                  onRemove={() => removeRetained(media.id)}
+                />
+              ) : (
+                <AttachmentRow
+                  name={media.file_name}
+                  meta={`${recordId !== null ? `#${media.id} · ` : ''}${formatBytes(media.size)}`}
+                  onRemove={() => removeRetained(media.id)}
+                />
+              )}
             </li>
           ))}
+          {picked.map((file, index) => {
+            const warning = file.size > limits.maxBytes ? `超出 ${formatBytes(limits.maxBytes)}` : undefined
+            const remove = () => setPicked(picked.filter((_, position) => position !== index))
+
+            return (
+              <li key={`${file.name}-${index}`} data-new-media>
+                {isPhotos ? (
+                  <AttachmentTile
+                    name={file.name}
+                    meta={formatBytes(file.size)}
+                    warning={warning}
+                    fresh
+                    preview={
+                      previews[index] === undefined ? (
+                        <ImageIcon className="size-5 text-slate-300" aria-hidden="true" />
+                      ) : (
+                        <img className="size-full object-cover" src={previews[index]} alt={file.name} />
+                      )
+                    }
+                    onRemove={remove}
+                  />
+                ) : (
+                  <AttachmentRow name={file.name} meta={formatBytes(file.size)} warning={warning} fresh onRemove={remove} />
+                )}
+              </li>
+            )
+          })}
         </ul>
       ) : null}
-      {picked.length > 0 ? (
-        <ul className="mt-2 space-y-1" data-new-media>
-          {picked.map((file, index) => (
-            <li className="flex items-center justify-between gap-2 text-xs" key={`${file.name}-${index}`}>
-              <span className="min-w-0 truncate text-emerald-800">
-                {file.name}
-                <span className="ml-1 text-slate-400">{formatBytes(file.size)}</span>
-              </span>
-              <button
-                type="button"
-                className="text-slate-500 hover:text-red-600"
-                aria-label={`移除 ${file.name}`}
-                onClick={() => setPicked(picked.filter((_, position) => position !== index))}
-              >
-                <X className="size-3" aria-hidden="true" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {retained.length + picked.length === 0 ? <p className="mt-3 text-xs text-slate-500">尚未选择{title}</p> : null}
+
       <FieldError message={error} />
     </Panel>
+  )
+}
+
+/** Stored photos are private, so the tile pulls its preview through the API. */
+function RetainedPhotoPreview({
+  baseUrl,
+  recordId,
+  media,
+}: {
+  baseUrl?: string
+  recordId: number | null
+  media: InspectionMedia
+}) {
+  const source = useMediaObjectUrl(baseUrl, recordId, media)
+
+  if (source === null) {
+    return <ImageIcon className="size-5 text-slate-300" aria-hidden="true" />
+  }
+
+  return <img className="size-full object-cover" src={source} alt={media.file_name} />
+}
+
+function AttachmentTile({
+  name,
+  meta,
+  warning,
+  preview,
+  fresh = false,
+  onRemove,
+}: {
+  name: string
+  meta: string
+  warning?: string
+  preview: ReactNode
+  fresh?: boolean
+  onRemove: () => void
+}) {
+  return (
+    <figure
+      className={cn(
+        'relative overflow-hidden rounded-md border bg-white',
+        warning ? 'border-red-300' : fresh ? 'border-emerald-700/30' : 'border-emerald-900/10',
+      )}
+    >
+      <div className="flex aspect-square items-center justify-center overflow-hidden bg-slate-50">{preview}</div>
+      <button
+        type="button"
+        className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-slate-500 shadow-sm transition-colors hover:text-red-600"
+        aria-label={`移除 ${name}`}
+        onClick={onRemove}
+      >
+        <X className="size-3" aria-hidden="true" />
+      </button>
+      <figcaption className="px-1.5 py-1">
+        <p className={cn('truncate text-xs', fresh ? 'text-emerald-800' : 'text-slate-700')} title={name}>
+          {name}
+        </p>
+        <p className="truncate text-[11px] text-slate-400">{meta}</p>
+        {warning ? <p className="truncate text-[11px] text-red-600">{warning}</p> : null}
+      </figcaption>
+    </figure>
+  )
+}
+
+function AttachmentRow({
+  name,
+  meta,
+  warning,
+  fresh = false,
+  onRemove,
+}: {
+  name: string
+  meta: string
+  warning?: string
+  fresh?: boolean
+  onRemove: () => void
+}) {
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-2 rounded-md border bg-white px-2 py-1.5',
+        warning ? 'border-red-300' : fresh ? 'border-emerald-700/30' : 'border-emerald-900/10',
+      )}
+    >
+      <FileText className={cn('size-4 shrink-0', fresh ? 'text-emerald-700' : 'text-slate-400')} aria-hidden="true" />
+      <span className={cn('min-w-0 flex-1 truncate text-xs', fresh ? 'text-emerald-800' : 'text-slate-700')} title={name}>
+        {name}
+      </span>
+      {warning ? <span className="shrink-0 text-[11px] text-red-600">{warning}</span> : null}
+      <span className="shrink-0 text-[11px] text-slate-400">{meta}</span>
+      <button
+        type="button"
+        className="shrink-0 text-slate-400 transition-colors hover:text-red-600"
+        aria-label={`移除 ${name}`}
+        onClick={onRemove}
+      >
+        <X className="size-3.5" aria-hidden="true" />
+      </button>
+    </div>
   )
 }

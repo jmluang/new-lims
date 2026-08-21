@@ -1,5 +1,16 @@
-import { Children, cloneElement, isValidElement, useContext, useLayoutEffect, type ReactElement, type ReactNode } from 'react'
-import { AlertCircle, Loader2, X } from 'lucide-react'
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type InputHTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
+import { AlertCircle, Loader2, Upload, X } from 'lucide-react'
 import { PageHeaderContext } from '../../components/app/PageHeaderContext'
 import { cn } from '../../lib/utils'
 import { zhText } from '../../lib/zh'
@@ -305,4 +316,95 @@ function translateTableHead(children: ReactNode, insideHead = false): ReactNode 
   return cloneElement(element, {
     children: translateTableHead(element.props.children, nextInsideHead),
   })
+}
+
+/**
+ * Click-or-drop file picker. A bare `<input type="file">` leaves no room to say
+ * what the field accepts and gives the operator no drop target, so every upload
+ * surface renders this instead and keeps the real input hidden behind it.
+ */
+export function FileDropZone({
+  label,
+  hint,
+  accept,
+  multiple = false,
+  disabled = false,
+  className,
+  inputProps,
+  onFiles,
+}: {
+  label: string
+  hint?: string
+  accept?: string
+  multiple?: boolean
+  disabled?: boolean
+  className?: string
+  inputProps?: InputHTMLAttributes<HTMLInputElement>
+  onFiles: (files: File[]) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [dragging, setDragging] = useState(false)
+
+  function openPicker() {
+    if (!disabled) {
+      inputRef.current?.click()
+    }
+  }
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center rounded-lg border border-dashed px-4 py-5 text-center transition-colors',
+        disabled
+          ? 'cursor-not-allowed border-emerald-900/15 bg-slate-50'
+          : 'cursor-pointer border-emerald-900/25 bg-emerald-50/30 hover:border-emerald-700 hover:bg-emerald-50',
+        dragging && !disabled && 'border-emerald-700 bg-emerald-50 ring-2 ring-emerald-100',
+        className,
+      )}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      aria-disabled={disabled || undefined}
+      onClick={openPicker}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          openPicker()
+        }
+      }}
+      onDragOver={(event) => {
+        event.preventDefault()
+
+        if (!disabled) {
+          setDragging(true)
+        }
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        event.preventDefault()
+        setDragging(false)
+
+        if (!disabled) {
+          onFiles(Array.from(event.dataTransfer.files ?? []))
+        }
+      }}
+    >
+      <Upload className={cn('size-5', disabled ? 'text-slate-300' : 'text-emerald-700')} aria-hidden="true" />
+      <p className={cn('mt-2 text-sm font-medium', disabled ? 'text-slate-400' : 'text-slate-800')}>{label}</p>
+      {hint ? <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p> : null}
+      <input
+        className="hidden"
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        disabled={disabled}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => {
+          onFiles(Array.from(event.target.files ?? []))
+          event.target.value = ''
+        }}
+        {...inputProps}
+      />
+    </div>
+  )
 }
