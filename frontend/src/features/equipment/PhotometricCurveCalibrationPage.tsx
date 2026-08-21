@@ -724,8 +724,8 @@ export function CalibrationRecordFormFields({
       </Panel>
 
       <div className="grid gap-4 sm:grid-cols-2" data-inspection-attachments>
-        <AttachmentPicker title="照片" collection="photos" recordId={recordId} form={form} error={fieldErrors.photos} onChange={onChange} />
-        <AttachmentPicker title="文件" collection="files" recordId={recordId} form={form} error={fieldErrors.files} onChange={onChange} />
+        <AttachmentPicker title="照片" collection="photos" recordId={recordId} baseUrl={BASE} form={form} error={fieldErrors.photos} onChange={onChange} />
+        <AttachmentPicker title="文件" collection="files" recordId={recordId} baseUrl={BASE} form={form} error={fieldErrors.files} onChange={onChange} />
       </div>
     </div>
   )
