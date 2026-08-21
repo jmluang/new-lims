@@ -31,7 +31,9 @@ describe('QrScannerPanel', () => {
       <QrScannerPanel title="扫码/输入设备编号" placeholder="设备编号" onDetected={() => {}} />,
     )
 
-    expect(html).toContain('w-full sm:w-auto')
+    // The two controls share one row with the input from sm up, and stretch
+    // full-width beneath it on mobile.
+    expect(html).toContain('flex-1 sm:flex-none')
   })
 })
 

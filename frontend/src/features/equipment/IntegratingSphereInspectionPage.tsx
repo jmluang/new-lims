@@ -412,7 +412,22 @@ export function IntegratingSphereInspectionPage() {
         </>
       )}
 
-      <Modal title={editingId === null ? '新增积分球点检记录' : '编辑积分球点检记录'} size="wide" open={editorOpen} onClose={closeEditor}>
+      <Modal
+        title={editingId === null ? '新增积分球点检记录' : '编辑积分球点检记录'}
+        size="wide"
+        open={editorOpen}
+        onClose={closeEditor}
+        footer={
+          <>
+            <Button variant="ghost" onClick={closeEditor}>
+              取消
+            </Button>
+            <Button variant="primary" onClick={submitEditor} disabled={saveRecord.isPending}>
+              保存点检记录
+            </Button>
+          </>
+        }
+      >
         <InspectionRecordFormFields
           form={form}
           fieldErrors={fieldErrors}
@@ -426,14 +441,6 @@ export function IntegratingSphereInspectionPage() {
           onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
         />
         {saveRecord.error ? <ErrorNotice error={saveRecord.error} fallback="无法保存积分球点检记录" /> : null}
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={closeEditor}>
-            取消
-          </Button>
-          <Button variant="primary" onClick={submitEditor} disabled={saveRecord.isPending}>
-            保存点检记录
-          </Button>
-        </div>
       </Modal>
 
       <Modal title="积分球点检记录详情" size="wide" open={detail !== null} onClose={() => setDetail(null)}>
@@ -618,31 +625,35 @@ export function InspectionRecordFormFields({
   onChange: (patch: Partial<IntegratingSphereInspectionForm>) => void
 }) {
   return (
-    <div className="space-y-4">
-      <EquipmentScannerBlock
-        devices={form.equipment}
-        lookupFailed={equipmentLookupFailed}
-        error={fieldErrors.equipment}
-        onCode={onEquipmentCode}
-        onRemove={onRemoveEquipment}
-      />
+    // Scan entry on the left, measurements on the right: the split keeps the whole
+    // editor inside one laptop screen instead of a tall single column.
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+      <div className="space-y-4">
+        <EquipmentScannerBlock
+          devices={form.equipment}
+          lookupFailed={equipmentLookupFailed}
+          error={fieldErrors.equipment}
+          onCode={onEquipmentCode}
+          onRemove={onRemoveEquipment}
+        />
 
-      <SystemScannerBlock
-        system={form.system}
-        lookupFailed={systemLookupFailed}
-        error={fieldErrors.system}
-        onCode={onSystemCode}
-      />
+        <SystemScannerBlock
+          system={form.system}
+          lookupFailed={systemLookupFailed}
+          error={fieldErrors.system}
+          onCode={onSystemCode}
+        />
 
-      <SampleScannerBlock
-        sample={form.sample}
-        lookupFailed={sampleLookupFailed}
-        error={fieldErrors.sample}
-        onCode={onSampleCode}
-      />
+        <SampleScannerBlock
+          sample={form.sample}
+          lookupFailed={sampleLookupFailed}
+          error={fieldErrors.sample}
+          onCode={onSampleCode}
+        />
+      </div>
 
       <Panel title="测量值">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {integratingSphereMeasurementFields.map((field) => (
             <Field key={field.name} label={field.unit ? `${field.label}（${field.unit}）` : field.label}>
               <input
@@ -665,7 +676,7 @@ export function InspectionRecordFormFields({
           <Field label="记录时间">
             <input className={inputClass} type="datetime-local" value={form.recorded_at} onChange={(event) => onChange({ recorded_at: event.target.value })} />
           </Field>
-          <Field label="备注" className="sm:col-span-2 lg:col-span-4">
+          <Field label="备注" className="sm:col-span-2 lg:col-span-3">
             <textarea className={textareaClass} value={form.remark} onChange={(event) => onChange({ remark: event.target.value })} />
           </Field>
         </div>

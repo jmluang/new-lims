@@ -67,6 +67,7 @@ export function Modal({
   description,
   size = 'default',
   actions,
+  footer,
   open,
   onClose,
   children,
@@ -75,6 +76,8 @@ export function Modal({
   description?: string
   size?: 'default' | 'wide'
   actions?: ReactNode
+  /** Pinned below the scrollable body, so save/cancel stay reachable on tall forms. */
+  footer?: ReactNode
   open: boolean
   onClose: () => void
   children: ReactNode
@@ -84,9 +87,16 @@ export function Modal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 px-4 py-8">
-      <section className={cn('w-full rounded-lg border border-slate-200 bg-white shadow-xl', size === 'wide' ? 'max-w-7xl' : 'max-w-2xl')} role="dialog" aria-modal="true">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 p-3 sm:px-4 sm:py-8">
+      <section
+        className={cn(
+          'flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-lg border border-slate-200 bg-white shadow-xl sm:max-h-[calc(100dvh-4rem)]',
+          size === 'wide' ? 'max-w-5xl' : 'max-w-2xl',
+        )}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-4 py-3">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-slate-900">{zhText(title)}</h2>
             {description ? <p className="mt-1 text-xs text-slate-500">{zhText(description)}</p> : null}
@@ -103,7 +113,10 @@ export function Modal({
             </button>
           </div>
         </div>
-        <div className="p-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+        {footer ? (
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-200 px-4 py-3">{footer}</div>
+        ) : null}
       </section>
     </div>
   )

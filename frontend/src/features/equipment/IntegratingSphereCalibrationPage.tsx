@@ -486,7 +486,22 @@ export function IntegratingSphereCalibrationPage() {
         </>
       )}
 
-      <Modal title={editingId === null ? '新增积分球定标记录' : '编辑积分球定标记录'} size="wide" open={editorOpen} onClose={closeEditor}>
+      <Modal
+        title={editingId === null ? '新增积分球定标记录' : '编辑积分球定标记录'}
+        size="wide"
+        open={editorOpen}
+        onClose={closeEditor}
+        footer={
+          <>
+            <Button variant="ghost" onClick={closeEditor}>
+              取消
+            </Button>
+            <Button variant="primary" onClick={submitEditor} disabled={saveRecord.isPending}>
+              保存定标记录
+            </Button>
+          </>
+        }
+      >
         <CalibrationRecordFormFields
           form={form}
           recordId={editingId}
@@ -502,14 +517,6 @@ export function IntegratingSphereCalibrationPage() {
           onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
         />
         {saveRecord.error ? <ErrorNotice error={saveRecord.error} fallback="无法保存积分球定标记录" /> : null}
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={closeEditor}>
-            取消
-          </Button>
-          <Button variant="primary" onClick={submitEditor} disabled={saveRecord.isPending}>
-            保存定标记录
-          </Button>
-        </div>
       </Modal>
 
       <Modal title="积分球定标记录详情" size="wide" open={detail !== null} onClose={() => setDetail(null)}>
@@ -704,131 +711,137 @@ export function CalibrationRecordFormFields({
     form.sensitivity?.source === 'retained' && !catalogOptions.sensitivities.some((s) => s.code === currentSensitivityCode)
 
   return (
-    <div className="space-y-4">
-      {/* Order: equipment -> system -> standard -> mode/sensitivity -> measurements -> attachments */}
-      <EquipmentScannerBlock
-        devices={form.equipment}
-        lookupFailed={equipmentLookupFailed}
-        error={fieldErrors.equipment}
-        onCode={onEquipmentCode}
-        onRemove={onRemoveEquipment}
-      />
+    // Scan entry on the left, catalog selections / measurements / attachments on the
+    // right: the split keeps the whole editor inside one laptop screen.
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+      <div className="space-y-4">
+        {/* Order: equipment -> system -> standard */}
+        <EquipmentScannerBlock
+          devices={form.equipment}
+          lookupFailed={equipmentLookupFailed}
+          error={fieldErrors.equipment}
+          onCode={onEquipmentCode}
+          onRemove={onRemoveEquipment}
+        />
 
-      <SystemScannerBlock
-        system={form.system}
-        lookupFailed={systemLookupFailed}
-        error={fieldErrors.system}
-        onCode={onSystemCode}
-      />
+        <SystemScannerBlock
+          system={form.system}
+          lookupFailed={systemLookupFailed}
+          error={fieldErrors.system}
+          onCode={onSystemCode}
+        />
 
-      <StandardScannerBlock
-        standard={form.standard}
-        lookupFailed={standardLookupFailed}
-        error={fieldErrors.standard}
-        onCode={onStandardCode}
-      />
+        <StandardScannerBlock
+          standard={form.standard}
+          lookupFailed={standardLookupFailed}
+          error={fieldErrors.standard}
+          onCode={onStandardCode}
+        />
+      </div>
 
-      <Panel title="模式与灵敏度">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="模式">
-            <select
-              className={inputClass}
-              value={currentModeCode}
-              onChange={(event) => {
-                const code = event.target.value
-                const opt = catalogOptions.modes.find((m) => m.code === code)
-                onChange({ mode: { source: 'selected', code, label: opt?.label ?? code } })
-              }}
-            >
-              {isModeRetainedRemoved ? (
-                <option value={form.mode!.code} disabled>
-                  {form.mode!.label}（历史快照，已自目录移除）
-                </option>
-              ) : null}
-              {catalogOptions.modes.map((mode) => (
-                <option key={mode.code} value={mode.code}>
-                  {mode.label}
-                </option>
-              ))}
-            </select>
-            {isModeRetainedRemoved ? (
-              <p className="mt-1 text-xs text-amber-700" data-retained-removed-mode-notice>
-                该定标模式已从系统目录移除，保存时保留历史快照；重新选择模式后将被替换。
-              </p>
-            ) : null}
-            <FieldError message={fieldErrors.mode_code} />
-          </Field>
-
-          <Field label="灵敏度">
-            <select
-              className={inputClass}
-              value={currentSensitivityCode}
-              onChange={(event) => {
-                const code = event.target.value
-                const opt = catalogOptions.sensitivities.find((s) => s.code === code)
-                onChange({ sensitivity: { source: 'selected', code, label: opt?.label ?? code } })
-              }}
-            >
-              {isSensitivityRetainedRemoved ? (
-                <option value={form.sensitivity!.code} disabled>
-                  {form.sensitivity!.label}（历史快照，已自目录移除）
-                </option>
-              ) : null}
-              {catalogOptions.sensitivities.map((sensitivity) => (
-                <option key={sensitivity.code} value={sensitivity.code}>
-                  {sensitivity.label}
-                </option>
-              ))}
-            </select>
-            {isSensitivityRetainedRemoved ? (
-              <p className="mt-1 text-xs text-amber-700" data-retained-removed-sensitivity-notice>
-                该灵敏度已从系统目录移除，保存时保留历史快照；重新选择灵敏度后将被替换。
-              </p>
-            ) : null}
-            <FieldError message={fieldErrors.sensitivity_code} />
-          </Field>
-        </div>
-      </Panel>
-
-      <Panel title="测量值">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {integratingSphereCalibrationMeasurementFields.map((field) => (
-            <Field key={field.name} label={field.unit ? `${field.label}（${field.unit}）` : field.label}>
-              <input
+      <div className="space-y-4">
+        <Panel title="模式与灵敏度">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="模式">
+              <select
                 className={inputClass}
-                inputMode={field.scale === 0 ? 'numeric' : 'decimal'}
-                value={form[field.name]}
-                placeholder={field.scale === 0 ? '0' : `0.${'0'.repeat(field.scale)}`}
-                onChange={(event) => onChange({ [field.name]: event.target.value } as Partial<IntegratingSphereCalibrationForm>)}
-              />
-              <FieldError message={fieldErrors[field.name]} />
+                value={currentModeCode}
+                onChange={(event) => {
+                  const code = event.target.value
+                  const opt = catalogOptions.modes.find((m) => m.code === code)
+                  onChange({ mode: { source: 'selected', code, label: opt?.label ?? code } })
+                }}
+              >
+                {isModeRetainedRemoved ? (
+                  <option value={form.mode!.code} disabled>
+                    {form.mode!.label}（历史快照，已自目录移除）
+                  </option>
+                ) : null}
+                {catalogOptions.modes.map((mode) => (
+                  <option key={mode.code} value={mode.code}>
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+              {isModeRetainedRemoved ? (
+                <p className="mt-1 text-xs text-amber-700" data-retained-removed-mode-notice>
+                  该定标模式已从系统目录移除，保存时保留历史快照；重新选择模式后将被替换。
+                </p>
+              ) : null}
+              <FieldError message={fieldErrors.mode_code} />
             </Field>
-          ))}
-          <Field label="备注" className="sm:col-span-2 lg:col-span-4">
-            <textarea className={textareaClass} value={form.remark} onChange={(event) => onChange({ remark: event.target.value })} />
-          </Field>
-        </div>
-      </Panel>
 
-      <div className="grid gap-4 sm:grid-cols-2" data-inspection-attachments>
-        <AttachmentPicker
-          title="照片"
-          collection="photos"
-          recordId={recordId}
-          baseUrl={BASE}
-          form={form}
-          error={fieldErrors.photos}
-          onChange={onChange}
-        />
-        <AttachmentPicker
-          title="文件"
-          collection="files"
-          recordId={recordId}
-          baseUrl={BASE}
-          form={form}
-          error={fieldErrors.files}
-          onChange={onChange}
-        />
+            <Field label="灵敏度">
+              <select
+                className={inputClass}
+                value={currentSensitivityCode}
+                onChange={(event) => {
+                  const code = event.target.value
+                  const opt = catalogOptions.sensitivities.find((s) => s.code === code)
+                  onChange({ sensitivity: { source: 'selected', code, label: opt?.label ?? code } })
+                }}
+              >
+                {isSensitivityRetainedRemoved ? (
+                  <option value={form.sensitivity!.code} disabled>
+                    {form.sensitivity!.label}（历史快照，已自目录移除）
+                  </option>
+                ) : null}
+                {catalogOptions.sensitivities.map((sensitivity) => (
+                  <option key={sensitivity.code} value={sensitivity.code}>
+                    {sensitivity.label}
+                  </option>
+                ))}
+              </select>
+              {isSensitivityRetainedRemoved ? (
+                <p className="mt-1 text-xs text-amber-700" data-retained-removed-sensitivity-notice>
+                  该灵敏度已从系统目录移除，保存时保留历史快照；重新选择灵敏度后将被替换。
+                </p>
+              ) : null}
+              <FieldError message={fieldErrors.sensitivity_code} />
+            </Field>
+          </div>
+        </Panel>
+
+        <Panel title="测量值">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {integratingSphereCalibrationMeasurementFields.map((field) => (
+              <Field key={field.name} label={field.unit ? `${field.label}（${field.unit}）` : field.label}>
+                <input
+                  className={inputClass}
+                  inputMode={field.scale === 0 ? 'numeric' : 'decimal'}
+                  value={form[field.name]}
+                  placeholder={field.scale === 0 ? '0' : `0.${'0'.repeat(field.scale)}`}
+                  onChange={(event) => onChange({ [field.name]: event.target.value } as Partial<IntegratingSphereCalibrationForm>)}
+                />
+                <FieldError message={fieldErrors[field.name]} />
+              </Field>
+            ))}
+            <Field label="备注" className="sm:col-span-2 lg:col-span-3">
+              <textarea className={textareaClass} value={form.remark} onChange={(event) => onChange({ remark: event.target.value })} />
+            </Field>
+          </div>
+        </Panel>
+
+        <div className="grid gap-4 sm:grid-cols-2" data-inspection-attachments>
+          <AttachmentPicker
+            title="照片"
+            collection="photos"
+            recordId={recordId}
+            baseUrl={BASE}
+            form={form}
+            error={fieldErrors.photos}
+            onChange={onChange}
+          />
+          <AttachmentPicker
+            title="文件"
+            collection="files"
+            recordId={recordId}
+            baseUrl={BASE}
+            form={form}
+            error={fieldErrors.files}
+            onChange={onChange}
+          />
+        </div>
       </div>
     </div>
   )

@@ -433,7 +433,22 @@ export function PhotometricCurveInspectionPage() {
         </>
       )}
 
-      <Modal title={editingId === null ? '新增配光曲线点检记录' : '编辑配光曲线点检记录'} size="wide" open={editorOpen} onClose={closeEditor}>
+      <Modal
+        title={editingId === null ? '新增配光曲线点检记录' : '编辑配光曲线点检记录'}
+        size="wide"
+        open={editorOpen}
+        onClose={closeEditor}
+        footer={
+          <>
+            <Button variant="ghost" onClick={closeEditor}>
+              取消
+            </Button>
+            <Button variant="primary" onClick={submitEditor} disabled={saveRecord.isPending}>
+              保存点检记录
+            </Button>
+          </>
+        }
+      >
         <InspectionRecordFormFields
           form={form}
           recordId={editingId}
@@ -448,14 +463,6 @@ export function PhotometricCurveInspectionPage() {
           onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
         />
         {saveRecord.error ? <ErrorNotice error={saveRecord.error} fallback="无法保存配光曲线点检记录" /> : null}
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" onClick={closeEditor}>
-            取消
-          </Button>
-          <Button variant="primary" onClick={submitEditor} disabled={saveRecord.isPending}>
-            保存点检记录
-          </Button>
-        </div>
       </Modal>
 
       <Modal title="配光曲线点检记录详情" size="wide" open={detail !== null} onClose={() => setDetail(null)}>
@@ -644,104 +651,110 @@ export function InspectionRecordFormFields({
   const averageAngle = deriveAverageAngle(form)
 
   return (
-    <div className="space-y-4">
-      <EquipmentScannerBlock
-        devices={form.equipment}
-        lookupFailed={equipmentLookupFailed}
-        error={fieldErrors.equipment}
-        onCode={onEquipmentCode}
-        onRemove={onRemoveEquipment}
-      />
+    // Scan entry on the left, measurements and attachments on the right: the split
+    // keeps the whole editor inside one laptop screen instead of a tall column.
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+      <div className="space-y-4">
+        <EquipmentScannerBlock
+          devices={form.equipment}
+          lookupFailed={equipmentLookupFailed}
+          error={fieldErrors.equipment}
+          onCode={onEquipmentCode}
+          onRemove={onRemoveEquipment}
+        />
 
-      <SystemScannerBlock
-        system={form.system}
-        lookupFailed={systemLookupFailed}
-        error={fieldErrors.system}
-        onCode={onSystemCode}
-      />
+        <SystemScannerBlock
+          system={form.system}
+          lookupFailed={systemLookupFailed}
+          error={fieldErrors.system}
+          onCode={onSystemCode}
+        />
 
-      <SampleScannerBlock
-        sample={form.sample}
-        lookupFailed={sampleLookupFailed}
-        error={fieldErrors.sample}
-        onCode={onSampleCode}
-      />
+        <SampleScannerBlock
+          sample={form.sample}
+          lookupFailed={sampleLookupFailed}
+          error={fieldErrors.sample}
+          onCode={onSampleCode}
+        />
+      </div>
 
-      <Panel title="测量值">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {photometricCurveMeasurementFields.map((field) => (
-            <Field key={field.name} label={field.unit ? `${field.label}（${field.unit}）` : field.label}>
+      <div className="space-y-4">
+        <Panel title="测量值">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {photometricCurveMeasurementFields.map((field) => (
+              <Field key={field.name} label={field.unit ? `${field.label}（${field.unit}）` : field.label}>
+                <input
+                  className={inputClass}
+                  inputMode={field.scale === 0 ? 'numeric' : 'decimal'}
+                  value={form[field.name]}
+                  placeholder={field.scale === 0 ? '0' : `0.${'0'.repeat(field.scale)}`}
+                  onChange={(event) => onChange({ [field.name]: event.target.value } as Partial<PhotometricCurveInspectionForm>)}
+                  onBlur={(event) => {
+                    const normalized = normalizeMeasurementInput(event.target.value, field.scale)
+
+                    if (normalized !== null) {
+                      onChange({ [field.name]: normalized } as Partial<PhotometricCurveInspectionForm>)
+                    }
+                  }}
+                />
+                <FieldError message={fieldErrors[field.name]} />
+              </Field>
+            ))}
+            {/*
+              The average is derived from the four angles above and is never sent: it is
+              shown read-only so the operator sees what will be stored without being able
+              to let it drift away from the angles, which is what the paper form allowed.
+            */}
+            <Field label="平均角度（自动计算）">
               <input
-                className={inputClass}
-                inputMode={field.scale === 0 ? 'numeric' : 'decimal'}
-                value={form[field.name]}
-                placeholder={field.scale === 0 ? '0' : `0.${'0'.repeat(field.scale)}`}
-                onChange={(event) => onChange({ [field.name]: event.target.value } as Partial<PhotometricCurveInspectionForm>)}
-                onBlur={(event) => {
-                  const normalized = normalizeMeasurementInput(event.target.value, field.scale)
-
-                  if (normalized !== null) {
-                    onChange({ [field.name]: normalized } as Partial<PhotometricCurveInspectionForm>)
-                  }
-                }}
+                data-average-angle
+                className={`${inputClass} bg-slate-100 text-slate-700`}
+                value={averageAngle}
+                readOnly
+                aria-readonly="true"
+                aria-label="平均角度（自动计算）"
               />
-              <FieldError message={fieldErrors[field.name]} />
             </Field>
-          ))}
-          {/*
-            The average is derived from the four angles above and is never sent: it is
-            shown read-only so the operator sees what will be stored without being able
-            to let it drift away from the angles, which is what the paper form allowed.
-          */}
-          <Field label="平均角度（自动计算）">
-            <input
-              data-average-angle
-              className={`${inputClass} bg-slate-100 text-slate-700`}
-              value={averageAngle}
-              readOnly
-              aria-readonly="true"
-              aria-label="平均角度（自动计算）"
-            />
-          </Field>
-          <Field label="探头">
-            <select
-              className={inputClass}
-              value={form.probe}
-              onChange={(event) => onChange({ probe: event.target.value as PhotometricCurveProbe })}
-            >
-              {photometricCurveProbes.map((probe) => (
-                <option key={probe.value} value={probe.value}>
-                  {probe.label}
-                </option>
-              ))}
-            </select>
-            <FieldError message={fieldErrors.probe} />
-          </Field>
-          <Field label="备注" className="sm:col-span-2 lg:col-span-4">
-            <textarea className={textareaClass} value={form.remark} onChange={(event) => onChange({ remark: event.target.value })} />
-          </Field>
-        </div>
-      </Panel>
+            <Field label="探头">
+              <select
+                className={inputClass}
+                value={form.probe}
+                onChange={(event) => onChange({ probe: event.target.value as PhotometricCurveProbe })}
+              >
+                {photometricCurveProbes.map((probe) => (
+                  <option key={probe.value} value={probe.value}>
+                    {probe.label}
+                  </option>
+                ))}
+              </select>
+              <FieldError message={fieldErrors.probe} />
+            </Field>
+            <Field label="备注" className="sm:col-span-2 lg:col-span-3">
+              <textarea className={textareaClass} value={form.remark} onChange={(event) => onChange({ remark: event.target.value })} />
+            </Field>
+          </div>
+        </Panel>
 
-      <div className="grid gap-4 sm:grid-cols-2" data-inspection-attachments>
-        <AttachmentPicker
-          title="照片"
-          collection="photos"
-          recordId={recordId}
-          baseUrl={BASE}
-          form={form}
-          error={fieldErrors.photos}
-          onChange={onChange}
-        />
-        <AttachmentPicker
-          title="文件"
-          collection="files"
-          recordId={recordId}
-          baseUrl={BASE}
-          form={form}
-          error={fieldErrors.files}
-          onChange={onChange}
-        />
+        <div className="grid gap-4 sm:grid-cols-2" data-inspection-attachments>
+          <AttachmentPicker
+            title="照片"
+            collection="photos"
+            recordId={recordId}
+            baseUrl={BASE}
+            form={form}
+            error={fieldErrors.photos}
+            onChange={onChange}
+          />
+          <AttachmentPicker
+            title="文件"
+            collection="files"
+            recordId={recordId}
+            baseUrl={BASE}
+            form={form}
+            error={fieldErrors.files}
+            onChange={onChange}
+          />
+        </div>
       </div>
     </div>
   )

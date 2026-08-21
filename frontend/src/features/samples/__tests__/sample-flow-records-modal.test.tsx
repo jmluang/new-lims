@@ -34,7 +34,7 @@ describe('SampleFlowRecordsModal', () => {
     )
 
     expect(html).toContain('流转记录')
-    expect(html).toContain('max-w-7xl')
+    expect(html).toContain('max-w-5xl')
     expect(html).toContain('客户名称')
     expect(html).toContain('样品名称')
     expect(html).toContain('时间')

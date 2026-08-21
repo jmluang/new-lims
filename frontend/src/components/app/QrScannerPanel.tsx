@@ -30,9 +30,11 @@ export function QrScannerPanel({ title, placeholder, onDetected, children }: QrS
 
   return (
     <Panel title={title}>
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+      {/* Input, confirm and camera toggle share one row so the stacked scanner
+          blocks keep the editor modal short enough to fit a laptop screen. */}
+      <div className="flex flex-col gap-2 sm:flex-row">
         <input
-          className={inputClass}
+          className={`${inputClass} sm:flex-1`}
           value={manualValue}
           onChange={(event) => setManualValue(event.target.value)}
           onKeyDown={(event) => {
@@ -43,14 +45,14 @@ export function QrScannerPanel({ title, placeholder, onDetected, children }: QrS
           }}
           placeholder={placeholder}
         />
-        <Button className="w-full sm:w-auto" variant="secondary" onClick={submitManual}>
-          添加
-        </Button>
-      </div>
-      <div className="mt-3 flex gap-2">
-        <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setCameraEnabled((value) => !value)}>
-          {cameraEnabled ? '关闭扫码' : '打开扫码'}
-        </Button>
+        <div className="flex gap-2">
+          <Button className="flex-1 sm:flex-none" variant="secondary" onClick={submitManual}>
+            添加
+          </Button>
+          <Button className="flex-1 sm:flex-none" variant="secondary" onClick={() => setCameraEnabled((value) => !value)}>
+            {cameraEnabled ? '关闭扫码' : '打开扫码'}
+          </Button>
+        </div>
       </div>
       {children ? (
         <div className="mt-3 border-t border-emerald-900/10 pt-3" data-scanner-selection>
