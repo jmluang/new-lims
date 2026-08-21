@@ -235,6 +235,17 @@ test -f "$backend_dir/public/app/index.html" \
   || fail 'Laravel-targeted frontend build did not create public/app/index.html'
 sudo chown -R "$deploy_user:$deploy_group" "$backend_dir/public/app"
 
+# Retain the preview build at its own public path.  The preceding bad release
+# briefly served its HTML with `/assets/...` URLs, and that HTML can remain in
+# browser caches after `current` is atomically switched.  Keeping this separate
+# compatibility path lets those clients load once and receive the fresh
+# `/app/...` entry point, without ever overwriting the Laravel-targeted build.
+test -d "$frontend_dir/dist/assets" \
+  || fail 'frontend preview build did not create dist/assets'
+sudo install -d -o "$deploy_user" -g "$deploy_group" "$backend_dir/public/assets"
+sudo cp -a "$frontend_dir/dist/assets/." "$backend_dir/public/assets/"
+sudo chown -R "$deploy_user:$deploy_group" "$backend_dir/public/assets"
+
 sudo -u "$deploy_user" "$php_bin" "$backend_dir/artisan" storage:link --force
 
 # Laravel's cached configuration contains absolute paths. Promote the completed
