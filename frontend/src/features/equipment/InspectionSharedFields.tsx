@@ -7,6 +7,7 @@ import {
   type InspectionEquipmentSnapshot,
   type InspectionFormEquipment,
   type InspectionFormSample,
+  type InspectionFormStandard,
   type InspectionFormSystem,
 } from './inspectionShared'
 
@@ -164,6 +165,53 @@ export function SystemScannerBlock({
   )
 }
 
+export function StandardScannerBlock({
+  standard,
+  lookupFailed,
+  error,
+  onCode,
+}: {
+  standard: InspectionFormStandard | null
+  lookupFailed: boolean
+  error?: string
+  onCode: (code: string) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <QrScannerPanel title="标准件编号" placeholder="扫码/手输标准件编号" onDetected={onCode}>
+        {standard ? (
+          <div className="space-y-1">
+            <p className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-900">{standard.standard_no}</span>
+              {standard.standard_name ? ` · ${standard.standard_name}` : ''}
+              {standard.model ? ` · ${standard.model}` : ''}
+            </p>
+            {standard.source === 'retained' && standard.equipment_id === null ? (
+              <p className="text-xs text-amber-700" data-orphan-standard-notice>
+                该标准件已从设备台账删除，保存时保留历史快照；如需更换请重新扫码。
+              </p>
+            ) : null}
+            {standard.source === 'retained' && standard.equipment_id !== null ? (
+              <p className="text-xs text-slate-500" data-retained-standard-notice>
+                沿用记录中的标准件编号快照；重新扫码或手输才会替换为台账当前编号。
+              </p>
+            ) : null}
+            {standard.source === 'selected' ? (
+              <p className="text-xs text-emerald-700" data-selected-standard-notice>
+                本次录入，保存时按台账当前编号记录。
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">尚未录入标准件编号</p>
+        )}
+      </QrScannerPanel>
+      {lookupFailed ? <ErrorNotice error="未找到标准件" fallback="未找到标准件" /> : null}
+      <FieldError message={error} />
+    </div>
+  )
+}
+
 /**
  * Shows exactly what will be stored: devices resolved from the live ledger, and
  * retained snapshots whose ledger row has since been deleted. The latter are
@@ -212,7 +260,7 @@ export function SelectedEquipment({
           其中 {orphanCount} 台设备已从设备台账删除，保存时保留历史快照；移除后将无法恢复。
         </p>
       ) : null}
-      <div className="overflow-x-auto rounded-md border border-emerald-900/10" data-selected-equipment-details>
+      <div className="hidden overflow-x-auto rounded-md border border-emerald-900/10 md:block" data-selected-equipment-details>
         <table className="min-w-full divide-y divide-slate-200 text-xs">
           <thead className="bg-slate-50 text-left uppercase text-slate-500">
             <tr>
@@ -246,6 +294,48 @@ export function SelectedEquipment({
           </tbody>
         </table>
       </div>
+      <div className="space-y-2 md:hidden" data-selected-equipment-cards>
+        {devices.map((device) => (
+          <div
+            className={`rounded-md border p-3 text-xs ${
+              device.equipment_id === null ? 'border-amber-200 bg-amber-50/50' : 'border-slate-200 bg-white'
+            }`}
+            key={equipmentEntryKey(device)}
+          >
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2">
+              <div className="min-w-0">
+                <span className="font-semibold text-slate-900">{device.equipment_no}</span>
+                <span className="ml-2 text-slate-700">{device.equipment_name}</span>
+              </div>
+              <div className="shrink-0">
+                {device.equipment_id === null ? (
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-900">台账已删除 · 保留快照</span>
+                ) : (
+                  <span className="text-[11px] text-slate-500">{device.child_id === null ? '本次录入' : '设备台账'}</span>
+                )}
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-slate-600">
+              <div>
+                <span className="text-slate-400">厂家：</span>
+                {device.manufacturer ?? '-'}
+              </div>
+              <div>
+                <span className="text-slate-400">型号：</span>
+                {device.model ?? '-'}
+              </div>
+              <div>
+                <span className="text-slate-400">序列号：</span>
+                {device.serial_no ?? '-'}
+              </div>
+              <div>
+                <span className="text-slate-400">下次校准：</span>
+                {device.next_calibration_date ?? '-'}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -273,21 +363,25 @@ export function EquipmentLedgerTable({ rows, recordLabel }: { rows: InspectionEq
         </tr>
       </thead>
       <tbody className="divide-y divide-slate-200">
-        {rows.map((row) => (
-          <tr className="align-top" key={row.id}>
-            <td className="px-3 py-3 text-sm font-medium text-slate-900">{row.id}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.inspection_record_id}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.equipment_id ?? '已删除'}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.equipment_no}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.equipment_name}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.manufacturer ?? '-'}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.model ?? '-'}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.serial_no ?? '-'}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.next_calibration_date ?? '-'}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.recorded_at ?? '-'}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{row.operator_name ?? '-'}</td>
-          </tr>
-        ))}
+        {rows.map((row) => {
+          const parentRecordId = row.calibration_record_id ?? row.inspection_record_id ?? '-'
+
+          return (
+            <tr className="align-top" key={row.id}>
+              <td className="px-3 py-3 text-sm font-medium text-slate-900">{row.id}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{parentRecordId}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.equipment_id ?? '已删除'}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.equipment_no}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.equipment_name}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.manufacturer ?? '-'}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.model ?? '-'}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.serial_no ?? '-'}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.next_calibration_date ?? '-'}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.recorded_at ?? '-'}</td>
+              <td className="px-3 py-3 text-sm text-slate-700">{row.operator_name ?? '-'}</td>
+            </tr>
+          )
+        })}
       </tbody>
     </DataTable>
   )
@@ -308,25 +402,29 @@ export function EquipmentLedgerCards({
 }) {
   return (
     <div className="space-y-3 md:hidden" {...{ [marker]: true }}>
-      {rows.map((row) => (
-        <article className="rounded-lg border border-emerald-900/10 bg-white p-4 shadow-sm" key={row.id}>
-          <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-slate-950">{row.equipment_no}</h3>
-            <p className="mt-0.5 truncate text-xs text-slate-500">{row.equipment_name}</p>
-          </div>
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-            <CardEntry label="ID" value={row.id} />
-            <CardEntry label={recordLabel} value={row.inspection_record_id} />
-            <CardEntry label="设备台账ID" value={row.equipment_id ?? '已删除'} />
-            <CardEntry label="制造商" value={row.manufacturer ?? '-'} />
-            <CardEntry label="型号" value={row.model ?? '-'} />
-            <CardEntry label="序列号" value={row.serial_no ?? '-'} />
-            <CardEntry label="下次校准" value={row.next_calibration_date ?? '-'} />
-            <CardEntry label="日期" value={row.recorded_at ?? '-'} />
-            <CardEntry label="操作人" value={row.operator_name ?? '-'} />
-          </dl>
-        </article>
-      ))}
+      {rows.map((row) => {
+        const parentRecordId = row.calibration_record_id ?? row.inspection_record_id ?? '-'
+
+        return (
+          <article className="rounded-lg border border-emerald-900/10 bg-white p-4 shadow-sm" key={row.id}>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-semibold text-slate-950">{row.equipment_no}</h3>
+              <p className="mt-0.5 truncate text-xs text-slate-500">{row.equipment_name}</p>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <CardEntry label="ID" value={row.id} />
+              <CardEntry label={recordLabel} value={parentRecordId} />
+              <CardEntry label="设备台账ID" value={row.equipment_id ?? '已删除'} />
+              <CardEntry label="制造商" value={row.manufacturer ?? '-'} />
+              <CardEntry label="型号" value={row.model ?? '-'} />
+              <CardEntry label="序列号" value={row.serial_no ?? '-'} />
+              <CardEntry label="下次校准" value={row.next_calibration_date ?? '-'} />
+              <CardEntry label="日期" value={row.recorded_at ?? '-'} />
+              <CardEntry label="操作人" value={row.operator_name ?? '-'} />
+            </dl>
+          </article>
+        )
+      })}
     </div>
   )
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\EquipmentLabelController;
 use App\Http\Controllers\EquipmentLocationController;
 use App\Http\Controllers\EquipmentSystemController;
 use App\Http\Controllers\EquipmentUsageRecordController;
+use App\Http\Controllers\IntegratingSphereCalibrationRecordController;
 use App\Http\Controllers\IntegratingSphereInspectionRecordController;
 use App\Http\Controllers\Pdf\CertificateTemplateController;
 use App\Http\Controllers\Pdf\DigitalSignatureController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Pdf\PdfSigningController;
 use App\Http\Controllers\Pdf\PdfVerificationController;
 use App\Http\Controllers\Pdf\PdfVerificationLogController;
 use App\Http\Controllers\Pdf\PerforationStampController;
+use App\Http\Controllers\PhotometricCurveCalibrationRecordController;
 use App\Http\Controllers\PhotometricCurveInspectionRecordController;
 use App\Http\Controllers\PublicTestOrderSubmissionController;
 use App\Http\Controllers\PublicTestOrderSubmissionReviewController;
@@ -186,6 +188,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::apiResource('/integrating-sphere-inspection-records', IntegratingSphereInspectionRecordController::class)
             ->parameters(['integrating-sphere-inspection-records' => 'inspectionRecord'])
             ->only(['index', 'store', 'show', 'update', 'destroy']);
+
+        Route::get('/integrating-sphere-calibration-records/form-options', [IntegratingSphereCalibrationRecordController::class, 'formOptions']);
+        Route::get('/integrating-sphere-calibration-records/lookup', [IntegratingSphereCalibrationRecordController::class, 'lookup']);
+        Route::get('/integrating-sphere-calibration-records/equipment', [IntegratingSphereCalibrationRecordController::class, 'equipmentLedger']);
+        Route::get('/integrating-sphere-calibration-records/{record}/media/{media}/view', [IntegratingSphereCalibrationRecordController::class, 'viewMedia']);
+        Route::get('/integrating-sphere-calibration-records/{record}/media/{media}/download', [IntegratingSphereCalibrationRecordController::class, 'downloadMedia']);
+        Route::apiResource('/integrating-sphere-calibration-records', IntegratingSphereCalibrationRecordController::class)
+            ->parameters(['integrating-sphere-calibration-records' => 'record'])
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
         // Same ordering rule as above: the literal segments and the media endpoints are
         // declared before the resource routes so implicit model binding never tries to
         // resolve "lookup" or "equipment" as a record id.
@@ -195,6 +206,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/photometric-curve-inspection-records/{inspectionRecord}/media/{media}/download', [PhotometricCurveInspectionRecordController::class, 'downloadMedia']);
         Route::apiResource('/photometric-curve-inspection-records', PhotometricCurveInspectionRecordController::class)
             ->parameters(['photometric-curve-inspection-records' => 'inspectionRecord'])
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
+        // Same ordering rule as above: the literal segments and the media endpoints are
+        // declared before the resource routes so implicit model binding never tries to
+        // resolve "lookup" or "equipment" as a record id.
+        Route::get('/photometric-curve-calibration-records/lookup', [PhotometricCurveCalibrationRecordController::class, 'lookup']);
+        Route::get('/photometric-curve-calibration-records/equipment', [PhotometricCurveCalibrationRecordController::class, 'equipmentLedger']);
+        Route::get('/photometric-curve-calibration-records/{record}/media/{media}/view', [PhotometricCurveCalibrationRecordController::class, 'viewMedia']);
+        Route::get('/photometric-curve-calibration-records/{record}/media/{media}/download', [PhotometricCurveCalibrationRecordController::class, 'downloadMedia']);
+        Route::apiResource('/photometric-curve-calibration-records', PhotometricCurveCalibrationRecordController::class)
+            ->parameters(['photometric-curve-calibration-records' => 'record'])
             ->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
         Route::apiResource('/equipment', EquipmentController::class);

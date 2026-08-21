@@ -194,16 +194,16 @@ describe('integrating sphere inspection list rendering', () => {
 })
 
 describe('integrating sphere inspection form', () => {
-  it('puts equipment entry first, then the sample and the system, all on the shared QR scanner', () => {
+  it('puts equipment entry first, then the system and the sample, all on the shared QR scanner', () => {
     const html = renderToStaticMarkup(
       <InspectionRecordFormFields form={emptyIntegratingSphereInspectionForm('2026-08-20T12:27')} {...formProps} />,
     )
 
     expect(html.indexOf('使用设备（先录入）')).toBeGreaterThan(-1)
-    expect(html.indexOf('使用设备（先录入）')).toBeLessThan(html.indexOf('样品编号'))
-    // The system scanner is an independent input that follows the sample scanner.
-    expect(html.indexOf('样品编号')).toBeLessThan(html.indexOf('系统编码'))
-    expect(html.indexOf('系统编码')).toBeLessThan(html.indexOf('测量值'))
+    expect(html.indexOf('使用设备（先录入）')).toBeLessThan(html.indexOf('系统编码'))
+    // The system identifies the test setup before the operator selects its sample.
+    expect(html.indexOf('系统编码')).toBeLessThan(html.indexOf('样品编号'))
+    expect(html.indexOf('样品编号')).toBeLessThan(html.indexOf('测量值'))
     expect(html.match(/data-scanner-selection/g)).toHaveLength(3)
     expect(html).toContain('扫码/手输系统编码')
     expect(html).toContain('打开扫码')
@@ -275,6 +275,8 @@ describe('integrating sphere inspection form', () => {
     )
 
     expect(html).toContain('data-selected-equipment-details')
+    expect(html).toContain('data-selected-equipment-cards')
+    expect(html).toContain('md:hidden')
     expect(html).toContain('杭州远方')
     expect(html).toContain('HAAS-2000')
     expect(html).toContain('SN-XPD-001')
@@ -486,7 +488,7 @@ describe('integrating sphere page views', () => {
     expect(pageSource).toContain("{view === 'records' ? (")
     expect(pageSource).toContain("useState<IntegratingSphereView>('records')")
     // One route, one nav entry: the ledger must not add either.
-    expect(routesSource.match(/path: '[^']*integrating-sphere[^']*'/g) ?? []).toEqual([
+    expect(routesSource.match(/path: '[^']*integrating-sphere-inspections[^']*'/g) ?? []).toEqual([
       "path: '/equipment/integrating-sphere-inspections'",
     ])
     expect(routesSource.match(/component: IntegratingSphereInspectionPage/g) ?? []).toHaveLength(1)
@@ -557,7 +559,7 @@ describe('integrating sphere page views', () => {
   })
 
   it('still exposes a single navigation entry for both views', () => {
-    const entries = navGroups.flatMap((group) => group.items).filter((item) => item.to.includes('integrating-sphere'))
+    const entries = navGroups.flatMap((group) => group.items).filter((item) => item.to.includes('integrating-sphere-inspections'))
 
     expect(entries).toHaveLength(1)
     expect(entries[0].label).toBe('积分球点检记录')

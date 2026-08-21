@@ -24,16 +24,17 @@ class InspectionEquipmentLedger
      * @param  Builder<covariant Model>  $query
      * @return Builder<covariant Model>
      */
-    public function applyFilters(Builder $query, Request $request, string $table, string $parentTable): Builder
+    public function applyFilters(Builder $query, Request $request, string $table, string $parentTable, string $foreignKey = 'inspection_record_id'): Builder
     {
         $this->assertIdentifier($table);
         $this->assertIdentifier($parentTable);
+        $this->assertIdentifier($foreignKey);
 
         return $query
-            ->join($parentTable.' as parent', 'parent.id', '=', $table.'.inspection_record_id')
-            ->when($request->filled('search'), function (Builder $builder) use ($request, $table): void {
+            ->join($parentTable.' as parent', 'parent.id', '=', $table.'.'.$foreignKey)
+            ->when($request->filled('search'), function (Builder $builder) use ($request, $table, $foreignKey): void {
                 $search = $request->string('search')->toString();
-                $builder->where(function (Builder $inner) use ($search, $table): void {
+                $builder->where(function (Builder $inner) use ($search, $table, $foreignKey): void {
                     $inner
                         ->where($table.'.equipment_no', 'like', "%{$search}%")
                         ->orWhere($table.'.equipment_name', 'like', "%{$search}%")
@@ -47,14 +48,18 @@ class InspectionEquipmentLedger
                     if (ctype_digit($search)) {
                         $inner
                             ->orWhere($table.'.id', (int) $search)
-                            ->orWhere($table.'.inspection_record_id', (int) $search)
+                            ->orWhere($table.'.'.$foreignKey, (int) $search)
                             ->orWhere($table.'.equipment_id', (int) $search);
                     }
                 });
             })
+            // The parent filter is read under the workflow's own foreign key and no
+            // other. Accepting a sibling workflow's parameter would let an inspection
+            // record id silently filter a calibration ledger, which is never what the
+            // caller meant.
             ->when(
-                $request->filled('inspection_record_id'),
-                fn (Builder $builder): Builder => $builder->where($table.'.inspection_record_id', $request->integer('inspection_record_id')),
+                $request->filled($foreignKey),
+                fn (Builder $builder): Builder => $builder->where($table.'.'.$foreignKey, $request->integer($foreignKey)),
             )
             ->when(
                 $request->filled('equipment_id'),
@@ -74,14 +79,15 @@ class InspectionEquipmentLedger
      * @param  Builder<covariant Model>  $query
      * @return Builder<covariant Model>
      */
-    public function applyOrdering(Builder $query, string $table): Builder
+    public function applyOrdering(Builder $query, string $table, string $foreignKey = 'inspection_record_id'): Builder
     {
         $this->assertIdentifier($table);
+        $this->assertIdentifier($foreignKey);
 
         return $query
             ->select($table.'.*')
             ->orderByDesc('parent.recorded_at')
-            ->orderByDesc($table.'.inspection_record_id')
+            ->orderByDesc($table.'.'.$foreignKey)
             ->orderBy($table.'.id');
     }
 
@@ -91,9 +97,11 @@ class InspectionEquipmentLedger
      */
     public function serializeRow(Model $row, array $extra = []): array
     {
+        $recordIdKey = isset($row->calibration_record_id) ? 'calibration_record_id' : 'inspection_record_id';
+
         return [
             'id' => $row->id,
-            'inspection_record_id' => $row->inspection_record_id,
+            $recordIdKey => $row->{$recordIdKey},
             'equipment_id' => $row->equipment_id,
             'equipment_no' => $row->equipment_no,
             'equipment_name' => $row->equipment_name,

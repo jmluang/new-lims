@@ -567,4 +567,24 @@ describe('global used-equipment ledger params', () => {
       buildIntegratingSphereEquipmentListParams({ ...emptyIntegratingSphereEquipmentFilters, search: '   ' }, 1, 15),
     ).toEqual({ page: 1, per_page: 15 })
   })
+
+  it('keys the ledger parent filter on inspection_record_id, never the calibration key', () => {
+    expect(emptyIntegratingSphereEquipmentFilters).toEqual({
+      search: '',
+      inspection_record_id: '',
+      equipment_id: '',
+      date_from: '',
+      date_to: '',
+    })
+    expect(emptyIntegratingSphereEquipmentFilters).not.toHaveProperty('calibration_record_id')
+
+    const params = buildIntegratingSphereEquipmentListParams(
+      { ...emptyIntegratingSphereEquipmentFilters, inspection_record_id: '4' },
+      1,
+      15,
+    )
+
+    expect(params).toEqual({ inspection_record_id: '4', page: 1, per_page: 15 })
+    expect(params).not.toHaveProperty('calibration_record_id')
+  })
 })

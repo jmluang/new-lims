@@ -5,7 +5,9 @@ import {
   emptyInspectionEquipmentFilters,
   formEquipmentFromSnapshots,
   inspectionFieldErrors,
+  inspectionMediaLimits,
   normalizeMeasurementInput,
+  validateInspectionMediaLimits,
   type InspectionEquipmentFilters,
   type InspectionEquipmentLedgerRow,
   type InspectionEquipmentOption,
@@ -14,9 +16,11 @@ import {
   type InspectionFormIssue,
   type InspectionFormSample,
   type InspectionFormSystem,
+  type InspectionMedia,
   type InspectionSampleOption,
   type InspectionSystemOption,
 } from './inspectionShared'
+import { type PhotometricCurveProbe } from './photometricCurveProbes'
 
 export {
   addEquipmentSnapshot,
@@ -39,6 +43,7 @@ export type PhotometricCurveEquipmentFilters = InspectionEquipmentFilters
 
 export const emptyPhotometricCurveEquipmentFilters = emptyInspectionEquipmentFilters
 export const buildPhotometricCurveEquipmentListParams = buildInspectionEquipmentListParams
+export const photometricCurveMediaLimits = inspectionMediaLimits
 
 /**
  * The four measured angles. They are kept apart from the rest of the grid because
@@ -77,27 +82,9 @@ export type PhotometricCurveMeasurement = (typeof photometricCurveMeasurementFie
 export type PhotometricCurveMeasurementField = PhotometricCurveMeasurement['name']
 export type PhotometricCurveAngleField = (typeof photometricCurveAngleFields)[number]['name']
 
-export const photometricCurveProbes = [
-  { value: 'near_field', label: '近场' },
-  { value: 'far_field', label: '远场' },
-] as const
+export { photometricCurveProbes, probeLabel, type PhotometricCurveProbe } from './photometricCurveProbes'
 
-export type PhotometricCurveProbe = (typeof photometricCurveProbes)[number]['value']
-
-export function probeLabel(probe: string | null | undefined) {
-  return photometricCurveProbes.find((option) => option.value === probe)?.label ?? '-'
-}
-
-/** One stored photo or document, as the API describes it. No path and no URL. */
-export type PhotometricCurveMedia = {
-  id: number
-  collection: 'photos' | 'files'
-  file_name: string
-  mime_type: string | null
-  size: number
-  sha256: string | null
-  created_at?: string | null
-}
+export type PhotometricCurveMedia = InspectionMedia
 
 export type PhotometricCurveInspectionRecord = {
   id: number
@@ -159,15 +146,7 @@ export const emptyPhotometricCurveInspectionFilters: PhotometricCurveInspectionF
 /** The two page-level views sharing one route and one navigation entry. */
 export type PhotometricCurveView = 'records' | 'equipment'
 
-/** Per-collection limits, mirrored from the API so the editor refuses the same files. */
-export const photometricCurveMediaLimits = {
-  photos: { maxItems: 10, maxBytes: 10 * 1024 * 1024, accept: 'image/jpeg,image/png,image/webp' },
-  files: {
-    maxItems: 10,
-    maxBytes: 20 * 1024 * 1024,
-    accept: '.pdf,.xls,.xlsx,.csv,.doc,.docx,.zip',
-  },
-} as const
+
 
 /**
  * The recorded time is deliberately absent from the form. It is a server-owned audit
@@ -316,20 +295,9 @@ export function mediaSelectionError(
   form: PhotometricCurveInspectionForm,
   collection: 'photos' | 'files',
 ): string | null {
-  const limits = photometricCurveMediaLimits[collection]
-  const picked = collection === 'photos' ? form.new_photos : form.new_files
-  const retained = form.retained_media.filter((media) => media.collection === collection).length
-  const oversized = picked.find((file) => file.size > limits.maxBytes)
+  const errors = validateInspectionMediaLimits(form)
 
-  if (oversized) {
-    return `${oversized.name} 超过 ${limits.maxBytes / 1024 / 1024} MB 上限`
-  }
-
-  if (retained + picked.length > limits.maxItems) {
-    return `最多保留 ${limits.maxItems} 个附件`
-  }
-
-  return null
+  return errors[collection] ?? null
 }
 
 /**

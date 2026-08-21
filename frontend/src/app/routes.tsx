@@ -9,7 +9,9 @@ import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocati
 import { EquipmentSystemPage } from '../features/equipment/EquipmentSystemPage'
 import { EquipmentUsageRecordPage } from '../features/equipment/EquipmentUsageRecordPage'
 import { IntegratingSphereInspectionPage } from '../features/equipment/IntegratingSphereInspectionPage'
+import { IntegratingSphereCalibrationPage } from '../features/equipment/IntegratingSphereCalibrationPage'
 import { PhotometricCurveInspectionPage } from '../features/equipment/PhotometricCurveInspectionPage'
+import { PhotometricCurveCalibrationPage } from '../features/equipment/PhotometricCurveCalibrationPage'
 import { CalibrationProjectPage } from '../features/equipment/CalibrationProjectPage'
 import { EquipmentCalibrationListPage } from '../features/equipment/EquipmentCalibrationListPage'
 import { EquipmentCalibrationFormPage } from '../features/equipment/EquipmentCalibrationFormPage'
@@ -317,6 +319,20 @@ const integratingSphereInspectionsRoute = createRoute({
   component: IntegratingSphereInspectionPage,
 })
 
+const integratingSphereCalibrationsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/integrating-sphere-calibrations',
+  beforeLoad: () => requireRoutePermission('integrating_sphere_calibration_records'),
+  component: IntegratingSphereCalibrationPage,
+})
+
+const photometricCurveCalibrationsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/photometric-curve-calibrations',
+  beforeLoad: () => requireRoutePermission('photometric_curve_calibration_records'),
+  component: PhotometricCurveCalibrationPage,
+})
+
 const photometricCurveInspectionsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment/photometric-curve-inspections',
@@ -493,7 +509,9 @@ export const routeTree = rootRoute.addChildren([
     equipmentLabelsRoute,
     equipmentUsageRecordsRoute,
     integratingSphereInspectionsRoute,
+    integratingSphereCalibrationsRoute,
     photometricCurveInspectionsRoute,
+    photometricCurveCalibrationsRoute,
     equipmentCalibrationsRoute,
     equipmentCalibrationCreateRoute,
     equipmentCalibrationDetailRoute,

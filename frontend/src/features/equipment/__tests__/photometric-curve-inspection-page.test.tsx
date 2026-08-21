@@ -26,7 +26,9 @@ import {
   type PhotometricCurveInspectionRecord,
 } from '../photometricCurveInspectionSchema'
 
-const pageSource = readFileSync(fileURLToPath(new URL('../PhotometricCurveInspectionPage.tsx', import.meta.url)), 'utf8')
+const pageSource =
+  readFileSync(fileURLToPath(new URL('../PhotometricCurveInspectionPage.tsx', import.meta.url)), 'utf8') +
+  readFileSync(fileURLToPath(new URL('../InspectionMediaComponents.tsx', import.meta.url)), 'utf8')
 const routesSource = readFileSync(fileURLToPath(new URL('../../../app/routes.tsx', import.meta.url)), 'utf8')
 const queriesSource = readFileSync(fileURLToPath(new URL('../photometricCurveQueries.ts', import.meta.url)), 'utf8')
 
@@ -272,7 +274,7 @@ describe('photometric curve record detail', () => {
   })
 
   it('loads photo bytes through the authenticated endpoint and revokes the object URL', () => {
-    expect(pageSource).toContain("`${BASE}/${recordId}/media/${media.id}/view`, { responseType: 'blob' }")
+    expect(pageSource).toContain("`${baseUrl}/${recordId}/media/${media.id}/view`, { responseType: 'blob' }")
     expect(pageSource).toContain('URL.createObjectURL')
     expect(pageSource).toContain('URL.revokeObjectURL')
     expect(pageSource).toContain('link.download = media.file_name')
@@ -280,14 +282,14 @@ describe('photometric curve record detail', () => {
 })
 
 describe('photometric curve editor', () => {
-  it('puts equipment entry first, then the sample and the system, all on the shared QR scanner', () => {
+  it('puts equipment entry first, then the system and the sample, all on the shared QR scanner', () => {
     const html = renderToStaticMarkup(
       <InspectionRecordFormFields form={emptyPhotometricCurveInspectionForm()} {...formProps} />,
     )
 
-    expect(html.indexOf('使用设备（先录入）')).toBeLessThan(html.indexOf('样品编号'))
-    expect(html.indexOf('样品编号')).toBeLessThan(html.indexOf('系统编码'))
-    expect(html.indexOf('系统编码')).toBeLessThan(html.indexOf('测量值'))
+    expect(html.indexOf('使用设备（先录入）')).toBeLessThan(html.indexOf('系统编码'))
+    expect(html.indexOf('系统编码')).toBeLessThan(html.indexOf('样品编号'))
+    expect(html.indexOf('样品编号')).toBeLessThan(html.indexOf('测量值'))
     expect(html.match(/data-scanner-selection/g)).toHaveLength(3)
     expect(html).toContain('扫码/手输设备编号')
     expect(html).toContain('扫码/手输样品编号')
@@ -295,6 +297,38 @@ describe('photometric curve editor', () => {
     expect(html).toContain('尚未录入设备')
     expect(html).toContain('尚未录入样品')
     expect(html).toContain('尚未录入系统编码')
+  })
+
+  it('renders responsive mobile equipment cards alongside desktop detail table in photometric curve form', () => {
+    const form = {
+      ...emptyPhotometricCurveInspectionForm(),
+      equipment: [
+        {
+          child_id: 1,
+          equipment_id: 10,
+          equipment_no: 'EQ-001',
+          equipment_name: '分布式光度计',
+          manufacturer: '远方',
+          model: 'GO-2000',
+          serial_no: 'SN-GO1',
+          next_calibration_date: '2027-05-01',
+        },
+      ],
+    }
+
+    const html = renderToStaticMarkup(<InspectionRecordFormFields form={form} {...formProps} />)
+
+    expect(html).toContain('data-selected-equipment-details')
+    expect(html).toContain('hidden overflow-x-auto')
+    expect(html).toContain('md:block')
+
+    expect(html).toContain('data-selected-equipment-cards')
+    expect(html).toContain('md:hidden')
+    expect(html).toContain('EQ-001')
+    expect(html).toContain('分布式光度计')
+    expect(html).toContain('GO-2000')
+    expect(html).toContain('SN-GO1')
+    expect(html).toContain('2027-05-01')
   })
 
   it('shows the average angle as a read-only field derived from the four angles', () => {
@@ -499,7 +533,7 @@ describe('photometric curve page wiring', () => {
     expect(pageSource).toContain('点检记录总表')
     expect(pageSource).toContain('使用设备总表')
     expect(pageSource).toContain("useState<PhotometricCurveView>('records')")
-    expect(routesSource.match(/path: '[^']*photometric-curve[^']*'/g) ?? []).toEqual([
+    expect(routesSource.match(/path: '[^']*photometric-curve-inspections[^']*'/g) ?? []).toEqual([
       "path: '/equipment/photometric-curve-inspections'",
     ])
     expect(routesSource.match(/component: PhotometricCurveInspectionPage/g) ?? []).toHaveLength(1)
@@ -519,6 +553,14 @@ describe('photometric curve page wiring', () => {
     expect(pageSource).toContain('buildPhotometricCurveInspectionListParams(filters, page, perPage)')
     expect(pageSource).toContain('setFilters(emptyPhotometricCurveInspectionFilters)')
     expect((pageSource.match(/setPage\(1\)/g) ?? []).length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('announces equipment, system, and sample in that exact order in the page description', () => {
+    const description = /<PageShell[\s\S]*?description="([^"]*)"/.exec(pageSource)?.[1] ?? ''
+
+    expect(description).toContain('设备编号、系统编码与样品编号')
+    expect(description.indexOf('设备编号')).toBeLessThan(description.indexOf('系统编码'))
+    expect(description.indexOf('系统编码')).toBeLessThan(description.indexOf('样品编号'))
   })
 
   it('posts multipart for both create and edit, spoofing the method on the edit', () => {
@@ -563,7 +605,7 @@ describe('photometric curve page wiring', () => {
 
 describe('photometric curve navigation and route permission', () => {
   it('adds exactly one equipment navigation entry guarded by the read permission', () => {
-    const items = navGroups.flatMap((group) => group.items).filter((item) => item.to.includes('photometric-curve'))
+    const items = navGroups.flatMap((group) => group.items).filter((item) => item.to.includes('photometric-curve-inspections'))
 
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({
@@ -585,7 +627,7 @@ describe('photometric curve navigation and route permission', () => {
   })
 
   it('keeps the integrating sphere workflow on its own route and navigation entry', () => {
-    const spheres = navGroups.flatMap((group) => group.items).filter((item) => item.to.includes('integrating-sphere'))
+    const spheres = navGroups.flatMap((group) => group.items).filter((item) => item.to.includes('integrating-sphere-inspections'))
 
     expect(spheres).toHaveLength(1)
     expect(spheres[0].resource).toBe('integrating_sphere_inspection_records')

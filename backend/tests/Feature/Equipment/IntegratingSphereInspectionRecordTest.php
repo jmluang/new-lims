@@ -510,6 +510,12 @@ class IntegratingSphereInspectionRecordTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.equipment_no', 'XPD-S-001');
+
+        // The calibration workflows' parent key is not this ledger's contract, so it
+        // is ignored here exactly as this ledger's key is ignored over there.
+        $this->getJsonAs($operator, $ledger.'?calibration_record_id='.$older->id)
+            ->assertOk()
+            ->assertJsonCount(3, 'data');
     }
 
     public function test_global_equipment_ledger_search_matches_the_association_row_id(): void

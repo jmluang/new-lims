@@ -202,7 +202,7 @@ export function IntegratingSphereInspectionPage() {
   return (
     <PageShell
       title="积分球点检记录"
-      description="扫码或手输设备编号、样品编号与系统编码（三者独立录入），再记录积分球点检测量值并保留使用设备的历史快照。"
+      description="扫码或手输设备编号、系统编码与样品编号（三者独立录入），再记录积分球点检测量值并保留使用设备的历史快照。"
       actions={
         <PermissionGate resource={RESOURCE} action="create">
           <Button variant="primary" onClick={openCreate}>
@@ -627,18 +627,18 @@ export function InspectionRecordFormFields({
         onRemove={onRemoveEquipment}
       />
 
-      <SampleScannerBlock
-        sample={form.sample}
-        lookupFailed={sampleLookupFailed}
-        error={fieldErrors.sample}
-        onCode={onSampleCode}
-      />
-
       <SystemScannerBlock
         system={form.system}
         lookupFailed={systemLookupFailed}
         error={fieldErrors.system}
         onCode={onSystemCode}
+      />
+
+      <SampleScannerBlock
+        sample={form.sample}
+        lookupFailed={sampleLookupFailed}
+        error={fieldErrors.sample}
+        onCode={onSampleCode}
       />
 
       <Panel title="测量值">

@@ -61,6 +61,66 @@ export type InspectionFormEquipment = {
   next_calibration_date?: string | null
 }
 
+export type InspectionMedia = {
+  id: number
+  collection: 'photos' | 'files'
+  file_name: string
+  mime_type: string | null
+  size: number
+  sha256?: string | null
+  created_at?: string | null
+}
+
+export type InspectionMediaLimits = {
+  maxItems: number
+  maxKilobytes: number
+  maxBytes: number
+  accept: string
+}
+
+export const inspectionMediaLimits: Record<'photos' | 'files', InspectionMediaLimits> = {
+  photos: {
+    maxItems: 10,
+    maxKilobytes: 10240,
+    maxBytes: 10 * 1024 * 1024,
+    accept: 'image/jpeg,image/png,image/webp',
+  },
+  files: {
+    maxItems: 10,
+    maxKilobytes: 20480,
+    maxBytes: 20 * 1024 * 1024,
+    accept: '.pdf,.xls,.xlsx,.csv,.doc,.docx,.zip',
+  },
+}
+
+export type MediaFormState = {
+  retained_media: InspectionMedia[]
+  new_photos: File[]
+  new_files: File[]
+}
+
+export function validateInspectionMediaLimits(form: MediaFormState): Record<string, string> {
+  const errors: Record<string, string> = {}
+
+  for (const collection of ['photos', 'files'] as const) {
+    const limits = inspectionMediaLimits[collection]
+    const picked = collection === 'photos' ? form.new_photos : form.new_files
+    const retainedCount = form.retained_media.filter((m) => m.collection === collection).length
+
+    const oversized = picked.find((file) => file.size > limits.maxBytes)
+    if (oversized) {
+      errors[collection] = `${oversized.name} 超过 ${limits.maxBytes / (1024 * 1024)} MB 上限`
+      continue
+    }
+
+    if (retainedCount + picked.length > limits.maxItems) {
+      errors[collection] = `最多保留 ${limits.maxItems} 个附件`
+    }
+  }
+
+  return errors
+}
+
 /**
  * The sample of an editor, with the same retained/new distinction the device rows
  * carry through `child_id`.
@@ -95,24 +155,54 @@ export type InspectionFormSystem = {
   name?: string | null
 }
 
+export type InspectionFormStandard = {
+  source: 'retained' | 'selected'
+  equipment_id: number | null
+  standard_no: string
+  standard_name: string
+  manufacturer?: string | null
+  model?: string | null
+  serial_no?: string | null
+  next_calibration_date?: string | null
+}
+
 /**
  * One row of a global used-equipment ledger: an existing equipment snapshot
  * flattened with the date and operator of the record it belongs to. Nothing here is
  * stored separately — the API joins the child snapshot to its parent.
  */
 export type InspectionEquipmentLedgerRow = InspectionEquipmentSnapshot & {
-  inspection_record_id: number
+  inspection_record_id?: number
+  calibration_record_id?: number
   recorded_at: string | null
   operator_name?: string | null
 }
 
-export type InspectionEquipmentFilters = {
+/**
+ * The name of the column a used-equipment snapshot points at its parent with.
+ *
+ * The two record families file their children under different foreign keys, and the
+ * ledger endpoints filter on the key their own table actually carries — so the name
+ * is part of the contract, not an interchangeable alias. Sending an inspection's key
+ * to a calibration ledger is a bug, and the type makes it one.
+ */
+export type InspectionParentKey = 'inspection_record_id'
+export type CalibrationParentKey = 'calibration_record_id'
+export type EquipmentLedgerParentKey = InspectionParentKey | CalibrationParentKey
+
+/**
+ * The filters every used-equipment ledger shares, plus the parent-id field named
+ * after the workflow's own foreign key.
+ */
+export type EquipmentLedgerFilters<ParentKey extends EquipmentLedgerParentKey> = {
   search: string
-  inspection_record_id: string
   equipment_id: string
   date_from: string
   date_to: string
-}
+} & { [K in ParentKey]: string }
+
+export type InspectionEquipmentFilters = EquipmentLedgerFilters<InspectionParentKey>
+export type CalibrationEquipmentFilters = EquipmentLedgerFilters<CalibrationParentKey>
 
 export const emptyInspectionEquipmentFilters: InspectionEquipmentFilters = {
   search: '',
@@ -122,8 +212,22 @@ export const emptyInspectionEquipmentFilters: InspectionEquipmentFilters = {
   date_to: '',
 }
 
-export function buildInspectionEquipmentListParams(
-  filters: InspectionEquipmentFilters,
+export const emptyCalibrationEquipmentFilters: CalibrationEquipmentFilters = {
+  search: '',
+  calibration_record_id: '',
+  equipment_id: '',
+  date_from: '',
+  date_to: '',
+}
+
+/**
+ * Serializes ledger filters into query parameters, dropping blanks.
+ *
+ * The parent-id parameter is emitted under whichever key the filters carry, so each
+ * workflow asks the API about its own foreign key and never another one's.
+ */
+export function buildEquipmentLedgerListParams<ParentKey extends EquipmentLedgerParentKey>(
+  filters: EquipmentLedgerFilters<ParentKey>,
   page: number,
   perPage: number,
 ) {
@@ -131,6 +235,9 @@ export function buildInspectionEquipmentListParams(
 
   return { ...Object.fromEntries(entries.map(([key, value]) => [key, value.trim()])), page, per_page: perPage }
 }
+
+export const buildInspectionEquipmentListParams = buildEquipmentLedgerListParams<InspectionParentKey>
+export const buildCalibrationEquipmentListParams = buildEquipmentLedgerListParams<CalibrationParentKey>
 
 export type InspectionFormIssue = { path: PropertyKey[]; message: string }
 
@@ -142,6 +249,20 @@ export function selectedSample(sample: InspectionSampleOption): InspectionFormSa
 /** Wraps a lookup result as the operator's explicit replacement for the system. */
 export function selectedSystem(system: InspectionSystemOption): InspectionFormSystem {
   return { source: 'selected', id: system.id, code: system.code, name: system.name }
+}
+
+/** Wraps a lookup result as the operator's explicit replacement for the standard device. */
+export function selectedStandard(standard: InspectionEquipmentOption): InspectionFormStandard {
+  return {
+    source: 'selected',
+    equipment_id: standard.id,
+    standard_no: standard.equipment_no,
+    standard_name: standard.equipment_name,
+    manufacturer: standard.manufacturer,
+    model: standard.model,
+    serial_no: standard.serial_no,
+    next_calibration_date: standard.next_calibration_date,
+  }
 }
 
 /** Stable identity for a device row, whether it is a stored snapshot or a new scan. */

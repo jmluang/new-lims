@@ -15,87 +15,87 @@ import {
   EquipmentScannerBlock,
   EquipmentSnapshotTable,
   FieldError,
-  SampleScannerBlock,
+  StandardScannerBlock,
   SystemScannerBlock,
 } from './InspectionSharedFields'
+import { addEquipmentSnapshot, removeEquipmentSnapshot, selectedStandard, selectedSystem } from './inspectionShared'
 import {
-  photometricCurveEquipmentQueryKey,
-  photometricCurveMutationHandlers,
-  photometricCurveRecordsQueryKey,
-} from './photometricCurveQueries'
+  photometricCurveCalibrationEquipmentQueryKey,
+  photometricCurveCalibrationMutationHandlers,
+  photometricCurveCalibrationRecordsQueryKey,
+} from './photometricCurveCalibrationQueries'
 import {
-  addEquipmentSnapshot,
-  buildPhotometricCurveEquipmentListParams,
-  buildPhotometricCurveInspectionListParams,
-  buildPhotometricCurveInspectionPayload,
-  deriveAverageAngle,
-  emptyPhotometricCurveEquipmentFilters,
-  emptyPhotometricCurveInspectionFilters,
-  emptyPhotometricCurveInspectionForm,
-  inspectionFormFromRecord,
-  normalizeMeasurementInput,
-  photometricCurveFieldErrors,
-  photometricCurveMeasurementFields,
+  buildPhotometricCurveCalibrationEquipmentListParams,
+  buildPhotometricCurveCalibrationListParams,
+  buildPhotometricCurveCalibrationPayload,
+  calibrationFormFromRecord,
+  emptyPhotometricCurveCalibrationEquipmentFilters,
+  emptyPhotometricCurveCalibrationFilters,
+  emptyPhotometricCurveCalibrationForm,
+  photometricCurveCalibrationFieldErrors,
+  photometricCurveCalibrationMeasurementFields,
   photometricCurveProbes,
   probeLabel,
-  removeEquipmentSnapshot,
-  selectedSample,
-  selectedSystem,
-  type PhotometricCurveEquipmentFilters,
-  type PhotometricCurveEquipmentLedgerRow,
-  type PhotometricCurveEquipmentOption,
-  type PhotometricCurveInspectionFilters,
-  type PhotometricCurveInspectionForm,
-  type PhotometricCurveInspectionRecord,
+  type PhotometricCurveCalibrationEquipmentFilters,
+  type PhotometricCurveCalibrationEquipmentLedgerRow,
+  type PhotometricCurveCalibrationEquipmentOption,
+  type PhotometricCurveCalibrationFilters,
+  type PhotometricCurveCalibrationForm,
+  type PhotometricCurveCalibrationRecord,
+  type PhotometricCurveCalibrationSystemOption,
+  type PhotometricCurveCalibrationView,
   type PhotometricCurveProbe,
-  type PhotometricCurveSampleOption,
-  type PhotometricCurveSystemOption,
-  type PhotometricCurveView,
-} from './photometricCurveInspectionSchema'
+} from './photometricCurveCalibrationSchema'
 
-const RESOURCE = 'photometric_curve_inspection_records'
-const BASE = '/api/photometric-curve-inspection-records'
+const RESOURCE = 'photometric_curve_calibration_records'
+const BASE = '/api/photometric-curve-calibration-records'
 
-export function PhotometricCurveInspectionPage() {
+export function PhotometricCurveCalibrationPage() {
   const queryClient = useQueryClient()
   const permissions = useEffectivePermissions()
-  const [view, setView] = useState<PhotometricCurveView>('records')
-  const [filters, setFilters] = useState<PhotometricCurveInspectionFilters>(emptyPhotometricCurveInspectionFilters)
-  const [equipmentFilters, setEquipmentFilters] = useState<PhotometricCurveEquipmentFilters>(emptyPhotometricCurveEquipmentFilters)
+  const [view, setView] = useState<PhotometricCurveCalibrationView>('records')
+  const [filters, setFilters] = useState<PhotometricCurveCalibrationFilters>(emptyPhotometricCurveCalibrationFilters)
+  const [equipmentFilters, setEquipmentFilters] = useState<PhotometricCurveCalibrationEquipmentFilters>(
+    emptyPhotometricCurveCalibrationEquipmentFilters,
+  )
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(15)
   const [equipmentPage, setEquipmentPage] = useState(1)
   const [equipmentPerPage, setEquipmentPerPage] = useState(15)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [form, setForm] = useState<PhotometricCurveInspectionForm>(() => emptyPhotometricCurveInspectionForm())
+  const [form, setForm] = useState<PhotometricCurveCalibrationForm>(() => emptyPhotometricCurveCalibrationForm())
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [detail, setDetail] = useState<PhotometricCurveInspectionRecord | null>(null)
+  const [detail, setDetail] = useState<PhotometricCurveCalibrationRecord | null>(null)
+
   const canDelete = Boolean(permissions.data?.resources[RESOURCE]?.actions.delete)
+
   const recordsQuery = useQuery({
-    queryKey: [...photometricCurveRecordsQueryKey, filters, page, perPage],
+    queryKey: [...photometricCurveCalibrationRecordsQueryKey, filters, page, perPage],
     queryFn: async () => {
-      const response = await api.get<ApiCollection<PhotometricCurveInspectionRecord>>(BASE, {
-        params: buildPhotometricCurveInspectionListParams(filters, page, perPage),
+      const response = await api.get<ApiCollection<PhotometricCurveCalibrationRecord>>(BASE, {
+        params: buildPhotometricCurveCalibrationListParams(filters, page, perPage),
       })
 
       return response.data
     },
   })
+
   const equipmentLedgerQuery = useQuery({
-    queryKey: [...photometricCurveEquipmentQueryKey, equipmentFilters, equipmentPage, equipmentPerPage],
+    queryKey: [...photometricCurveCalibrationEquipmentQueryKey, equipmentFilters, equipmentPage, equipmentPerPage],
     enabled: view === 'equipment',
     queryFn: async () => {
-      const response = await api.get<ApiCollection<PhotometricCurveEquipmentLedgerRow>>(`${BASE}/equipment`, {
-        params: buildPhotometricCurveEquipmentListParams(equipmentFilters, equipmentPage, equipmentPerPage),
+      const response = await api.get<ApiCollection<PhotometricCurveCalibrationEquipmentLedgerRow>>(`${BASE}/equipment`, {
+        params: buildPhotometricCurveCalibrationEquipmentListParams(equipmentFilters, equipmentPage, equipmentPerPage),
       })
 
       return response.data
     },
   })
+
   const lookupEquipment = useMutation({
     mutationFn: async (code: string) => {
-      const response = await api.get<ApiResource<PhotometricCurveEquipmentOption>>(`${BASE}/lookup`, {
+      const response = await api.get<ApiResource<PhotometricCurveCalibrationEquipmentOption>>(`${BASE}/lookup`, {
         params: { type: 'equipment', code },
       })
 
@@ -106,79 +106,79 @@ export function PhotometricCurveInspectionPage() {
       setFieldErrors((current) => ({ ...current, equipment: '' }))
     },
   })
-  const lookupSample = useMutation({
+
+  const lookupStandard = useMutation({
     mutationFn: async (code: string) => {
-      const response = await api.get<ApiResource<PhotometricCurveSampleOption>>(`${BASE}/lookup`, {
-        params: { type: 'sample', code },
+      const response = await api.get<ApiResource<PhotometricCurveCalibrationEquipmentOption>>(`${BASE}/lookup`, {
+        params: { type: 'standard', code },
       })
 
       return response.data.data
     },
-    onSuccess: (sample) => {
-      // A lookup is the operator explicitly replacing the sample, so it is marked as
-      // such and will re-snapshot on save; anything loaded from the record stays retained.
-      setForm((current) => ({ ...current, sample: selectedSample(sample) }))
-      setFieldErrors((current) => ({ ...current, sample: '' }))
+    onSuccess: (standard) => {
+      setForm((current) => ({ ...current, standard: selectedStandard(standard) }))
+      setFieldErrors((current) => ({ ...current, standard: '' }))
     },
   })
+
   const lookupSystem = useMutation({
     mutationFn: async (code: string) => {
-      const response = await api.get<ApiResource<PhotometricCurveSystemOption>>(`${BASE}/lookup`, {
+      const response = await api.get<ApiResource<PhotometricCurveCalibrationSystemOption>>(`${BASE}/lookup`, {
         params: { type: 'system', code },
       })
 
       return response.data.data
     },
     onSuccess: (system) => {
-      // The system code is scanned or typed on its own, never derived from the
-      // selected devices, and a lookup is the operator explicitly replacing it.
       setForm((current) => ({ ...current, system: selectedSystem(system) }))
       setFieldErrors((current) => ({ ...current, system: '' }))
     },
   })
-  const mutationHandlers = photometricCurveMutationHandlers(queryClient, closeEditor)
+
+  const mutationHandlers = photometricCurveCalibrationMutationHandlers(queryClient, closeEditor)
+
   const saveRecord = useMutation({
     mutationFn: async () => {
-      // Attachments make a JSON body impossible, so both paths post multipart; the
-      // edit carries `_method=PUT` because PHP does not populate file bodies on a PUT.
       if (editingId === null) {
-        await api.post(BASE, buildPhotometricCurveInspectionPayload(form, 'create'))
+        await api.post(BASE, buildPhotometricCurveCalibrationPayload(form, 'create'))
 
         return
       }
 
-      await api.post(`${BASE}/${editingId}`, buildPhotometricCurveInspectionPayload(form, 'update'))
+      await api.post(`${BASE}/${editingId}`, buildPhotometricCurveCalibrationPayload(form, 'update'))
     },
-    onError: (error) => setFieldErrors(photometricCurveFieldErrors(error)),
+    onError: (error) => setFieldErrors(photometricCurveCalibrationFieldErrors(error)),
     onSuccess: mutationHandlers.saveSuccess,
   })
+
   const deleteRecord = useMutation({
-    mutationFn: async (record: PhotometricCurveInspectionRecord) => {
+    mutationFn: async (record: PhotometricCurveCalibrationRecord) => {
       await api.delete(`${BASE}/${record.id}`)
     },
     onSuccess: mutationHandlers.deleteSuccess,
   })
+
   const records = recordsQuery.data?.data ?? []
   const equipmentRows = equipmentLedgerQuery.data?.data ?? []
 
   function openCreate() {
     setEditingId(null)
-    setForm(emptyPhotometricCurveInspectionForm())
+    setForm(emptyPhotometricCurveCalibrationForm())
     setFieldErrors({})
     saveRecord.reset()
     lookupEquipment.reset()
-    lookupSample.reset()
+    lookupStandard.reset()
     lookupSystem.reset()
     setEditorOpen(true)
   }
 
-  function openEdit(record: PhotometricCurveInspectionRecord) {
+  function openEdit(record: PhotometricCurveCalibrationRecord) {
     setEditingId(record.id)
-    setForm(inspectionFormFromRecord(record))
+    setForm(calibrationFormFromRecord(record))
     setFieldErrors({})
     saveRecord.reset()
     lookupEquipment.reset()
-    lookupSample.reset()
+    lookupStandard.reset()
     lookupSystem.reset()
     setEditorOpen(true)
   }
@@ -193,9 +193,9 @@ export function PhotometricCurveInspectionPage() {
     setFieldErrors({})
 
     try {
-      buildPhotometricCurveInspectionPayload(form, editingId === null ? 'create' : 'update')
+      buildPhotometricCurveCalibrationPayload(form, editingId === null ? 'create' : 'update')
     } catch (error) {
-      setFieldErrors(photometricCurveFieldErrors(error))
+      setFieldErrors(photometricCurveCalibrationFieldErrors(error))
 
       return
     }
@@ -205,41 +205,41 @@ export function PhotometricCurveInspectionPage() {
 
   return (
     <PageShell
-      title="配光曲线点检记录"
-      description="扫码或手输设备编号、系统编码与样品编号（三者独立录入），再记录配光曲线点检测量值、照片与文件，并保留使用设备的历史快照。"
+      title="配光曲线定标记录"
+      description="记录配光曲线定标过程中的使用设备、系统编码、标准件编号、探头与测试距离、定标系数、光电参数及附件。"
       actions={
         <PermissionGate resource={RESOURCE} action="create">
           <Button variant="primary" onClick={openCreate}>
             <Plus className="size-4" aria-hidden="true" />
-            新增点检记录
+            新增定标记录
           </Button>
         </PermissionGate>
       }
     >
-      <div className="flex flex-wrap gap-2" role="tablist" data-photometric-curve-views>
-        {(
-          [
-            ['records', '点检记录总表'],
-            ['equipment', '使用设备总表'],
-          ] as Array<[PhotometricCurveView, string]>
-        ).map(([value, label]) => (
-          <Button
-            key={value}
-            role="tab"
-            aria-selected={view === value}
-            variant={view === value ? 'primary' : 'secondary'}
-            onClick={() => setView(value)}
-          >
-            {label}
-          </Button>
-        ))}
+      <div className="flex flex-wrap gap-2" role="tablist" data-photometric-curve-calibration-views>
+        <Button
+          role="tab"
+          aria-selected={view === 'records'}
+          variant={view === 'records' ? 'primary' : 'secondary'}
+          onClick={() => setView('records')}
+        >
+          定标记录总表
+        </Button>
+        <Button
+          role="tab"
+          aria-selected={view === 'equipment'}
+          variant={view === 'equipment' ? 'primary' : 'secondary'}
+          onClick={() => setView('equipment')}
+        >
+          使用设备总表
+        </Button>
       </div>
 
       {view === 'records' ? (
         <>
           <Panel title="Filters">
             <div className="grid gap-3 md:grid-cols-5">
-              <Field label="样品/系统/设备">
+              <Field label="搜索">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" aria-hidden="true" />
                   <input
@@ -249,7 +249,7 @@ export function PhotometricCurveInspectionPage() {
                       setFilters({ ...filters, search: event.target.value })
                       setPage(1)
                     }}
-                    placeholder="样品编号/系统编码/设备编号"
+                    placeholder="标准件/系统/设备编号或名称"
                   />
                 </div>
               </Field>
@@ -262,7 +262,7 @@ export function PhotometricCurveInspectionPage() {
                     setPage(1)
                   }}
                 >
-                  <option value="">全部</option>
+                  <option value="">全部探头</option>
                   {photometricCurveProbes.map((probe) => (
                     <option key={probe.value} value={probe.value}>
                       {probe.label}
@@ -296,7 +296,7 @@ export function PhotometricCurveInspectionPage() {
                 <Button
                   variant="secondary"
                   onClick={() => {
-                    setFilters(emptyPhotometricCurveInspectionFilters)
+                    setFilters(emptyPhotometricCurveCalibrationFilters)
                     setPage(1)
                   }}
                 >
@@ -306,17 +306,32 @@ export function PhotometricCurveInspectionPage() {
             </div>
           </Panel>
 
-          {recordsQuery.isError ? <ErrorNotice error={recordsQuery.error} fallback="无法加载配光曲线点检记录" /> : null}
-          {deleteRecord.error ? <ErrorNotice error={deleteRecord.error} fallback="无法删除配光曲线点检记录" /> : null}
-          {recordsQuery.isPending ? <LoadingState label="正在加载配光曲线点检记录" /> : null}
+          {recordsQuery.isError ? <ErrorNotice error={recordsQuery.error} fallback="无法加载配光曲线定标记录" /> : null}
+          {deleteRecord.error ? <ErrorNotice error={deleteRecord.error} fallback="无法删除配光曲线定标记录" /> : null}
+          {recordsQuery.isPending ? <LoadingState label="正在加载配光曲线定标记录" /> : null}
           {!recordsQuery.isPending && records.length === 0 ? (
-            <EmptyState title="暂无配光曲线点检记录" description="新增点检记录后会显示样品编号、系统编码、平均角度、探头、测量值、记录日期和操作人。" />
+            <EmptyState
+              title="暂无配光曲线定标记录"
+              description="新增定标记录后会显示标准件编号、系统编码、探头、测试距离、定标系数、测量值、记录日期和操作人。"
+            />
           ) : null}
 
           {records.length > 0 ? (
             <>
-              <InspectionRecordTable records={records} canDelete={canDelete} onDetail={setDetail} onEdit={openEdit} onDelete={(record) => deleteRecord.mutate(record)} />
-              <InspectionRecordCards records={records} canDelete={canDelete} onDetail={setDetail} onEdit={openEdit} onDelete={(record) => deleteRecord.mutate(record)} />
+              <CalibrationRecordTable
+                records={records}
+                canDelete={canDelete}
+                onDetail={setDetail}
+                onEdit={openEdit}
+                onDelete={(record) => deleteRecord.mutate(record)}
+              />
+              <CalibrationRecordCards
+                records={records}
+                canDelete={canDelete}
+                onDetail={setDetail}
+                onEdit={openEdit}
+                onDelete={(record) => deleteRecord.mutate(record)}
+              />
             </>
           ) : null}
 
@@ -349,13 +364,13 @@ export function PhotometricCurveInspectionPage() {
                   />
                 </div>
               </Field>
-              <Field label="点检记录ID">
+              <Field label="定标记录ID">
                 <input
                   className={inputClass}
                   inputMode="numeric"
-                  value={equipmentFilters.inspection_record_id}
+                  value={equipmentFilters.calibration_record_id}
                   onChange={(event) => {
-                    setEquipmentFilters({ ...equipmentFilters, inspection_record_id: event.target.value })
+                    setEquipmentFilters({ ...equipmentFilters, calibration_record_id: event.target.value })
                     setEquipmentPage(1)
                   }}
                 />
@@ -397,7 +412,7 @@ export function PhotometricCurveInspectionPage() {
                 <Button
                   variant="secondary"
                   onClick={() => {
-                    setEquipmentFilters(emptyPhotometricCurveEquipmentFilters)
+                    setEquipmentFilters(emptyPhotometricCurveCalibrationEquipmentFilters)
                     setEquipmentPage(1)
                   }}
                 >
@@ -410,13 +425,17 @@ export function PhotometricCurveInspectionPage() {
           {equipmentLedgerQuery.isError ? <ErrorNotice error={equipmentLedgerQuery.error} fallback="无法加载使用设备总表" /> : null}
           {equipmentLedgerQuery.isPending ? <LoadingState label="正在加载使用设备总表" /> : null}
           {!equipmentLedgerQuery.isPending && equipmentRows.length === 0 ? (
-            <EmptyState title="暂无使用设备记录" description="新增点检记录并录入设备后，这里会显示每条记录与设备的关联。" />
+            <EmptyState title="暂无使用设备记录" description="新增定标记录并录入设备后，这里会显示每条记录与设备的关联。" />
           ) : null}
 
           {equipmentRows.length > 0 ? (
             <>
-              <InspectionEquipmentTable rows={equipmentRows} />
-              <InspectionEquipmentCards rows={equipmentRows} />
+              <EquipmentLedgerTable rows={equipmentRows} recordLabel="定标记录ID" />
+              <EquipmentLedgerCards
+                rows={equipmentRows}
+                recordLabel="定标记录ID"
+                marker="data-mobile-photometric-curve-calibration-equipment"
+              />
             </>
           ) : null}
 
@@ -433,66 +452,65 @@ export function PhotometricCurveInspectionPage() {
         </>
       )}
 
-      <Modal title={editingId === null ? '新增配光曲线点检记录' : '编辑配光曲线点检记录'} size="wide" open={editorOpen} onClose={closeEditor}>
-        <InspectionRecordFormFields
+      <Modal
+        title={editingId === null ? '新增配光曲线定标记录' : '编辑配光曲线定标记录'}
+        size="wide"
+        open={editorOpen}
+        onClose={closeEditor}
+      >
+        <CalibrationRecordFormFields
           form={form}
           recordId={editingId}
           fieldErrors={fieldErrors}
           equipmentLookupFailed={lookupEquipment.isError}
-          sampleLookupFailed={lookupSample.isError}
+          standardLookupFailed={lookupStandard.isError}
           systemLookupFailed={lookupSystem.isError}
           onEquipmentCode={(code) => lookupEquipment.mutate(code)}
-          onSampleCode={(code) => lookupSample.mutate(code)}
+          onStandardCode={(code) => lookupStandard.mutate(code)}
           onSystemCode={(code) => lookupSystem.mutate(code)}
           onRemoveEquipment={(key) => setForm((current) => ({ ...current, equipment: removeEquipmentSnapshot(current.equipment, key) }))}
           onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
         />
-        {saveRecord.error ? <ErrorNotice error={saveRecord.error} fallback="无法保存配光曲线点检记录" /> : null}
+        {saveRecord.error ? <ErrorNotice error={saveRecord.error} fallback="无法保存配光曲线定标记录" /> : null}
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={closeEditor}>
             取消
           </Button>
           <Button variant="primary" onClick={submitEditor} disabled={saveRecord.isPending}>
-            保存点检记录
+            保存定标记录
           </Button>
         </div>
       </Modal>
 
-      <Modal title="配光曲线点检记录详情" size="wide" open={detail !== null} onClose={() => setDetail(null)}>
-        {detail ? <InspectionRecordDetail record={detail} /> : null}
+      <Modal title="配光曲线定标记录详情" size="wide" open={detail !== null} onClose={() => setDetail(null)}>
+        {detail ? <CalibrationRecordDetail record={detail} /> : null}
       </Modal>
     </PageShell>
   )
 }
 
 type RecordActionProps = {
-  records: PhotometricCurveInspectionRecord[]
+  records: PhotometricCurveCalibrationRecord[]
   canDelete: boolean
-  onDetail: (record: PhotometricCurveInspectionRecord) => void
-  onEdit: (record: PhotometricCurveInspectionRecord) => void
-  onDelete: (record: PhotometricCurveInspectionRecord) => void
+  onDetail: (record: PhotometricCurveCalibrationRecord) => void
+  onEdit: (record: PhotometricCurveCalibrationRecord) => void
+  onDelete: (record: PhotometricCurveCalibrationRecord) => void
 }
 
-/**
- * The desktop table stays at the values an operator scans a list for, keyed by the
- * sample number and the system code the measurement was taken on. The full
- * measurement set, the attachments and the device snapshots live in the detail modal
- * and in the global used-equipment ledger, so the row set keeps fitting a laptop.
- */
-export function InspectionRecordTable({ records, canDelete, onDetail, onEdit, onDelete }: RecordActionProps) {
+export function CalibrationRecordTable({ records, canDelete, onDetail, onEdit, onDelete }: RecordActionProps) {
   return (
     <DataTable>
       <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
         <tr>
           <th className="px-3 py-2 font-medium">ID</th>
-          <th className="px-3 py-2 font-medium">样品编号</th>
+          <th className="px-3 py-2 font-medium">标准件编号</th>
           <th className="px-3 py-2 font-medium">系统编码</th>
-          <th className="px-3 py-2 font-medium">平均角度</th>
           <th className="px-3 py-2 font-medium">探头</th>
           <th className="px-3 py-2 font-medium">测试距离(m)</th>
+          <th className="px-3 py-2 font-medium">定标系数</th>
           <th className="px-3 py-2 font-medium">峰值光强(cd)</th>
           <th className="px-3 py-2 font-medium">光通量(lm)</th>
-          <th className="px-3 py-2 font-medium">记录日期</th>
+          <th className="px-3 py-2 font-medium">日期</th>
           <th className="px-3 py-2 font-medium">操作人</th>
           <th className="px-3 py-2 font-medium">操作</th>
         </tr>
@@ -501,17 +519,19 @@ export function InspectionRecordTable({ records, canDelete, onDetail, onEdit, on
         {records.map((record) => (
           <tr className="align-top" key={record.id}>
             <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.id}</td>
-            <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.sample_no}</td>
-            <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.system_code ?? '-'}</td>
-            <td className="px-3 py-3 text-sm text-slate-700">{record.average_angle}</td>
+            <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.standard_no}</td>
+            <td className="px-3 py-3 text-sm font-medium text-slate-900">{record.system_code}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{probeLabel(record.probe)}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.test_distance}</td>
+            <td className="px-3 py-3 text-sm text-slate-700" data-record-calibration-coefficient>
+              {record.calibration_coefficient}
+            </td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.peak_luminous_intensity}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.luminous_flux}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.recorded_at}</td>
             <td className="px-3 py-3 text-sm text-slate-700">{record.operator_name ?? '-'}</td>
             <td className="px-3 py-3">
-              <InspectionRecordActions record={record} canDelete={canDelete} onDetail={onDetail} onEdit={onEdit} onDelete={onDelete} />
+              <CalibrationRecordActions record={record} canDelete={canDelete} onDetail={onDetail} onEdit={onEdit} onDelete={onDelete} />
             </td>
           </tr>
         ))}
@@ -520,30 +540,33 @@ export function InspectionRecordTable({ records, canDelete, onDetail, onEdit, on
   )
 }
 
-export function InspectionRecordCards({ records, canDelete, onDetail, onEdit, onDelete }: RecordActionProps) {
+export function CalibrationRecordCards({ records, canDelete, onDetail, onEdit, onDelete }: RecordActionProps) {
   return (
-    <div className="space-y-3 md:hidden" data-mobile-photometric-curve-records>
+    <div className="space-y-3 md:hidden" data-mobile-photometric-curve-calibration-records>
       {records.map((record) => (
         <article className="rounded-lg border border-emerald-900/10 bg-white p-4 shadow-sm" key={record.id}>
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-slate-950">样品 {record.sample_no}</h3>
+            <h3 className="truncate text-sm font-semibold text-slate-950">标准件 {record.standard_no}</h3>
             <p className="mt-0.5 truncate text-xs text-slate-500" data-mobile-system-code>
-              系统编码 {record.system_code ?? '-'}
+              系统编码 {record.system_code}
             </p>
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <CardEntry label="ID" value={record.id} />
             <CardEntry label="探头" value={probeLabel(record.probe)} />
-            <CardEntry label="平均角度" value={record.average_angle} />
             <CardEntry label="测试距离" value={`${record.test_distance} m`} />
+            <CardEntry label="定标系数" value={record.calibration_coefficient} />
             <CardEntry label="峰值光强" value={`${record.peak_luminous_intensity} cd`} />
             <CardEntry label="光通量" value={`${record.luminous_flux} lm`} />
+            <CardEntry label="电压/电流" value={`${record.voltage} V / ${record.current} A`} />
+            <CardEntry label="功率/因数" value={`${record.power} W / ${record.power_factor}`} />
+            <CardEntry label="频率" value={`${record.frequency} Hz`} />
             <CardEntry label="附件" value={`${record.photos.length} 图 · ${record.files.length} 件`} />
             <CardEntry label="记录日期" value={record.recorded_at} />
             <CardEntry label="操作人" value={record.operator_name ?? '-'} />
           </dl>
           <div className="mt-3">
-            <InspectionRecordActions record={record} canDelete={canDelete} onDetail={onDetail} onEdit={onEdit} onDelete={onDelete} />
+            <CalibrationRecordActions record={record} canDelete={canDelete} onDetail={onDetail} onEdit={onEdit} onDelete={onDelete} />
           </div>
         </article>
       ))}
@@ -551,18 +574,18 @@ export function InspectionRecordCards({ records, canDelete, onDetail, onEdit, on
   )
 }
 
-function InspectionRecordActions({
+function CalibrationRecordActions({
   record,
   canDelete,
   onDetail,
   onEdit,
   onDelete,
 }: {
-  record: PhotometricCurveInspectionRecord
+  record: PhotometricCurveCalibrationRecord
   canDelete: boolean
-  onDetail: (record: PhotometricCurveInspectionRecord) => void
-  onEdit: (record: PhotometricCurveInspectionRecord) => void
-  onDelete: (record: PhotometricCurveInspectionRecord) => void
+  onDetail: (record: PhotometricCurveCalibrationRecord) => void
+  onEdit: (record: PhotometricCurveCalibrationRecord) => void
+  onDelete: (record: PhotometricCurveCalibrationRecord) => void
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -586,29 +609,31 @@ function InspectionRecordActions({
   )
 }
 
-export function InspectionEquipmentTable({ rows }: { rows: PhotometricCurveEquipmentLedgerRow[] }) {
-  return <EquipmentLedgerTable rows={rows} recordLabel="点检记录ID" />
-}
-
-export function InspectionEquipmentCards({ rows }: { rows: PhotometricCurveEquipmentLedgerRow[] }) {
-  return <EquipmentLedgerCards rows={rows} recordLabel="点检记录ID" marker="data-mobile-photometric-curve-equipment" />
-}
-
-export function InspectionRecordDetail({ record }: { record: PhotometricCurveInspectionRecord }) {
+export function CalibrationRecordDetail({ record }: { record: PhotometricCurveCalibrationRecord }) {
   return (
     <div className="space-y-4">
       <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        <DetailEntry label="样品编号" value={record.sample_no} />
-        <DetailEntry label="系统编码" value={record.system_code ?? '-'} />
+        <DetailEntry label="标准件编号" value={record.standard_no} />
+        <DetailEntry label="标准件名称" value={record.standard_name} />
+        <DetailEntry label="标准件厂家" value={record.standard_manufacturer ?? '-'} />
+        <DetailEntry label="标准件型号" value={record.standard_model ?? '-'} />
+        <DetailEntry label="标准件出厂编号" value={record.standard_serial_no ?? '-'} />
+        <DetailEntry label="标准件下次校准" value={record.standard_next_calibration_date ?? '-'} />
+        <DetailEntry label="系统编码" value={record.system_code} />
         <DetailEntry label="系统名称" value={record.system_name ?? '-'} />
         <DetailEntry label="探头" value={probeLabel(record.probe)} />
+        <DetailEntry label="测试距离" value={`${record.test_distance} m`} />
+        <DetailEntry label="定标系数" value={record.calibration_coefficient} />
+        <DetailEntry label="峰值光强" value={`${record.peak_luminous_intensity} cd`} />
+        <DetailEntry label="光通量" value={`${record.luminous_flux} lm`} />
+        <DetailEntry label="电压" value={`${record.voltage} V`} />
+        <DetailEntry label="电流" value={`${record.current} A`} />
+        <DetailEntry label="功率" value={`${record.power} W`} />
+        <DetailEntry label="功率因数" value={record.power_factor} />
+        <DetailEntry label="频率" value={`${record.frequency} Hz`} />
         <DetailEntry label="记录日期" value={record.recorded_at} />
         <DetailEntry label="操作人" value={record.operator_name ?? '-'} />
         <DetailEntry label="备注" value={record.remark ?? '-'} />
-        {photometricCurveMeasurementFields.map((field) => (
-          <DetailEntry key={field.name} label={field.unit ? `${field.label}（${field.unit}）` : field.label} value={String(record[field.name])} />
-        ))}
-        <DetailEntry label="平均角度（自动计算）" value={record.average_angle} />
       </dl>
       <EquipmentSnapshotTable devices={record.equipment} />
       <MediaGallery baseUrl={BASE} recordId={record.id} photos={record.photos} files={record.files} />
@@ -616,35 +641,34 @@ export function InspectionRecordDetail({ record }: { record: PhotometricCurveIns
   )
 }
 
-export function InspectionRecordFormFields({
+export function CalibrationRecordFormFields({
   form,
   recordId,
   fieldErrors,
   equipmentLookupFailed,
-  sampleLookupFailed,
+  standardLookupFailed,
   systemLookupFailed,
   onEquipmentCode,
-  onSampleCode,
+  onStandardCode,
   onSystemCode,
   onRemoveEquipment,
   onChange,
 }: {
-  form: PhotometricCurveInspectionForm
+  form: PhotometricCurveCalibrationForm
   recordId: number | null
   fieldErrors: Record<string, string>
   equipmentLookupFailed: boolean
-  sampleLookupFailed: boolean
+  standardLookupFailed: boolean
   systemLookupFailed: boolean
   onEquipmentCode: (code: string) => void
-  onSampleCode: (code: string) => void
+  onStandardCode: (code: string) => void
   onSystemCode: (code: string) => void
   onRemoveEquipment: (key: string) => void
-  onChange: (patch: Partial<PhotometricCurveInspectionForm>) => void
+  onChange: (patch: Partial<PhotometricCurveCalibrationForm>) => void
 }) {
-  const averageAngle = deriveAverageAngle(form)
-
   return (
     <div className="space-y-4">
+      {/* Order: equipment -> system -> standard -> probe/distance -> coefficient/measurements -> remark/media */}
       <EquipmentScannerBlock
         devices={form.equipment}
         lookupFailed={equipmentLookupFailed}
@@ -653,56 +677,17 @@ export function InspectionRecordFormFields({
         onRemove={onRemoveEquipment}
       />
 
-      <SystemScannerBlock
-        system={form.system}
-        lookupFailed={systemLookupFailed}
-        error={fieldErrors.system}
-        onCode={onSystemCode}
+      <SystemScannerBlock system={form.system} lookupFailed={systemLookupFailed} error={fieldErrors.system} onCode={onSystemCode} />
+
+      <StandardScannerBlock
+        standard={form.standard}
+        lookupFailed={standardLookupFailed}
+        error={fieldErrors.standard}
+        onCode={onStandardCode}
       />
 
-      <SampleScannerBlock
-        sample={form.sample}
-        lookupFailed={sampleLookupFailed}
-        error={fieldErrors.sample}
-        onCode={onSampleCode}
-      />
-
-      <Panel title="测量值">
+      <Panel title="探头与测量值">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {photometricCurveMeasurementFields.map((field) => (
-            <Field key={field.name} label={field.unit ? `${field.label}（${field.unit}）` : field.label}>
-              <input
-                className={inputClass}
-                inputMode={field.scale === 0 ? 'numeric' : 'decimal'}
-                value={form[field.name]}
-                placeholder={field.scale === 0 ? '0' : `0.${'0'.repeat(field.scale)}`}
-                onChange={(event) => onChange({ [field.name]: event.target.value } as Partial<PhotometricCurveInspectionForm>)}
-                onBlur={(event) => {
-                  const normalized = normalizeMeasurementInput(event.target.value, field.scale)
-
-                  if (normalized !== null) {
-                    onChange({ [field.name]: normalized } as Partial<PhotometricCurveInspectionForm>)
-                  }
-                }}
-              />
-              <FieldError message={fieldErrors[field.name]} />
-            </Field>
-          ))}
-          {/*
-            The average is derived from the four angles above and is never sent: it is
-            shown read-only so the operator sees what will be stored without being able
-            to let it drift away from the angles, which is what the paper form allowed.
-          */}
-          <Field label="平均角度（自动计算）">
-            <input
-              data-average-angle
-              className={`${inputClass} bg-slate-100 text-slate-700`}
-              value={averageAngle}
-              readOnly
-              aria-readonly="true"
-              aria-label="平均角度（自动计算）"
-            />
-          </Field>
           <Field label="探头">
             <select
               className={inputClass}
@@ -717,29 +702,30 @@ export function InspectionRecordFormFields({
             </select>
             <FieldError message={fieldErrors.probe} />
           </Field>
+
+          {photometricCurveCalibrationMeasurementFields.map((field) => (
+            <Field key={field.name} label={field.unit ? `${field.label}（${field.unit}）` : field.label}>
+              <input
+                className={inputClass}
+                inputMode={field.scale === 0 ? 'numeric' : 'decimal'}
+                value={form[field.name]}
+                placeholder={field.scale === 0 ? '0' : `0.${'0'.repeat(field.scale)}`}
+                onChange={(event) => onChange({ [field.name]: event.target.value } as Partial<PhotometricCurveCalibrationForm>)}
+              />
+              <FieldError message={fieldErrors[field.name]} />
+            </Field>
+          ))}
+
           <Field label="备注" className="sm:col-span-2 lg:col-span-4">
             <textarea className={textareaClass} value={form.remark} onChange={(event) => onChange({ remark: event.target.value })} />
+            <FieldError message={fieldErrors.remark} />
           </Field>
         </div>
       </Panel>
 
       <div className="grid gap-4 sm:grid-cols-2" data-inspection-attachments>
-        <AttachmentPicker
-          title="照片"
-          collection="photos"
-          recordId={recordId}
-          form={form}
-          error={fieldErrors.photos}
-          onChange={onChange}
-        />
-        <AttachmentPicker
-          title="文件"
-          collection="files"
-          recordId={recordId}
-          form={form}
-          error={fieldErrors.files}
-          onChange={onChange}
-        />
+        <AttachmentPicker title="照片" collection="photos" recordId={recordId} form={form} error={fieldErrors.photos} onChange={onChange} />
+        <AttachmentPicker title="文件" collection="files" recordId={recordId} form={form} error={fieldErrors.files} onChange={onChange} />
       </div>
     </div>
   )
