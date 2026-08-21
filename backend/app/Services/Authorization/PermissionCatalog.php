@@ -32,6 +32,7 @@ class PermissionCatalog
             'equipment_labels' => ['read', 'print'],
             'equipment_usage_records' => ['read', 'create', 'update', 'delete'],
             'integrating_sphere_inspection_records' => ['read', 'create', 'update', 'delete'],
+            'photometric_curve_inspection_records' => ['read', 'create', 'update', 'delete'],
             'temp_humidity_records' => ['read', 'create', 'update', 'delete'],
             'calibration_projects' => ['read', 'create', 'update', 'delete'],
             'calibration_project_labels' => ['print'],

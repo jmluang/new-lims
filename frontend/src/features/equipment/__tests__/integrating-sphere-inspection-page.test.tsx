@@ -28,6 +28,7 @@ import {
 const pageSource = readFileSync(fileURLToPath(new URL('../IntegratingSphereInspectionPage.tsx', import.meta.url)), 'utf8')
 const routesSource = readFileSync(fileURLToPath(new URL('../../../app/routes.tsx', import.meta.url)), 'utf8')
 const queriesSource = readFileSync(fileURLToPath(new URL('../integratingSphereQueries.ts', import.meta.url)), 'utf8')
+const sharedFieldsSource = readFileSync(fileURLToPath(new URL('../InspectionSharedFields.tsx', import.meta.url)), 'utf8')
 
 vi.mock('../../auth/useCurrentUser', () => ({
   useEffectivePermissions: () => ({
@@ -357,9 +358,15 @@ describe('integrating sphere inspection form', () => {
   })
 
   it('does not ship a second scanner implementation', () => {
-    expect(pageSource).toContain("import { QrScannerPanel } from '../../components/app/QrScannerPanel'")
-    expect(pageSource).not.toContain('html5-qrcode')
-    expect(pageSource).not.toContain('getUserMedia')
+    // The scanner blocks moved into the shared inspection fields when the second
+    // inspection workflow was added, so the guarantee is now that neither this page
+    // nor the shared module reimplements the camera.
+    expect(sharedFieldsSource).toContain("import { QrScannerPanel } from '../../components/app/QrScannerPanel'")
+
+    for (const source of [pageSource, sharedFieldsSource]) {
+      expect(source).not.toContain('html5-qrcode')
+      expect(source).not.toContain('getUserMedia')
+    }
   })
 })
 

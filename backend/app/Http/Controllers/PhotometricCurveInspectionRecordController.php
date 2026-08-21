@@ -2,42 +2,51 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\IntegratingSphereInspectionEquipment;
-use App\Models\IntegratingSphereInspectionRecord;
+use App\Models\PhotometricCurveInspectionEquipment;
+use App\Models\PhotometricCurveInspectionRecord;
 use App\Models\Sample;
 use App\Services\Audit\AuditLogger;
 use App\Services\Authorization\PermissionAccess;
 use App\Services\Inspection\InspectionEquipmentLedger;
 use App\Services\Inspection\InspectionEquipmentSnapshots;
+use App\Services\Inspection\InspectionMediaLibrary;
 use App\Services\Inspection\InspectionSubjectLookup;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
-class IntegratingSphereInspectionRecordController extends Controller
+class PhotometricCurveInspectionRecordController extends Controller
 {
-    private const RESOURCE = 'integrating_sphere_inspection_records';
+    private const RESOURCE = 'photometric_curve_inspection_records';
 
     /** Namespaces the validation message keys this workflow returns. */
-    private const MESSAGE_PREFIX = 'integrating_sphere';
+    private const MESSAGE_PREFIX = 'photometric_curve';
 
-    private const EQUIPMENT_TABLE = 'integrating_sphere_inspection_equipment';
+    private const EQUIPMENT_TABLE = 'photometric_curve_inspection_equipment';
 
-    private const RECORDS_TABLE = 'integrating_sphere_inspection_records';
+    private const RECORDS_TABLE = 'photometric_curve_inspection_records';
+
+    private const PROBES = ['near_field', 'far_field'];
 
     /**
-     * Measurement columns and the scale the form promises for each of them. The
+     * Measurement columns and the scale the workbook promises for each of them. The
      * same map drives validation and keeps the rules in step with the migration.
+     *
+     * The average angle is not here: it is derived from the four angle columns on
+     * read, is never accepted from a client, and is never stored.
      */
     private const MEASUREMENT_SCALES = [
-        'chromaticity_x' => 4,
-        'chromaticity_y' => 4,
-        'dominant_wavelength' => 1,
-        'peak_wavelength' => 1,
-        'color_temperature' => 0,
-        'color_rendering_index' => 1,
+        'c0_180' => 1,
+        'c30_210' => 1,
+        'c60_240' => 1,
+        'c90_270' => 1,
+        'test_distance' => 4,
+        'peak_luminous_intensity' => 1,
         'luminous_flux' => 1,
         'voltage' => 1,
         'current' => 4,
@@ -48,30 +57,46 @@ class IntegratingSphereInspectionRecordController extends Controller
 
     /**
      * Bounds mirror the column precision from the migration so an out-of-range
-     * entry fails validation instead of overflowing on a strict-mode database.
+     * entry fails validation instead of overflowing on a strict-mode database. The
+     * power factor is the one exception: it is a ratio, so the physical range is
+     * tighter than the column that holds it.
      */
     private const INTEGER_BOUNDS = [
-        'color_temperature' => [0, 1000000],
         'frequency' => [0, 1000000],
     ];
 
     private const DECIMAL_BOUNDS = [
-        'chromaticity_x' => [0, '99.9999'],
-        'chromaticity_y' => [0, '99.9999'],
-        'dominant_wavelength' => [0, '999999.9'],
-        'peak_wavelength' => [0, '999999.9'],
-        'color_rendering_index' => ['-9999.9', '9999.9'],
+        'c0_180' => [0, '9999.9'],
+        'c30_210' => [0, '9999.9'],
+        'c60_240' => [0, '9999.9'],
+        'c90_270' => [0, '9999.9'],
+        'test_distance' => [0, '99999999.9999'],
+        'peak_luminous_intensity' => [0, '99999999999.9'],
         'luminous_flux' => [0, '99999999999.9'],
         'voltage' => [0, '99999999.9'],
         'current' => [0, '99999999.9999'],
         'power' => [0, '99999999.9999'],
-        'power_factor' => [0, '99.9999'],
+        'power_factor' => [0, 1],
     ];
+
+    /**
+     * Array fields that a multipart body cannot express when they are empty.
+     *
+     * `retained_equipment_ids[]` with no entries simply does not appear in the
+     * request, which the retention contract would read as "keep everything" — the
+     * opposite of what an operator who cleared the list asked for. The editor
+     * therefore always sends the field, as an empty string when the list is empty,
+     * and it is normalised back to an empty array before validation. The empty string
+     * has already become null by the time it gets here, because the global
+     * `ConvertEmptyStringsToNull` middleware runs first.
+     */
+    private const NORMALIZED_ARRAY_FIELDS = ['retained_equipment_ids', 'retained_media_ids'];
 
     public function __construct(
         private readonly InspectionSubjectLookup $subjects,
         private readonly InspectionEquipmentSnapshots $snapshots,
         private readonly InspectionEquipmentLedger $ledger,
+        private readonly InspectionMediaLibrary $mediaLibrary,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -79,14 +104,14 @@ class IntegratingSphereInspectionRecordController extends Controller
         $this->authorizePermission($request, self::RESOURCE.'.read', self::RESOURCE);
 
         $records = $this->filteredQuery($request)
-            ->with('equipment')
+            ->with(['equipment', 'media'])
             ->orderByDesc('recorded_at')
             ->orderByDesc('id')
             ->paginate((int) $request->integer('per_page', 15));
 
         return response()->json([
             'data' => $records->getCollection()
-                ->map(fn (IntegratingSphereInspectionRecord $record): array => $this->serializeRecord($record))
+                ->map(fn (PhotometricCurveInspectionRecord $record): array => $this->serializeRecord($record))
                 ->values(),
             'meta' => [
                 'current_page' => $records->currentPage(),
@@ -114,7 +139,7 @@ class IntegratingSphereInspectionRecordController extends Controller
 
         return response()->json([
             'data' => $rows->getCollection()
-                ->map(fn (IntegratingSphereInspectionEquipment $row): array => $this->ledger->serializeRow($row))
+                ->map(fn (PhotometricCurveInspectionEquipment $row): array => $this->ledger->serializeRow($row))
                 ->values(),
             'meta' => [
                 'current_page' => $rows->currentPage(),
@@ -124,11 +149,11 @@ class IntegratingSphereInspectionRecordController extends Controller
         ]);
     }
 
-    public function show(Request $request, IntegratingSphereInspectionRecord $inspectionRecord): JsonResponse
+    public function show(Request $request, PhotometricCurveInspectionRecord $inspectionRecord): JsonResponse
     {
         $this->authorizePermission($request, self::RESOURCE.'.read', self::RESOURCE, $inspectionRecord);
 
-        return response()->json(['data' => $this->serializeRecord($inspectionRecord->load('equipment'))]);
+        return response()->json(['data' => $this->serializeRecord($inspectionRecord->load(['equipment', 'media']))]);
     }
 
     /**
@@ -166,30 +191,49 @@ class IntegratingSphereInspectionRecordController extends Controller
     {
         $this->authorizePermission($request, self::RESOURCE.'.create', self::RESOURCE);
 
+        $this->normalizeArrayFields($request);
         $payload = $request->validate($this->storeRules());
         $sample = Sample::query()->findOrFail($payload['sample_id']);
         $system = $this->subjects->activeSystemFor((int) $payload['equipment_system_id'], self::MESSAGE_PREFIX);
         $equipment = $this->subjects->equipmentFor($payload['equipment_ids'], self::MESSAGE_PREFIX);
+        $uploads = $this->mediaLibrary->validatedUploads($request, [], self::MESSAGE_PREFIX);
+        $written = [];
 
-        $record = DB::transaction(function () use ($request, $payload, $sample, $system, $equipment): IntegratingSphereInspectionRecord {
-            $record = IntegratingSphereInspectionRecord::query()->create([
-                'sample_id' => $sample->id,
-                'sample_no' => $sample->sample_no,
-                'equipment_system_id' => $system->id,
-                'system_code' => $system->code,
-                ...$this->measurementValues($payload),
-                'remark' => $this->normalizedRemark($payload),
-                'recorded_at' => $this->recordedAt($payload),
-                'operator_id' => $request->user()?->id,
-                'operator_name' => $request->user()?->name,
-            ]);
+        try {
+            $record = DB::transaction(function () use ($request, $payload, $sample, $system, $equipment, $uploads, &$written): PhotometricCurveInspectionRecord {
+                $record = PhotometricCurveInspectionRecord::query()->create([
+                    'sample_id' => $sample->id,
+                    'sample_no' => $sample->sample_no,
+                    'equipment_system_id' => $system->id,
+                    'system_code' => $system->code,
+                    'system_name' => $system->name,
+                    ...$this->measurementValues($payload),
+                    'probe' => $payload['probe'],
+                    'remark' => $this->normalizedRemark($payload),
+                    // Server time, taken once here. The client never sends it and can
+                    // never move it, which is what makes it usable as audit evidence.
+                    'recorded_at' => Carbon::now()->microseconds(0),
+                    'operator_id' => $request->user()?->id,
+                    'operator_name' => $request->user()?->name,
+                ]);
 
-            $this->snapshots->sync($record, $payload['equipment_ids'], $equipment);
+                $this->snapshots->sync($record, $payload['equipment_ids'], $equipment);
+                // The record is new, so it owns no media yet and everything the attach
+                // touches belongs to this request by construction.
+                $this->mediaLibrary->attach($record, $uploads, [], $written);
 
-            return $record;
-        });
+                return $record;
+            });
+        } catch (Throwable $exception) {
+            // The rolled-back transaction removed the media rows but not the bytes the
+            // library already wrote, so the new files are cleaned up before the failure
+            // is reported. Nothing existed before this request, so nothing else changes.
+            $this->mediaLibrary->discardFiles($written);
 
-        $record = $record->fresh(['equipment']);
+            throw $exception;
+        }
+
+        $record = $record->fresh(['equipment', 'media']);
 
         $auditLogger->record(
             actor: $request->user(),
@@ -202,10 +246,11 @@ class IntegratingSphereInspectionRecordController extends Controller
         return response()->json(['data' => $this->serializeRecord($record)], 201);
     }
 
-    public function update(Request $request, IntegratingSphereInspectionRecord $inspectionRecord, AuditLogger $auditLogger): JsonResponse
+    public function update(Request $request, PhotometricCurveInspectionRecord $inspectionRecord, AuditLogger $auditLogger): JsonResponse
     {
         $this->authorizePermission($request, self::RESOURCE.'.update', self::RESOURCE, $inspectionRecord);
 
+        $this->normalizeArrayFields($request);
         $payload = $request->validate($this->updateRules());
         $addedIds = $payload['equipment_ids'] ?? [];
         $retainedIds = $this->snapshots->retainedChildIds($inspectionRecord, $payload, $addedIds, self::MESSAGE_PREFIX);
@@ -214,32 +259,54 @@ class IntegratingSphereInspectionRecordController extends Controller
         // ledger row is gone.
         $sample = isset($payload['sample_id']) ? Sample::query()->findOrFail($payload['sample_id']) : null;
         // Same retained/selected split as the sample: an omitted system keeps the code
-        // snapshot the record already holds, which is the only evidence left once the
-        // system has been renamed, disabled or deleted.
+        // and name snapshots the record already holds, which are the only evidence left
+        // once the system has been renamed, disabled or deleted.
         $system = isset($payload['equipment_system_id'])
             ? $this->subjects->activeSystemFor((int) $payload['equipment_system_id'], self::MESSAGE_PREFIX)
             : null;
         $equipment = $this->subjects->equipmentFor($addedIds, self::MESSAGE_PREFIX);
-        $before = $this->serializeRecord($inspectionRecord->load('equipment'));
+        $inspectionRecord->load('media');
+        $existingMediaIds = $this->mediaLibrary->existingMediaIds($inspectionRecord);
+        $retainedMedia = $this->mediaLibrary->retainedMedia($inspectionRecord, $payload, self::MESSAGE_PREFIX);
+        $uploads = $this->mediaLibrary->validatedUploads($request, $retainedMedia, self::MESSAGE_PREFIX);
+        $before = $this->serializeRecord($inspectionRecord->load(['equipment', 'media']));
+        $written = [];
 
-        DB::transaction(function () use ($inspectionRecord, $payload, $sample, $system, $equipment, $addedIds, $retainedIds): void {
-            $inspectionRecord->update([
-                'sample_id' => $sample?->id ?? $inspectionRecord->sample_id,
-                'sample_no' => $sample?->sample_no ?? $inspectionRecord->sample_no,
-                'equipment_system_id' => $system?->id ?? $inspectionRecord->equipment_system_id,
-                'system_code' => $system?->code ?? $inspectionRecord->system_code,
-                ...$this->measurementValues($payload),
-                'remark' => $this->normalizedRemark($payload),
-                'recorded_at' => $this->recordedAt($payload, $inspectionRecord->recorded_at),
-            ]);
+        try {
+            DB::transaction(function () use ($inspectionRecord, $payload, $sample, $system, $equipment, $addedIds, $retainedIds, $uploads, $existingMediaIds, &$written): void {
+                $inspectionRecord->update([
+                    'sample_id' => $sample?->id ?? $inspectionRecord->sample_id,
+                    'sample_no' => $sample?->sample_no ?? $inspectionRecord->sample_no,
+                    'equipment_system_id' => $system?->id ?? $inspectionRecord->equipment_system_id,
+                    'system_code' => $system?->code ?? $inspectionRecord->system_code,
+                    'system_name' => $system?->name ?? $inspectionRecord->system_name,
+                    ...$this->measurementValues($payload),
+                    'probe' => $payload['probe'],
+                    'remark' => $this->normalizedRemark($payload),
+                    // `recorded_at` is deliberately absent: the time the measurement was
+                    // taken is not something an edit gets to rewrite.
+                ]);
 
-            // Retained children are never rewritten, so a snapshot whose ledger row was
-            // edited or deleted keeps the values the measurement was actually taken with.
-            $inspectionRecord->equipment()->whereNotIn('id', $retainedIds)->delete();
-            $this->snapshots->sync($inspectionRecord, $addedIds, $equipment);
-        });
+                // Retained children are never rewritten, so a snapshot whose ledger row was
+                // edited or deleted keeps the values the measurement was actually taken with.
+                $inspectionRecord->equipment()->whereNotIn('id', $retainedIds)->delete();
+                $this->snapshots->sync($inspectionRecord, $addedIds, $equipment);
+                // Scoped to this record's media, and to the ids it already had, so the
+                // cleanup below can only ever reach what this request created.
+                $this->mediaLibrary->attach($inspectionRecord, $uploads, $existingMediaIds, $written);
+            });
+        } catch (Throwable $exception) {
+            $this->mediaLibrary->discardFiles($written);
 
-        $record = $inspectionRecord->fresh(['equipment']);
+            throw $exception;
+        }
+
+        // Dropping the media the operator removed is the last step and happens only
+        // once everything else has committed: a failure above must leave the record
+        // and its previous attachments exactly as they were.
+        $this->mediaLibrary->deleteRemoved($inspectionRecord, $retainedMedia, $written);
+
+        $record = $inspectionRecord->fresh(['equipment', 'media']);
 
         $auditLogger->record(
             actor: $request->user(),
@@ -253,11 +320,11 @@ class IntegratingSphereInspectionRecordController extends Controller
         return response()->json(['data' => $this->serializeRecord($record)]);
     }
 
-    public function destroy(Request $request, IntegratingSphereInspectionRecord $inspectionRecord, AuditLogger $auditLogger): JsonResponse
+    public function destroy(Request $request, PhotometricCurveInspectionRecord $inspectionRecord, AuditLogger $auditLogger): JsonResponse
     {
         $this->authorizePermission($request, self::RESOURCE.'.delete', self::RESOURCE, $inspectionRecord);
 
-        $before = $this->serializeRecord($inspectionRecord->load('equipment'));
+        $before = $this->serializeRecord($inspectionRecord->load(['equipment', 'media']));
         $inspectionRecord->delete();
 
         $auditLogger->record(
@@ -268,6 +335,42 @@ class IntegratingSphereInspectionRecordController extends Controller
         );
 
         return response()->json(['data' => ['deleted' => true]]);
+    }
+
+    /**
+     * Streams one photo inline for the editor and the detail thumbnails.
+     *
+     * Only the photo collection answers here and only with the image types the
+     * collection accepts, so nothing that a browser could execute is ever served
+     * inline. Views are not audited: a detail modal loads every thumbnail at once and
+     * that noise would bury the download evidence that actually matters.
+     */
+    public function viewMedia(Request $request, PhotometricCurveInspectionRecord $inspectionRecord, Media $media): BinaryFileResponse
+    {
+        $this->authorizePermission($request, self::RESOURCE.'.read', self::RESOURCE, $inspectionRecord);
+
+        $media = $this->mediaLibrary->ownedMedia($inspectionRecord, $media, PhotometricCurveInspectionRecord::PHOTO_COLLECTION);
+
+        return $this->mediaLibrary->inlineResponse($media);
+    }
+
+    public function downloadMedia(Request $request, PhotometricCurveInspectionRecord $inspectionRecord, Media $media, AuditLogger $auditLogger): BinaryFileResponse
+    {
+        $this->authorizePermission($request, self::RESOURCE.'.read', self::RESOURCE, $inspectionRecord);
+
+        $media = $this->mediaLibrary->ownedMedia($inspectionRecord, $media);
+
+        // Metadata only: the audit trail records which attachment left the system, and
+        // never the bytes or the private path it was read from.
+        $auditLogger->record(
+            actor: $request->user(),
+            action: self::RESOURCE.'.media.download',
+            module: self::RESOURCE,
+            subject: $inspectionRecord,
+            after: $this->mediaLibrary->serialize($media),
+        );
+
+        return $this->mediaLibrary->downloadResponse($media);
     }
 
     private function authorizeLookupPermission(Request $request): void
@@ -282,6 +385,19 @@ class IntegratingSphereInspectionRecordController extends Controller
         $this->authorizePermission($request, self::RESOURCE.'.create', self::RESOURCE);
     }
 
+    /** @see self::NORMALIZED_ARRAY_FIELDS */
+    private function normalizeArrayFields(Request $request): void
+    {
+        foreach (self::NORMALIZED_ARRAY_FIELDS as $field) {
+            if (! $request->has($field) || is_array($request->input($field))) {
+                continue;
+            }
+
+            $value = $request->input($field);
+            $request->merge([$field => ($value === null || $value === '') ? [] : [$value]]);
+        }
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
@@ -290,8 +406,10 @@ class IntegratingSphereInspectionRecordController extends Controller
     {
         $values = [];
 
-        foreach (array_keys(self::MEASUREMENT_SCALES) as $field) {
-            $values[$field] = $payload[$field];
+        foreach (self::MEASUREMENT_SCALES as $field => $scale) {
+            // A multipart body delivers every value as a string; the integer columns are
+            // cast back here so the model stores a number rather than "50".
+            $values[$field] = $scale === 0 ? (int) $payload[$field] : $payload[$field];
         }
 
         return $values;
@@ -313,30 +431,20 @@ class IntegratingSphereInspectionRecordController extends Controller
         return $remark === '' ? null : $remark;
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function recordedAt(array $payload, ?Carbon $fallback = null): Carbon
-    {
-        if (($payload['recorded_at'] ?? null) !== null) {
-            return Carbon::parse($payload['recorded_at'])->microseconds(0);
-        }
-
-        return $fallback ?? Carbon::now()->microseconds(0);
-    }
-
     private function filteredQuery(Request $request): Builder
     {
-        return IntegratingSphereInspectionRecord::query()
+        return PhotometricCurveInspectionRecord::query()
             ->when($request->filled('search'), function (Builder $query) use ($request): void {
                 $search = $request->string('search')->toString();
                 $query->where(fn (Builder $builder): Builder => $builder
                     ->where('sample_no', 'like', "%{$search}%")
                     ->orWhere('system_code', 'like', "%{$search}%")
+                    ->orWhere('system_name', 'like', "%{$search}%")
                     ->orWhereHas('equipment', fn (Builder $equipment): Builder => $equipment
                         ->where('equipment_no', 'like', "%{$search}%")
                         ->orWhere('equipment_name', 'like', "%{$search}%")));
             })
+            ->when($request->filled('probe'), fn (Builder $query): Builder => $query->where('probe', $request->string('probe')->toString()))
             ->when($request->filled('date_from'), fn (Builder $query): Builder => $query->where('recorded_at', '>=', $request->string('date_from')->toString().' 00:00:00'))
             ->when($request->filled('date_to'), fn (Builder $query): Builder => $query->where('recorded_at', '<=', $request->string('date_to')->toString().' 23:59:59'));
     }
@@ -344,7 +452,7 @@ class IntegratingSphereInspectionRecordController extends Controller
     private function equipmentLedgerQuery(Request $request): Builder
     {
         return $this->ledger->applyFilters(
-            IntegratingSphereInspectionEquipment::query(),
+            PhotometricCurveInspectionEquipment::query(),
             $request,
             self::EQUIPMENT_TABLE,
             self::RECORDS_TABLE,
@@ -399,9 +507,13 @@ class IntegratingSphereInspectionRecordController extends Controller
      */
     private function sharedRules(): array
     {
+        // `recorded_at` is intentionally not a rule. It is a server-owned audit value:
+        // omitting it from the writable set means a payload that carries one has it
+        // stripped by validation rather than quietly honoured.
         $rules = [
-            'recorded_at' => ['nullable', 'date'],
             'remark' => ['nullable', 'string', 'max:2000'],
+            'probe' => ['required', 'string', 'in:'.implode(',', self::PROBES)],
+            ...$this->mediaLibrary->rules(),
         ];
 
         foreach (self::MEASUREMENT_SCALES as $field => $scale) {
@@ -424,7 +536,7 @@ class IntegratingSphereInspectionRecordController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function serializeRecord(IntegratingSphereInspectionRecord $record): array
+    private function serializeRecord(PhotometricCurveInspectionRecord $record): array
     {
         return [
             'id' => $record->id,
@@ -432,12 +544,16 @@ class IntegratingSphereInspectionRecordController extends Controller
             'sample_no' => $record->sample_no,
             'equipment_system_id' => $record->equipment_system_id,
             'system_code' => $record->system_code,
-            'chromaticity_x' => $record->chromaticity_x,
-            'chromaticity_y' => $record->chromaticity_y,
-            'dominant_wavelength' => $record->dominant_wavelength,
-            'peak_wavelength' => $record->peak_wavelength,
-            'color_temperature' => $record->color_temperature,
-            'color_rendering_index' => $record->color_rendering_index,
+            'system_name' => $record->system_name,
+            'c0_180' => $record->c0_180,
+            'c30_210' => $record->c30_210,
+            'c60_240' => $record->c60_240,
+            'c90_270' => $record->c90_270,
+            // Derived on every read, never stored and never writable.
+            'average_angle' => $record->averageAngle(),
+            'probe' => $record->probe,
+            'test_distance' => $record->test_distance,
+            'peak_luminous_intensity' => $record->peak_luminous_intensity,
             'luminous_flux' => $record->luminous_flux,
             'voltage' => $record->voltage,
             'current' => $record->current,
@@ -451,8 +567,10 @@ class IntegratingSphereInspectionRecordController extends Controller
             'created_at' => $record->created_at?->format('Y-m-d H:i:s'),
             'updated_at' => $record->updated_at?->format('Y-m-d H:i:s'),
             'equipment' => $record->equipment
-                ->map(fn (IntegratingSphereInspectionEquipment $device): array => $this->snapshots->serialize($device))
+                ->map(fn (PhotometricCurveInspectionEquipment $device): array => $this->snapshots->serialize($device))
                 ->values(),
+            'photos' => $this->mediaLibrary->serializeCollection($record, PhotometricCurveInspectionRecord::PHOTO_COLLECTION),
+            'files' => $this->mediaLibrary->serializeCollection($record, PhotometricCurveInspectionRecord::FILE_COLLECTION),
         ];
     }
 }

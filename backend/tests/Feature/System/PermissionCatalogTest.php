@@ -45,6 +45,7 @@ class PermissionCatalogTest extends TestCase
         $this->assertSame(['resolve'], $resources['pdf.manual_review']['actions']);
         $this->assertSame(['manage'], $resources['pdf.evidence_hold']['actions']);
         $this->assertSame(['read', 'create', 'update', 'delete'], $resources['integrating_sphere_inspection_records']['actions']);
+        $this->assertSame(['read', 'create', 'update', 'delete'], $resources['photometric_curve_inspection_records']['actions']);
     }
 
     /**
@@ -173,6 +174,10 @@ class PermissionCatalogTest extends TestCase
             'integrating_sphere_inspection_records.create',
             'integrating_sphere_inspection_records.update',
             'integrating_sphere_inspection_records.delete',
+            'photometric_curve_inspection_records.read',
+            'photometric_curve_inspection_records.create',
+            'photometric_curve_inspection_records.update',
+            'photometric_curve_inspection_records.delete',
             'temp_humidity_records.read',
             'temp_humidity_records.create',
             'temp_humidity_records.update',

@@ -54,6 +54,15 @@ return [
             'report' => false,
         ],
 
+        // Inspection photos and attachments. Private and only reachable through the
+        // record-scoped, authenticated media endpoints, matching the equipment disk.
+        'inspection_media' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/inspection-media'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

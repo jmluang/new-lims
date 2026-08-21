@@ -37,8 +37,15 @@ return [
     /*
      * The maximum file size of an item in bytes.
      * Adding a larger file will result in an exception.
+     *
+     * This is the library-wide ceiling, not the limit any one collection accepts. It
+     * sits at the largest limit any collection advertises — the 20MB documents of the
+     * inspection `files` collection — so a file that passed request validation can
+     * never be refused here instead, which would surface as a 500 rather than a 422.
+     * The tighter per-collection limits (inspection photos stay at 10MB) are enforced
+     * by the request rules that validate the upload before it reaches the library.
      */
-    'max_file_size' => 1024 * 1024 * 10, // 10MB
+    'max_file_size' => 1024 * 1024 * 20, // 20MB
 
     /*
      * This queue connection will be used to generate derived and responsive images.

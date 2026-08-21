@@ -1,4 +1,39 @@
 import { z } from 'zod'
+import {
+  addEquipmentSnapshot,
+  apiDateTime,
+  buildInspectionEquipmentListParams,
+  compareDecimalStrings,
+  emptyInspectionEquipmentFilters,
+  equipmentEntryKey,
+  formEquipmentFromSnapshots,
+  formInputDateTime,
+  inspectionFieldErrors,
+  normalizeMeasurementInput,
+  removeEquipmentSnapshot,
+  selectedSample,
+  selectedSystem,
+  type InspectionEquipmentFilters,
+  type InspectionEquipmentLedgerRow,
+  type InspectionEquipmentOption,
+  type InspectionEquipmentSnapshot,
+  type InspectionFormEquipment,
+  type InspectionFormIssue,
+  type InspectionFormSample,
+  type InspectionFormSystem,
+  type InspectionSampleOption,
+  type InspectionSystemOption,
+} from './inspectionShared'
+
+export {
+  addEquipmentSnapshot,
+  compareDecimalStrings,
+  equipmentEntryKey,
+  normalizeMeasurementInput,
+  removeEquipmentSnapshot,
+  selectedSample,
+  selectedSystem,
+}
 
 /**
  * The measurement grid of the integrating-sphere form. `scale` is the number of
@@ -24,40 +59,10 @@ export const integratingSphereMeasurementFields = [
 export type IntegratingSphereMeasurement = (typeof integratingSphereMeasurementFields)[number]
 export type IntegratingSphereMeasurementField = IntegratingSphereMeasurement['name']
 
-export type IntegratingSphereEquipmentOption = {
-  id: number
-  equipment_no: string
-  equipment_name: string
-  manufacturer?: string | null
-  model?: string | null
-  serial_no?: string | null
-  next_calibration_date?: string | null
-}
-
-export type IntegratingSphereSystemOption = {
-  id: number
-  code: string
-  name?: string | null
-  status?: string | null
-}
-
-export type IntegratingSphereSampleOption = {
-  id: number
-  sample_no: string
-  sample_name?: string | null
-  model?: string | null
-}
-
-export type IntegratingSphereInspectionEquipment = {
-  id: number
-  equipment_id: number | null
-  equipment_no: string
-  equipment_name: string
-  manufacturer?: string | null
-  model?: string | null
-  serial_no?: string | null
-  next_calibration_date?: string | null
-}
+export type IntegratingSphereEquipmentOption = InspectionEquipmentOption
+export type IntegratingSphereSystemOption = InspectionSystemOption
+export type IntegratingSphereSampleOption = InspectionSampleOption
+export type IntegratingSphereInspectionEquipment = InspectionEquipmentSnapshot
 
 export type IntegratingSphereInspectionRecord = {
   id: number
@@ -84,56 +89,9 @@ export type IntegratingSphereInspectionRecord = {
   equipment: IntegratingSphereInspectionEquipment[]
 }
 
-/**
- * One device row of the editor. `child_id` is the stored snapshot this entry stands
- * for (null for a freshly scanned device) and `equipment_id` is the live ledger row
- * (null once that row has been deleted). A snapshot with neither a live ledger row
- * nor a way to be retained would be historical evidence the operator cannot save.
- */
-export type IntegratingSphereFormEquipment = {
-  child_id: number | null
-  equipment_id: number | null
-  equipment_no: string
-  equipment_name: string
-  manufacturer?: string | null
-  model?: string | null
-  serial_no?: string | null
-  next_calibration_date?: string | null
-}
-
-/**
- * The sample of the editor, with the same retained/new distinction the device rows
- * carry through `child_id`.
- *
- * `retained` is the snapshot already stored on the record: it is kept verbatim and
- * never re-declared, so renaming the sample in the ledger cannot rewrite the number
- * a past measurement was filed under. `selected` is a fresh scan or manual lookup,
- * which is the operator explicitly asking for that replacement.
- */
-export type IntegratingSphereFormSample = {
-  source: 'retained' | 'selected'
-  id: number | null
-  sample_no: string
-  sample_name?: string | null
-  model?: string | null
-}
-
-/**
- * The equipment system of the editor, carrying the same retained/selected split as
- * the sample.
- *
- * The code is an independent operator input: it is scanned or typed on its own and
- * is never derived from the selected devices. `retained` is the snapshot already
- * stored on the record, kept verbatim so renaming, disabling or deleting the system
- * cannot rewrite the code a past measurement was filed under; `selected` is a fresh
- * lookup, which is the operator explicitly asking for that replacement.
- */
-export type IntegratingSphereFormSystem = {
-  source: 'retained' | 'selected'
-  id: number | null
-  code: string
-  name?: string | null
-}
+export type IntegratingSphereFormEquipment = InspectionFormEquipment
+export type IntegratingSphereFormSample = InspectionFormSample
+export type IntegratingSphereFormSystem = InspectionFormSystem
 
 export type IntegratingSphereInspectionForm = {
   sample: IntegratingSphereFormSample | null
@@ -155,50 +113,11 @@ export const emptyIntegratingSphereInspectionFilters: IntegratingSphereInspectio
   date_to: '',
 }
 
-/**
- * One row of the global used-equipment ledger: an existing equipment snapshot
- * flattened with the date and operator of the record it belongs to. Nothing here is
- * stored separately — the API joins the child snapshot to its parent.
- */
-export type IntegratingSphereEquipmentLedgerRow = {
-  id: number
-  inspection_record_id: number
-  equipment_id: number | null
-  equipment_no: string
-  equipment_name: string
-  manufacturer?: string | null
-  model?: string | null
-  serial_no?: string | null
-  next_calibration_date?: string | null
-  recorded_at: string | null
-  operator_name?: string | null
-}
+export type IntegratingSphereEquipmentLedgerRow = InspectionEquipmentLedgerRow
+export type IntegratingSphereEquipmentFilters = InspectionEquipmentFilters
 
-export type IntegratingSphereEquipmentFilters = {
-  search: string
-  inspection_record_id: string
-  equipment_id: string
-  date_from: string
-  date_to: string
-}
-
-export const emptyIntegratingSphereEquipmentFilters: IntegratingSphereEquipmentFilters = {
-  search: '',
-  inspection_record_id: '',
-  equipment_id: '',
-  date_from: '',
-  date_to: '',
-}
-
-export function buildIntegratingSphereEquipmentListParams(
-  filters: IntegratingSphereEquipmentFilters,
-  page: number,
-  perPage: number,
-) {
-  const entries = Object.entries(filters).filter(([, value]) => value.trim() !== '')
-
-  return { ...Object.fromEntries(entries.map(([key, value]) => [key, value.trim()])), page, per_page: perPage }
-}
+export const emptyIntegratingSphereEquipmentFilters = emptyInspectionEquipmentFilters
+export const buildIntegratingSphereEquipmentListParams = buildInspectionEquipmentListParams
 
 /** The two page-level views sharing one route and one navigation entry. */
 export type IntegratingSphereView = 'records' | 'equipment'
@@ -211,54 +130,6 @@ export function emptyIntegratingSphereInspectionForm(recordedAt = ''): Integrati
   return { sample: null, system: null, equipment: [], recorded_at: recordedAt, remark: '', ...measurements }
 }
 
-/**
- * Canonicalizes a typed measurement using string operations only.
- *
- * The value never passes through `Number`: parsing to a double and formatting back
- * with `toFixed` silently re-rounds anything the binary representation cannot hold,
- * which is exactly the precision the record is supposed to preserve. Input carrying
- * more decimals than the form allows is refused rather than rounded, because a
- * silent round would hide an operator typo.
- */
-export function normalizeMeasurementInput(raw: string, scale: number): string | null {
-  const value = raw.trim()
-  const pattern = scale === 0 ? /^([+-]?)(\d+)$/ : new RegExp(`^([+-]?)(\\d+)(?:\\.(\\d{1,${scale}}))?$`)
-  const match = pattern.exec(value)
-
-  if (!match) {
-    return null
-  }
-
-  const [, sign, integerDigits, fractionDigits = ''] = match
-  const integerPart = integerDigits.replace(/^0+(?=\d)/, '')
-  const fractionPart = scale === 0 ? '' : fractionDigits.padEnd(scale, '0')
-  const negative = sign === '-' && /[1-9]/.test(`${integerPart}${fractionPart}`)
-
-  return `${negative ? '-' : ''}${integerPart}${scale === 0 ? '' : `.${fractionPart}`}`
-}
-
-/**
- * Orders two canonical decimals of the same scale exactly. Dropping the point
- * shifts both by the same power of ten, so the remaining digit strings can be
- * zero-padded and compared as integers without involving a float.
- */
-export function compareDecimalStrings(a: string, b: string): number {
-  const negativeA = a.startsWith('-')
-  const negativeB = b.startsWith('-')
-
-  if (negativeA !== negativeB) {
-    return negativeA ? -1 : 1
-  }
-
-  const digitsA = a.replace('-', '').replace('.', '')
-  const digitsB = b.replace('-', '').replace('.', '')
-  const width = Math.max(digitsA.length, digitsB.length)
-  const paddedA = digitsA.padStart(width, '0')
-  const paddedB = digitsB.padStart(width, '0')
-  const order = paddedA === paddedB ? 0 : paddedA < paddedB ? -1 : 1
-
-  return negativeA ? -order : order
-}
 
 export function measurementValueError(field: IntegratingSphereMeasurement, raw: string): string | null {
   if (raw.trim() === '') {
@@ -306,7 +177,7 @@ function measurementPayloadValue(field: IntegratingSphereMeasurement, raw: strin
   return parsed
 }
 
-type FormIssue = { path: PropertyKey[]; message: string }
+type FormIssue = InspectionFormIssue
 
 export class IntegratingSphereFormError extends Error {
   readonly issues: FormIssue[]
@@ -374,21 +245,6 @@ export const integratingSphereInspectionSchema = z.object({
   ...measurementShape,
 })
 
-/**
- * Local `datetime-local` values carry no seconds; the API stores a full timestamp,
- * so the missing seconds are filled in rather than left to the server's parser.
- */
-function apiDateTime(value: string) {
-  const trimmed = value.trim()
-
-  if (trimmed === '') {
-    return null
-  }
-
-  const normalized = trimmed.replace('T', ' ')
-
-  return normalized.length === 16 ? `${normalized}:00` : normalized
-}
 
 export function buildIntegratingSphereInspectionPayload(
   values: IntegratingSphereInspectionForm,
@@ -463,68 +319,9 @@ export function buildIntegratingSphereInspectionPayload(
  * exact input that has to be corrected instead of showing one opaque banner.
  */
 export function integratingSphereFieldErrors(error: unknown): Record<string, string> {
-  const issues = (error as { issues?: FormIssue[] } | null)?.issues
-
-  if (!issues) {
-    return {}
-  }
-
-  const fieldErrors: Record<string, string> = {}
-
-  for (const issue of issues) {
-    const field = String(issue.path[0] ?? '')
-
-    if (field !== '' && !(field in fieldErrors)) {
-      fieldErrors[field] = issue.message
-    }
-  }
-
-  return fieldErrors
+  return inspectionFieldErrors(error)
 }
 
-/** Wraps a lookup result as the operator's explicit replacement for the sample. */
-export function selectedSample(sample: IntegratingSphereSampleOption): IntegratingSphereFormSample {
-  return { source: 'selected', id: sample.id, sample_no: sample.sample_no, sample_name: sample.sample_name, model: sample.model }
-}
-
-/** Wraps a lookup result as the operator's explicit replacement for the system. */
-export function selectedSystem(system: IntegratingSphereSystemOption): IntegratingSphereFormSystem {
-  return { source: 'selected', id: system.id, code: system.code, name: system.name }
-}
-
-/** Stable identity for a device row, whether it is a stored snapshot or a new scan. */
-export function equipmentEntryKey(device: IntegratingSphereFormEquipment) {
-  return device.child_id !== null ? `child:${device.child_id}` : `equipment:${device.equipment_id}`
-}
-
-/**
- * Scanning the same label twice must not add a second row for one device, and a
- * device already covered by a retained snapshot must not be re-added either — the
- * API rejects that pairing because it would duplicate the child row.
- */
-export function addEquipmentSnapshot(list: IntegratingSphereFormEquipment[], device: IntegratingSphereEquipmentOption) {
-  if (list.some((item) => item.equipment_id === device.id)) {
-    return list
-  }
-
-  return [
-    ...list,
-    {
-      child_id: null,
-      equipment_id: device.id,
-      equipment_no: device.equipment_no,
-      equipment_name: device.equipment_name,
-      manufacturer: device.manufacturer,
-      model: device.model,
-      serial_no: device.serial_no,
-      next_calibration_date: device.next_calibration_date,
-    },
-  ]
-}
-
-export function removeEquipmentSnapshot(list: IntegratingSphereFormEquipment[], key: string) {
-  return list.filter((device) => equipmentEntryKey(device) !== key)
-}
 
 export function buildIntegratingSphereInspectionListParams(
   filters: IntegratingSphereInspectionFilters,
@@ -536,9 +333,6 @@ export function buildIntegratingSphereInspectionListParams(
   return { ...Object.fromEntries(entries), page, per_page: perPage }
 }
 
-function formInputDateTime(value: string) {
-  return value.replace(' ', 'T').slice(0, 16)
-}
 
 /**
  * Rebuilds the form from a stored record. Every child snapshot is carried over,
@@ -554,16 +348,7 @@ export function inspectionFormFromRecord(record: IntegratingSphereInspectionReco
   return {
     sample: { source: 'retained', id: record.sample_id, sample_no: record.sample_no },
     system: record.system_code === null ? null : { source: 'retained', id: record.equipment_system_id, code: record.system_code },
-    equipment: record.equipment.map((device) => ({
-      child_id: device.id,
-      equipment_id: device.equipment_id,
-      equipment_no: device.equipment_no,
-      equipment_name: device.equipment_name,
-      manufacturer: device.manufacturer,
-      model: device.model,
-      serial_no: device.serial_no,
-      next_calibration_date: device.next_calibration_date,
-    })),
+    equipment: formEquipmentFromSnapshots(record.equipment),
     recorded_at: formInputDateTime(record.recorded_at),
     remark: record.remark ?? '',
     ...measurements,

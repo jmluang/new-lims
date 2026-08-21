@@ -24,6 +24,7 @@ use App\Http\Controllers\Pdf\PdfSigningController;
 use App\Http\Controllers\Pdf\PdfVerificationController;
 use App\Http\Controllers\Pdf\PdfVerificationLogController;
 use App\Http\Controllers\Pdf\PerforationStampController;
+use App\Http\Controllers\PhotometricCurveInspectionRecordController;
 use App\Http\Controllers\PublicTestOrderSubmissionController;
 use App\Http\Controllers\PublicTestOrderSubmissionReviewController;
 use App\Http\Controllers\SampleController;
@@ -184,6 +185,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/integrating-sphere-inspection-records/equipment', [IntegratingSphereInspectionRecordController::class, 'equipmentLedger']);
         Route::apiResource('/integrating-sphere-inspection-records', IntegratingSphereInspectionRecordController::class)
             ->parameters(['integrating-sphere-inspection-records' => 'inspectionRecord'])
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
+        // Same ordering rule as above: the literal segments and the media endpoints are
+        // declared before the resource routes so implicit model binding never tries to
+        // resolve "lookup" or "equipment" as a record id.
+        Route::get('/photometric-curve-inspection-records/lookup', [PhotometricCurveInspectionRecordController::class, 'lookup']);
+        Route::get('/photometric-curve-inspection-records/equipment', [PhotometricCurveInspectionRecordController::class, 'equipmentLedger']);
+        Route::get('/photometric-curve-inspection-records/{inspectionRecord}/media/{media}/view', [PhotometricCurveInspectionRecordController::class, 'viewMedia']);
+        Route::get('/photometric-curve-inspection-records/{inspectionRecord}/media/{media}/download', [PhotometricCurveInspectionRecordController::class, 'downloadMedia']);
+        Route::apiResource('/photometric-curve-inspection-records', PhotometricCurveInspectionRecordController::class)
+            ->parameters(['photometric-curve-inspection-records' => 'inspectionRecord'])
             ->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::get('/equipment/{equipment}/files/{field}/{index?}', [EquipmentController::class, 'downloadFile']);
         Route::apiResource('/equipment', EquipmentController::class);

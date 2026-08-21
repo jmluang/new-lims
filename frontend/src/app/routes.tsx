@@ -9,6 +9,7 @@ import { EquipmentLocationTreePage } from '../features/equipment/EquipmentLocati
 import { EquipmentSystemPage } from '../features/equipment/EquipmentSystemPage'
 import { EquipmentUsageRecordPage } from '../features/equipment/EquipmentUsageRecordPage'
 import { IntegratingSphereInspectionPage } from '../features/equipment/IntegratingSphereInspectionPage'
+import { PhotometricCurveInspectionPage } from '../features/equipment/PhotometricCurveInspectionPage'
 import { CalibrationProjectPage } from '../features/equipment/CalibrationProjectPage'
 import { EquipmentCalibrationListPage } from '../features/equipment/EquipmentCalibrationListPage'
 import { EquipmentCalibrationFormPage } from '../features/equipment/EquipmentCalibrationFormPage'
@@ -316,6 +317,13 @@ const integratingSphereInspectionsRoute = createRoute({
   component: IntegratingSphereInspectionPage,
 })
 
+const photometricCurveInspectionsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/equipment/photometric-curve-inspections',
+  beforeLoad: () => requireRoutePermission('photometric_curve_inspection_records'),
+  component: PhotometricCurveInspectionPage,
+})
+
 const equipmentCalibrationsRoute = createRoute({
   getParentRoute: () => protectedRoute,
   path: '/equipment/calibrations',
@@ -485,6 +493,7 @@ export const routeTree = rootRoute.addChildren([
     equipmentLabelsRoute,
     equipmentUsageRecordsRoute,
     integratingSphereInspectionsRoute,
+    photometricCurveInspectionsRoute,
     equipmentCalibrationsRoute,
     equipmentCalibrationCreateRoute,
     equipmentCalibrationDetailRoute,
