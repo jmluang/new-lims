@@ -96,6 +96,8 @@ export function SampleReceivePage() {
     onSuccess: async (receivedSamples) => {
       await queryClient.invalidateQueries({ queryKey: ['samples'] })
       await queryClient.invalidateQueries({ queryKey: ['test-orders'] })
+      await queryClient.invalidateQueries({ queryKey: ['receive-test-orders'] })
+      await queryClient.invalidateQueries({ queryKey: ['receive-sample-options'] })
       saveSampleLabelIds(receivedSamples.map((sample) => sample.id))
       await navigate({ to: '/samples/labels' })
     },
