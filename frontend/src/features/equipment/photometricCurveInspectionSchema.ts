@@ -71,7 +71,7 @@ export const photometricCurveMeasurementFields = [
   { name: 'test_distance', label: '测试距离', scale: 4, unit: 'm', min: '0', max: '99999999.9999' },
   { name: 'peak_luminous_intensity', label: '峰值光强', scale: 1, unit: 'cd', min: '0', max: '99999999999.9' },
   { name: 'luminous_flux', label: '光通量', scale: 1, unit: 'lm', min: '0', max: '99999999999.9' },
-  { name: 'voltage', label: '电压', scale: 1, unit: 'V', min: '0', max: '99999999.9' },
+  { name: 'voltage', label: '电压', scale: 2, unit: 'V', min: '0', max: '99999999.99' },
   { name: 'current', label: '电流', scale: 4, unit: 'A', min: '0', max: '99999999.9999' },
   { name: 'power', label: '功率', scale: 4, unit: 'W', min: '0', max: '99999999.9999' },
   { name: 'power_factor', label: '功率因数', scale: 4, unit: '', min: '0', max: '1' },

@@ -36,7 +36,7 @@ const mockRecord: PhotometricCurveCalibrationRecord = {
   calibration_coefficient: '1.0024',
   peak_luminous_intensity: '221.0',
   luminous_flux: '1674.0',
-  voltage: '220.8',
+  voltage: '220.80',
   current: '0.1189',
   power: '14.2400',
   power_factor: '0.5422',
@@ -104,7 +104,7 @@ function validCreateForm(): PhotometricCurveCalibrationForm {
     calibration_coefficient: '1.0024',
     peak_luminous_intensity: '221.0',
     luminous_flux: '1674.0',
-    voltage: '220.8',
+    voltage: '220.80',
     current: '0.1189',
     power: '14.24',
     power_factor: '0.5422',
@@ -120,7 +120,7 @@ describe('photometricCurveCalibrationSchema measurement contract', () => {
       ['calibration_coefficient', 4, ''],
       ['peak_luminous_intensity', 1, 'cd'],
       ['luminous_flux', 1, 'lm'],
-      ['voltage', 1, 'V'],
+      ['voltage', 2, 'V'],
       ['current', 4, 'A'],
       ['power', 4, 'W'],
       ['power_factor', 4, ''],
@@ -198,7 +198,7 @@ describe('buildPhotometricCurveCalibrationPayload', () => {
     expect(payload.get('calibration_coefficient')).toBe('1.0024')
     expect(payload.get('peak_luminous_intensity')).toBe('221.0')
     expect(payload.get('luminous_flux')).toBe('1674.0')
-    expect(payload.get('voltage')).toBe('220.8')
+    expect(payload.get('voltage')).toBe('220.80')
     expect(payload.get('current')).toBe('0.1189')
     // A short entry is padded to the promised scale rather than sent as typed.
     expect(payload.get('power')).toBe('14.2400')

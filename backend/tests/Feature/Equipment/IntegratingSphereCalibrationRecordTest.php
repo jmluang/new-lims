@@ -149,7 +149,7 @@ class IntegratingSphereCalibrationRecordTest extends TestCase
             ->assertJsonPath('data.color_temperature', 4360)
             ->assertJsonPath('data.color_rendering_index', '88.4')
             ->assertJsonPath('data.luminous_flux', '1674.0')
-            ->assertJsonPath('data.voltage', '220.8')
+            ->assertJsonPath('data.voltage', '220.80')
             ->assertJsonPath('data.current', '0.1189')
             ->assertJsonPath('data.power', '14.2400')
             ->assertJsonPath('data.power_factor', '0.5422')
@@ -338,7 +338,7 @@ class IntegratingSphereCalibrationRecordTest extends TestCase
             'color_temperature' => 4360,
             'color_rendering_index' => '88.4',
             'luminous_flux' => '1674.0',
-            'voltage' => '220.8',
+            'voltage' => '220.80',
             'current' => '0.1189',
             'power' => '14.2400',
             'power_factor' => '0.5422',
@@ -674,7 +674,7 @@ class IntegratingSphereCalibrationRecordTest extends TestCase
         int $colorTemperature = 4360,
         string $colorRenderingIndex = '88.4',
         string $luminousFlux = '1674.0',
-        string $voltage = '220.8',
+        string $voltage = '220.80',
         string $current = '0.1189',
         string $power = '14.2400',
         string $powerFactor = '0.5422',

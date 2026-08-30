@@ -56,7 +56,7 @@ const record: IntegratingSphereInspectionRecord = {
   color_temperature: 4360,
   color_rendering_index: '88.4',
   luminous_flux: '1234.5',
-  voltage: '220.0',
+  voltage: '220.00',
   current: '0.0451',
   power: '9.8765',
   power_factor: '0.9876',

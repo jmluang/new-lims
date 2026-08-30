@@ -155,7 +155,7 @@ class PhotometricCurveInspectionRecordTest extends TestCase
             ->assertJsonPath('data.test_distance', '26.0000')
             ->assertJsonPath('data.peak_luminous_intensity', '221.0')
             ->assertJsonPath('data.luminous_flux', '1674.0')
-            ->assertJsonPath('data.voltage', '220.8')
+            ->assertJsonPath('data.voltage', '220.80')
             ->assertJsonPath('data.current', '0.1189')
             ->assertJsonPath('data.power', '14.2400')
             ->assertJsonPath('data.power_factor', '0.5422')
@@ -242,12 +242,12 @@ class PhotometricCurveInspectionRecordTest extends TestCase
 
         $edited = $this->putJsonAs($operator, self::BASE."/{$created['id']}", [
             ...$this->measurements(),
-            'voltage' => '221.0',
+            'voltage' => '221.00',
             'recorded_at' => '1999-01-01 00:00:00',
         ])->assertOk()->json('data');
 
         $this->assertSame('2026-08-21 10:29:00', $edited['recorded_at']);
-        $this->assertSame('221.0', $edited['voltage']);
+        $this->assertSame('221.00', $edited['voltage']);
 
         $untouched = $this->putJsonAs($operator, self::BASE."/{$created['id']}", $this->measurements())->assertOk()->json('data');
         $this->assertSame('2026-08-21 10:29:00', $untouched['recorded_at']);
@@ -341,12 +341,12 @@ class PhotometricCurveInspectionRecordTest extends TestCase
 
         // An edit that only corrects a measurement re-declares nothing, so every
         // snapshot survives even though its ledger row has moved on.
-        $this->putJsonAs($operator, self::BASE."/{$created['id']}", [...$this->measurements(), 'voltage' => '221.0'])
+        $this->putJsonAs($operator, self::BASE."/{$created['id']}", [...$this->measurements(), 'voltage' => '221.00'])
             ->assertOk()
             ->assertJsonPath('data.sample_no', 'S-SNAP')
             ->assertJsonPath('data.system_code', 'sys-01')
             ->assertJsonPath('data.system_name', '系统1')
-            ->assertJsonPath('data.voltage', '221.0')
+            ->assertJsonPath('data.voltage', '221.00')
             ->assertJsonPath('data.equipment.0.equipment_no', 'EQ-SNAP');
 
         $sample->delete();
@@ -868,7 +868,7 @@ class PhotometricCurveInspectionRecordTest extends TestCase
         $response = $this->postAs($operator, self::BASE."/{$created['id']}", [
             ...$this->measurements(),
             '_method' => 'PUT',
-            'voltage' => '199.9',
+            'voltage' => '199.90',
             'photos' => [UploadedFile::fake()->image('lost-one.jpg', 8, 8), UploadedFile::fake()->image('lost-two.jpg', 8, 8)],
         ]);
 
@@ -877,7 +877,7 @@ class PhotometricCurveInspectionRecordTest extends TestCase
         // The record, its equipment and its previous attachment are exactly as before,
         // and nothing the failed request wrote survives on the private disk.
         $unchanged = $this->getJsonAs($operator, self::BASE."/{$created['id']}")->assertOk()->json('data');
-        $this->assertSame('220.8', $unchanged['voltage']);
+        $this->assertSame('220.80', $unchanged['voltage']);
         $this->assertCount(1, $unchanged['photos']);
         $this->assertSame('kept.jpg', $unchanged['photos'][0]['file_name']);
         $this->assertFileExists($keptPath);
@@ -1043,7 +1043,7 @@ class PhotometricCurveInspectionRecordTest extends TestCase
             'test_distance' => '26.0000',
             'peak_luminous_intensity' => '221.0',
             'luminous_flux' => '1674.0',
-            'voltage' => '220.8',
+            'voltage' => '220.80',
             'current' => '0.1189',
             'power' => '14.2400',
             'power_factor' => '0.5422',

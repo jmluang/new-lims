@@ -61,7 +61,7 @@ const record: PhotometricCurveInspectionRecord = {
   test_distance: '26.0000',
   peak_luminous_intensity: '221.0',
   luminous_flux: '1674.0',
-  voltage: '220.8',
+  voltage: '220.80',
   current: '0.1189',
   power: '14.2400',
   power_factor: '0.5422',
@@ -413,12 +413,12 @@ describe('photometric curve editor', () => {
       <InspectionRecordFormFields
         form={emptyPhotometricCurveInspectionForm()}
         {...formProps}
-        fieldErrors={{ c0_180: '请填写测量值', voltage: '最多保留 1 位小数', photos: '最多保留 10 个附件' }}
+        fieldErrors={{ c0_180: '请填写测量值', voltage: '最多保留 2 位小数', photos: '最多保留 10 个附件' }}
       />,
     )
 
     expect(html).toContain('请填写测量值')
-    expect(html).toContain('最多保留 1 位小数')
+    expect(html).toContain('最多保留 2 位小数')
     expect(html).toContain('最多保留 10 个附件')
   })
 
