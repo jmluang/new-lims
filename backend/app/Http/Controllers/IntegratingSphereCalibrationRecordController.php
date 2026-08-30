@@ -40,7 +40,7 @@ class IntegratingSphereCalibrationRecordController extends Controller
         'color_temperature' => 0,
         'color_rendering_index' => 1,
         'luminous_flux' => 1,
-        'voltage' => 1,
+        'voltage' => 2,
         'current' => 4,
         'power' => 4,
         'power_factor' => 4,
@@ -59,7 +59,7 @@ class IntegratingSphereCalibrationRecordController extends Controller
     private const DECIMAL_BOUNDS = [
         'color_rendering_index' => ['-9999.9', '9999.9'],
         'luminous_flux' => [0, '99999999999.9'],
-        'voltage' => [0, '99999999.9'],
+        'voltage' => [0, '99999999.99'],
         'current' => [0, '99999999.9999'],
         'power' => [0, '99999999.9999'],
     ];

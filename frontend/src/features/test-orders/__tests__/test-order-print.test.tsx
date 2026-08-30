@@ -208,9 +208,9 @@ function queryClientWithOrder() {
   })
   const order = testOrder()
 
-  queryClient.setQueryData(['test-orders', { search: '', sample_status: '', client_company: '', order_date_from: '', order_date_to: '' }, 1, 15], {
+  queryClient.setQueryData(['test-orders', { search: '', sample_status: '', client_company: '', order_date_from: '', order_date_to: '' }, 1, 100], {
     data: [order],
-    meta: { current_page: 1, per_page: 15, total: 1 },
+    meta: { current_page: 1, per_page: 100, total: 1 },
   })
   queryClient.setQueryData(['test-order', 7], order)
 

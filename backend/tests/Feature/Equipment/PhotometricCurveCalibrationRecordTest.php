@@ -113,7 +113,7 @@ class PhotometricCurveCalibrationRecordTest extends TestCase
             ->assertJsonPath('data.calibration_coefficient', '1.0024')
             ->assertJsonPath('data.peak_luminous_intensity', '221.0')
             ->assertJsonPath('data.luminous_flux', '1674.0')
-            ->assertJsonPath('data.voltage', '220.8')
+            ->assertJsonPath('data.voltage', '220.80')
             ->assertJsonPath('data.current', '0.1189')
             ->assertJsonPath('data.power', '14.2400')
             ->assertJsonPath('data.power_factor', '0.5422')
@@ -375,7 +375,7 @@ class PhotometricCurveCalibrationRecordTest extends TestCase
         // Excess scale is refused rather than silently rounded.
         $create(['calibrationCoefficient' => '1.00245'])->assertUnprocessable()->assertJsonValidationErrors(['calibration_coefficient']);
         $create(['peakLuminousIntensity' => '221.05'])->assertUnprocessable()->assertJsonValidationErrors(['peak_luminous_intensity']);
-        $create(['voltage' => '220.85'])->assertUnprocessable()->assertJsonValidationErrors(['voltage']);
+        $create(['voltage' => '220.855'])->assertUnprocessable()->assertJsonValidationErrors(['voltage']);
 
         // Negatives are physically invalid for every column of this form.
         $create(['testDistance' => '-1.0000'])->assertUnprocessable()->assertJsonValidationErrors(['test_distance']);
@@ -839,7 +839,7 @@ class PhotometricCurveCalibrationRecordTest extends TestCase
         string $calibrationCoefficient = '1.0024',
         string $peakLuminousIntensity = '221.0',
         string $luminousFlux = '1674.0',
-        string $voltage = '220.8',
+        string $voltage = '220.80',
         string $current = '0.1189',
         string $power = '14.2400',
         string $powerFactor = '0.5422',

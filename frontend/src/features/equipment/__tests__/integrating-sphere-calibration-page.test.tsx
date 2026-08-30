@@ -57,7 +57,7 @@ const mockRecord: IntegratingSphereCalibrationRecord = {
   color_temperature: 4360,
   color_rendering_index: '88.4',
   luminous_flux: '1674.0',
-  voltage: '220.8',
+  voltage: '220.80',
   current: '0.1189',
   power: '14.2400',
   power_factor: '0.5422',

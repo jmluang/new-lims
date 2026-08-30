@@ -27,7 +27,7 @@ class TestOrderController extends Controller
         $orders = $this->filteredQuery($request)
             ->with(['standards', 'samples'])
             ->orderByDesc('id')
-            ->paginate((int) $request->integer('per_page', 15));
+            ->paginate((int) $request->integer('per_page', 100));
 
         return response()->json([
             'data' => $orders->getCollection()

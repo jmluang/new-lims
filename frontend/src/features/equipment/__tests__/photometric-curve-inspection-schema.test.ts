@@ -61,7 +61,7 @@ const validForm = {
   test_distance: '26.0000',
   peak_luminous_intensity: '221.0',
   luminous_flux: '1674.0',
-  voltage: '220.8',
+  voltage: '220.80',
   current: '0.1189',
   power: '14.2400',
   power_factor: '0.5422',
@@ -85,7 +85,7 @@ const storedRecord: PhotometricCurveInspectionRecord = {
   test_distance: '26.0000',
   peak_luminous_intensity: '221.0',
   luminous_flux: '1674.0',
-  voltage: '220.8',
+  voltage: '220.80',
   current: '0.1189',
   power: '14.2400',
   power_factor: '0.5422',
@@ -128,7 +128,7 @@ describe('measurement scales and units', () => {
       ['test_distance', 4, 'm'],
       ['peak_luminous_intensity', 1, 'cd'],
       ['luminous_flux', 1, 'lm'],
-      ['voltage', 1, 'V'],
+      ['voltage', 2, 'V'],
       ['current', 4, 'A'],
       ['power', 4, 'W'],
       ['power_factor', 4, ''],
@@ -211,7 +211,7 @@ describe('create payload', () => {
     expect(body.get('test_distance')).toBe('26.0000')
     expect(body.get('peak_luminous_intensity')).toBe('221.0')
     expect(body.get('luminous_flux')).toBe('1674.0')
-    expect(body.get('voltage')).toBe('220.8')
+    expect(body.get('voltage')).toBe('220.80')
     expect(body.get('current')).toBe('0.1189')
     expect(body.get('power')).toBe('14.2400')
     expect(body.get('power_factor')).toBe('0.5422')
@@ -269,7 +269,7 @@ describe('create payload', () => {
 
       expect(errors.system).toBe('请先录入系统编码')
       expect(errors.c0_180).toBe('请填写测量值')
-      expect(errors.voltage).toBe('最多保留 1 位小数')
+      expect(errors.voltage).toBe('最多保留 2 位小数')
     }
   })
 })
@@ -316,11 +316,11 @@ describe('update payload', () => {
       equipment: [{ ...storedRecord.equipment[0], equipment_id: null }],
     }
     const form = inspectionFormFromRecord(orphaned)
-    const body = buildPhotometricCurveInspectionPayload({ ...form, voltage: '221.0' }, 'update')
+    const body = buildPhotometricCurveInspectionPayload({ ...form, voltage: '221.00' }, 'update')
 
     expect(entries(body, 'retained_equipment_ids[]')).toEqual(['11'])
     expect(entries(body, 'equipment_ids[]')).toEqual([])
-    expect(body.get('voltage')).toBe('221.0')
+    expect(body.get('voltage')).toBe('221.00')
   })
 
   it('still refuses an edit that would leave the record without any device', () => {

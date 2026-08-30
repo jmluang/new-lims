@@ -119,7 +119,7 @@ export const integratingSphereCalibrationMeasurementFields = [
   { name: 'color_temperature', label: '色温', unit: 'K', scale: 0, min: '0', max: '1000000' },
   { name: 'color_rendering_index', label: '显色指数 Ra', unit: '', scale: 1, min: '-9999.9', max: '9999.9' },
   { name: 'luminous_flux', label: '光通量', unit: 'lm', scale: 1, min: '0', max: '99999999999.9' },
-  { name: 'voltage', label: '电压', unit: 'V', scale: 1, min: '0', max: '99999999.9' },
+  { name: 'voltage', label: '电压', unit: 'V', scale: 2, min: '0', max: '99999999.99' },
   { name: 'current', label: '电流', unit: 'A', scale: 4, min: '0', max: '99999999.9999' },
   { name: 'power', label: '功率', unit: 'W', scale: 4, min: '0', max: '99999999.9999' },
   { name: 'power_factor', label: '功率因数', unit: '', scale: 4, min: '0', max: '1' },

@@ -46,7 +46,7 @@ class IntegratingSphereInspectionRecord extends Model
             'color_temperature' => 'integer',
             'color_rendering_index' => 'decimal:1',
             'luminous_flux' => 'decimal:1',
-            'voltage' => 'decimal:1',
+            'voltage' => 'decimal:2',
             'current' => 'decimal:4',
             'power' => 'decimal:4',
             'power_factor' => 'decimal:4',

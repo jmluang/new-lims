@@ -107,7 +107,7 @@ export function TestOrderListPage() {
   const queryClient = useQueryClient()
   const [filters, setFilters] = useState<TestOrderFilters>(emptyFilters)
   const [page, setPage] = useState(1)
-  const [perPage, setPerPage] = useState(15)
+  const [perPage, setPerPage] = useState(100)
   const [notifyOrder, setNotifyOrder] = useState<TestOrder | null>(null)
   const [recipientUserId, setRecipientUserId] = useState('')
   const ordersQuery = useQuery({

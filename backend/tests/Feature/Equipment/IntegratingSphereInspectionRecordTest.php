@@ -113,7 +113,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
             ->assertJsonPath('data.color_temperature', 4360)
             ->assertJsonPath('data.color_rendering_index', '88.4')
             ->assertJsonPath('data.luminous_flux', '1234.5')
-            ->assertJsonPath('data.voltage', '220.0')
+            ->assertJsonPath('data.voltage', '220.00')
             ->assertJsonPath('data.current', '0.0451')
             ->assertJsonPath('data.power', '9.8765')
             ->assertJsonPath('data.power_factor', '0.9876')
@@ -283,7 +283,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
             'color_temperature' => 1000000,
             'color_rendering_index' => '-9999.9',
             'luminous_flux' => '99999999999.9',
-            'voltage' => '99999999.9',
+            'voltage' => '99999999.99',
             'current' => '99999999.9999',
             'power' => '0.0001',
             'power_factor' => '99.9999',
@@ -760,10 +760,10 @@ class IntegratingSphereInspectionRecordTest extends TestCase
 
         $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
             ...$this->measurements(),
-            'voltage' => '221.0',
+            'voltage' => '221.00',
         ])->assertOk()
             ->assertJsonPath('data.sample_no', 'S-DEFAULT-RETAIN')
-            ->assertJsonPath('data.voltage', '221.0')
+            ->assertJsonPath('data.voltage', '221.00')
             ->assertJsonCount(2, 'data.equipment')
             ->assertJsonPath('data.equipment.1.equipment_no', 'XPD-S-002')
             ->assertJsonPath('data.equipment.1.equipment_id', null);
@@ -1039,11 +1039,11 @@ class IntegratingSphereInspectionRecordTest extends TestCase
 
         $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
             ...$this->measurements(),
-            'voltage' => '221.0',
+            'voltage' => '221.00',
         ])->assertOk()
             ->assertJsonPath('data.equipment_system_id', $system->id)
             ->assertJsonPath('data.system_code', 'sys-01')
-            ->assertJsonPath('data.voltage', '221.0');
+            ->assertJsonPath('data.voltage', '221.00');
     }
 
     public function test_a_default_edit_preserves_the_system_code_after_the_system_is_deleted(): void
@@ -1058,7 +1058,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
         // evidence left of which system the measurement was taken on, so it stays.
         $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
             ...$this->measurements(),
-            'voltage' => '221.0',
+            'voltage' => '221.00',
         ])->assertOk()
             ->assertJsonPath('data.equipment_system_id', null)
             ->assertJsonPath('data.system_code', 'sys-01');
@@ -1145,11 +1145,11 @@ class IntegratingSphereInspectionRecordTest extends TestCase
 
         $this->putJsonAs($operator, "/api/integrating-sphere-inspection-records/{$record->id}", [
             ...$this->measurements(),
-            'voltage' => '221.0',
+            'voltage' => '221.00',
         ])->assertOk()
             ->assertJsonPath('data.equipment_system_id', null)
             ->assertJsonPath('data.system_code', null)
-            ->assertJsonPath('data.voltage', '221.0');
+            ->assertJsonPath('data.voltage', '221.00');
     }
 
     public function test_audit_payloads_carry_the_system_snapshot_fields(): void
@@ -1205,7 +1205,7 @@ class IntegratingSphereInspectionRecordTest extends TestCase
             'color_temperature' => 4360,
             'color_rendering_index' => '88.4',
             'luminous_flux' => '1234.5',
-            'voltage' => '220.0',
+            'voltage' => '220.00',
             'current' => '0.0451',
             'power' => '9.8765',
             'power_factor' => '0.9876',

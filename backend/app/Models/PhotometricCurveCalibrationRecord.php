@@ -59,7 +59,7 @@ class PhotometricCurveCalibrationRecord extends Model implements HasMedia
             'calibration_coefficient' => 'decimal:4',
             'peak_luminous_intensity' => 'decimal:1',
             'luminous_flux' => 'decimal:1',
-            'voltage' => 'decimal:1',
+            'voltage' => 'decimal:2',
             'current' => 'decimal:4',
             'power' => 'decimal:4',
             'power_factor' => 'decimal:4',

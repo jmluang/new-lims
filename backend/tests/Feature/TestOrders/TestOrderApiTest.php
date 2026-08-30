@@ -186,6 +186,7 @@ class TestOrderApiTest extends TestCase
 
         $this->getJsonAs($reader, '/api/test-orders')
             ->assertOk()
+            ->assertJsonPath('meta.per_page', 100)
             ->assertJsonPath('data.0.id', $newer->id)
             ->assertJsonPath('data.1.id', $older->id);
     }

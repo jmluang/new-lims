@@ -58,7 +58,7 @@ const mockRecord: PhotometricCurveCalibrationRecord = {
   calibration_coefficient: '1.0024',
   peak_luminous_intensity: '221.0',
   luminous_flux: '1674.0',
-  voltage: '220.8',
+  voltage: '220.80',
   current: '0.1189',
   power: '14.2400',
   power_factor: '0.5422',
@@ -218,7 +218,7 @@ describe('PhotometricCurveCalibrationPage views', () => {
     expect(html).toContain('1.0024')
     expect(html).toContain('221.0 cd')
     expect(html).toContain('1674.0 lm')
-    expect(html).toContain('220.8 V')
+    expect(html).toContain('220.80 V')
     expect(html).toContain('0.1189 A')
     expect(html).toContain('14.2400 W')
     expect(html).toContain('0.5422')
