@@ -341,13 +341,22 @@ mapfile -t ordered_releases < <(
       done
 )
 
-kept=0
+# Reserve one slot for the active release before considering recency. `rsync -a`
+# preserves the checkout directory's mtime, so the active release is not
+# necessarily among the five newest directories by mtime. Without reserving its
+# slot, an older active release plus five newer ones would leave six releases.
+kept=1
 for name in "${ordered_releases[@]}"; do
   release_path="$releases_dir/$name"
-  kept=$((kept + 1))
   # The live release survives whatever its position, so this can never delete
-  # the directory the site is currently served from.
-  if ((kept <= keep_releases)) || [[ "$release_path" == "$active_release" ]]; then
+  # the directory the site is currently served from. It already occupies the
+  # slot reserved above; retain only the newest remaining releases to keep the
+  # total at DEPLOY_KEEP_RELEASES.
+  if [[ "$release_path" == "$active_release" ]]; then
+    continue
+  fi
+  if ((kept < keep_releases)); then
+    kept=$((kept + 1))
     continue
   fi
   if sudo rm -rf -- "$release_path"; then
