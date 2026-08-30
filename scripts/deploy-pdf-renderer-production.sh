@@ -146,7 +146,7 @@ render_check() {
   output_file="$(mktemp /tmp/lims-pdf-renderer-check-XXXXXX.pdf)"
   if ! sudo -u "$deploy_user" env \
     PDF_SMOKE_BASE_URL="$base_url" PDF_SMOKE_OUTPUT_FILE="$output_file" \
-    "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" tinker --execute='config(["pdf_service.base_url" => getenv("PDF_SMOKE_BASE_URL")]); file_put_contents(getenv("PDF_SMOKE_OUTPUT_FILE"), app(\App\Services\Pdf\PdfRendererClient::class)->renderEntrustOrder(["samples" => [["name" => "PDF smoke sample"]]]));'; then
+    "$php_bin" -d opcache.enable_cli=0 "$backend_dir/artisan" tinker --execute='config(["pdf_service.base_url" => getenv("PDF_SMOKE_BASE_URL")]); file_put_contents(getenv("PDF_SMOKE_OUTPUT_FILE"), app(\App\Services\Pdf\PdfRendererClient::class)->renderEntrustOrder(["samples" => [["name" => "PDFSMOKECHECK"]]]));'; then
     rm -f -- "$output_file"
     return 1
   fi
@@ -154,7 +154,11 @@ render_check() {
     rm -f -- "$output_file"
     return 1
   fi
-  if command -v pdftotext >/dev/null && ! pdftotext "$output_file" - | grep -Fq 'PDF smoke sample'; then
+  # One unbreakable token, not a phrase: the renderer is free to wrap a sample
+  # name inside its table cell, and a wrapped phrase never comes back out of
+  # pdftotext as a contiguous string. That failure would roll back a release
+  # that had in fact rendered correctly.
+  if command -v pdftotext >/dev/null && ! pdftotext "$output_file" - | grep -Fq 'PDFSMOKECHECK'; then
     rm -f -- "$output_file"
     return 1
   fi
@@ -195,7 +199,10 @@ if [[ "$force" != '1' && -r "$marker" && "$(<"$marker")" == "$release_sha" ]]; t
 fi
 
 sudo install -d -m 0755 -o "$deploy_user" -g www "$pdf_root" "$state_dir"
-[[ -r "$env_file" ]] || { printf '%s\n' "Missing PDF renderer environment: $env_file" >&2; exit 1; }
+# Checked through sudo to match both the preflight `sudo test -f` above and the
+# `sudo docker compose --env-file` below: this file holds the HMAC secret and the
+# database URL, so it is legitimately unreadable to the unprivileged SSH user.
+sudo test -r "$env_file" || { printf '%s\n' "Missing PDF renderer environment: $env_file" >&2; exit 1; }
 [[ -x "$php_bin" && -f "$backend_dir/artisan" ]] || { printf '%s\n' 'Laravel smoke client is unavailable.' >&2; exit 1; }
 if [[ ! -d "$keys_dir" ]]; then
   [[ -d "$legacy_service_root/keys" ]] || { printf '%s\n' 'Missing existing PDF signing keys; refusing to deploy.' >&2; exit 1; }

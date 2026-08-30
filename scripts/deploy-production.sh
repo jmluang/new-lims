@@ -13,6 +13,10 @@ readonly DEFAULT_ROOT="/www/wwwroot/lims.verify-pdf.com"
 readonly DEFAULT_GROUP="www"
 readonly DEFAULT_PHP="/www/server/php/83/bin/php"
 readonly DEFAULT_COMPOSER="/usr/bin/composer"
+# Each release carries its own vendor/ and node_modules/, so a handful of them is
+# already several gigabytes. Two is the floor: the live release plus one to roll
+# back to.
+readonly DEFAULT_KEEP_RELEASES=5
 
 usage() {
   cat <<'EOF'
@@ -27,11 +31,16 @@ Environment overrides:
   SSH_IDENTITY      Optional SSH private-key file
   DEPLOY_PHP        PHP executable on the server
   DEPLOY_COMPOSER   Composer executable on the server
+  DEPLOY_KEEP_RELEASES
+                    Release directories to retain (default: 5, minimum: 2)
 
 The working tree must be clean. The release is identified by the checked-out
 Git commit SHA, copied to releases/<SHA>, then activated by atomically swapping
 the current symlink. Database migrations are deliberately opt-in. The Java PDF
 renderer is updated from the same revision unless --skip-pdf-service is used.
+
+Once the new release is live and its caches are warm, older release directories
+beyond DEPLOY_KEEP_RELEASES are removed. The active release is never removed.
 EOF
 }
 
@@ -70,6 +79,9 @@ deploy_root="${DEPLOY_ROOT:-$DEFAULT_ROOT}"
 deploy_group="${DEPLOY_GROUP:-$DEFAULT_GROUP}"
 deploy_php="${DEPLOY_PHP:-$DEFAULT_PHP}"
 deploy_composer="${DEPLOY_COMPOSER:-$DEFAULT_COMPOSER}"
+keep_releases="${DEPLOY_KEEP_RELEASES:-$DEFAULT_KEEP_RELEASES}"
+[[ "$keep_releases" =~ ^[0-9]+$ ]] || die "DEPLOY_KEEP_RELEASES must be a number: $keep_releases"
+((keep_releases >= 2)) || die "DEPLOY_KEEP_RELEASES must keep at least 2 releases: $keep_releases"
 ssh_port="${SSH_PORT:-22}"
 target="${deploy_user}@${deploy_host}"
 
@@ -229,8 +241,9 @@ sudo -u "$deploy_user" npm --prefix "$frontend_dir" run build
 # `npm run build` produces two bundles: the default `dist/` output used for
 # local preview, then the Laravel-targeted bundle via vite.backend.config.ts.
 # The latter is already written to public/app with base `/app/`.  Copying
-# `dist/` over it rewrites asset URLs to `/assets/...`, which Nginx correctly
-# resolves under public/ (where those files do not exist).
+# `dist/` over it replaces that HTML with the preview build's, whose asset URLs
+# are `/assets/...`; Nginx resolves those under public/, where the files do not
+# exist, so the whole app 404s on its own bundle.
 test -f "$backend_dir/public/app/index.html" \
   || fail 'Laravel-targeted frontend build did not create public/app/index.html'
 sudo chown -R "$deploy_user:$deploy_group" "$backend_dir/public/app"
@@ -275,7 +288,7 @@ sudo mv -Tf "$deploy_root/current.next" "$deploy_root/current"
 printf 'Activated release %s\n' "$release_sha"
 REMOTE_SCRIPT
 
-cache_args="$(remote_quote_args "$release_sha" "$deploy_root" "$deploy_user" "$deploy_php")"
+cache_args="$(remote_quote_args "$release_sha" "$deploy_root" "$deploy_user" "$deploy_php" "$keep_releases")"
 ssh "${ssh_opts[@]}" "$target" "bash -s --$cache_args" <<'CACHE_SCRIPT'
 set -Eeuo pipefail
 
@@ -283,6 +296,7 @@ release_sha="$1"
 deploy_root="$2"
 deploy_user="$3"
 php_bin="$4"
+keep_releases="$5"
 active_release="$(sudo readlink -f "$deploy_root/current")"
 
 [[ "$active_release" == "$deploy_root/releases/$release_sha" ]] || {
@@ -300,6 +314,48 @@ sudo rm -f -- "$active_backend/bootstrap/cache/config.php" \
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" config:cache
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" route:cache
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" view:cache
+
+# Only here, with the new release live and its caches warm, is it safe to drop
+# the older ones. Every release directory carries its own backend/vendor and
+# frontend/node_modules, both built on the server after the upload, so nothing
+# reclaimed them and the site root grew by roughly a gigabyte per deployment.
+#
+# A prune failure is reported but never fails the deployment: the release is
+# already serving traffic by this point, and leftover disk is not a reason to
+# tell the operator their deploy did not work.
+releases_dir="$deploy_root/releases"
+
+# Abandoned staging directories are the second half of the leak. The uploader
+# removes its own on error, but never gets to run when the connection drops.
+# Nothing older than a day can belong to a deployment still in flight.
+sudo find "$releases_dir" -mindepth 1 -maxdepth 1 -type d -name '.tmp-*' -mtime +0 \
+  -exec rm -rf -- {} + 2>/dev/null || printf '%s\n' 'Warning: could not clear abandoned staging directories' >&2
+
+# Newest first by mtime. The name test means only a completed release directory
+# is ever a candidate; anything else in releases/ is left alone.
+mapfile -t ordered_releases < <(
+  sudo find "$releases_dir" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %f\n' \
+    | sort -rn \
+    | while read -r _ name; do
+        if [[ "$name" =~ ^[0-9a-f]{40}$ ]]; then printf '%s\n' "$name"; fi
+      done
+)
+
+kept=0
+for name in "${ordered_releases[@]}"; do
+  release_path="$releases_dir/$name"
+  kept=$((kept + 1))
+  # The live release survives whatever its position, so this can never delete
+  # the directory the site is currently served from.
+  if ((kept <= keep_releases)) || [[ "$release_path" == "$active_release" ]]; then
+    continue
+  fi
+  if sudo rm -rf -- "$release_path"; then
+    printf 'Pruned release %s\n' "$name"
+  else
+    printf 'Warning: could not prune release %s\n' "$name" >&2
+  fi
+done
 CACHE_SCRIPT
 
 if (( ! skip_pdf_service )); then
