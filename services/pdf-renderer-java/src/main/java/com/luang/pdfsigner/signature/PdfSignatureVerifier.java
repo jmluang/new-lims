@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.pdfbox.Loader;
+import com.luang.pdfsigner.service.PdfFiles;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
 import org.bouncycastle.asn1.ASN1Primitive;
@@ -58,7 +59,7 @@ public class PdfSignatureVerifier {
         Integer docMdpPermission;
         try {
             IncrementalSigningService inspectionService = null;
-            try (PDDocument document = Loader.loadPDF(pdf)) {
+            try (PDDocument document = Loader.loadPDF(pdf, "", null, null, PdfFiles.streamCache())) {
                 docMdpPermission = extractDocMdpPermission(document);
                 int index = 0;
                 for (PDSignature signature : document.getSignatureDictionaries()) {

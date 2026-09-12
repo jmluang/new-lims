@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.imageio.ImageIO;
 import org.apache.pdfbox.Loader;
+import com.luang.pdfsigner.service.PdfFiles;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
@@ -113,7 +114,7 @@ public final class IncrementalSigningService {
     }
 
     public Inspection inspect(byte[] pdfBytes) throws Exception {
-        try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+        try (PDDocument document = Loader.loadPDF(pdfBytes, "", null, null, PdfFiles.streamCache())) {
             List<PageGeometry> pages = new ArrayList<>();
             for (int index = 0; index < document.getNumberOfPages(); index++) {
                 PDPage page = document.getPage(index);
@@ -177,7 +178,7 @@ public final class IncrementalSigningService {
             throw new IllegalArgumentException("At least one signature field is required");
         }
 
-        try (PDDocument document = Loader.loadPDF(unsignedPdf)) {
+        try (PDDocument document = Loader.loadPDF(unsignedPdf, "", null, null, PdfFiles.streamCache())) {
             if (document.isEncrypted()) {
                 throw new IllegalArgumentException("Encrypted PDFs are not supported");
             }
@@ -265,7 +266,7 @@ public final class IncrementalSigningService {
     ) throws Exception {
         validateSignCommand(appearancePng, command);
         validateSignTarget(preparedPdf, command);
-        try (PDDocument document = Loader.loadPDF(preparedPdf)) {
+        try (PDDocument document = Loader.loadPDF(preparedPdf, "", null, null, PdfFiles.streamCache())) {
             if (document.isEncrypted()) {
                 throw new IllegalArgumentException("Encrypted PDFs are not supported");
             }
@@ -329,7 +330,9 @@ public final class IncrementalSigningService {
                 options.setVisualSignature(visibleSignature(appearancePng, document, target, pageIndex));
                 document.addSignature(signature, options);
                 ExternalSigningSupport externalSigning = document.saveIncrementalForExternalSigning(output);
-                externalSigning.setSignature(cmsSigner.sign(externalSigning.getContent(), keyMaterial));
+                try (var content = externalSigning.getContent()) {
+                    externalSigning.setSignature(cmsSigner.sign(content, keyMaterial));
+                }
             }
             byte[] signed = output.toByteArray();
             if (!startsWith(signed, preparedPdf)) {
@@ -347,7 +350,7 @@ public final class IncrementalSigningService {
         if (command == null || command.fieldName() == null || command.fieldName().isBlank()) {
             throw new IllegalArgumentException("A target signature field is required");
         }
-        try (PDDocument document = Loader.loadPDF(preparedPdf)) {
+        try (PDDocument document = Loader.loadPDF(preparedPdf, "", null, null, PdfFiles.streamCache())) {
             if (document.isEncrypted()) {
                 throw new IllegalArgumentException("Encrypted PDFs are not supported");
             }

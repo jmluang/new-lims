@@ -11,13 +11,8 @@ import com.luang.pdfsigner.security.PdfHmacProperties;
 import com.luang.pdfsigner.security.SigningPolicy;
 import com.luang.pdfsigner.execution.ExecutionStorage;
 import com.luang.pdfsigner.execution.SigningExecutionRepository;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.cos.COSDictionary;
-import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.pdmodel.PDDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,6 +22,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.InputStream;
+import java.nio.file.Files;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.luang.pdfsigner.service.PdfFiles;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
@@ -90,7 +89,7 @@ public class PdfController {
     }
 
     @PostMapping(value = "/process", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, Object>> process(
+    public void process(
             @RequestPart("pdf") MultipartFile pdf,
             @RequestPart(value = "perforation_image", required = false) MultipartFile perforation,
             @RequestPart(value = "signature_appearance_image", required = false) MultipartFile sigImg,
@@ -101,23 +100,15 @@ public class PdfController {
             @RequestParam(required = false, name = "signature_reason") String reason,
             @RequestParam(required = false, name = "function_stamp_count") Integer functionStampCount,
             @RequestParam(required = false, name = "certificate_query_qr_code_url") String qrCodeUrl,
-            HttpServletRequest request
+            HttpServletRequest request,
+            HttpServletResponse response
     ) throws Exception {
         for (String parameter : FORBIDDEN_SIGNING_POLICY_PARAMETERS) {
             if (request.getParameterMap().containsKey(parameter)) {
-                return ResponseEntity.unprocessableEntity().body(Map.of(
-                        "success", false,
-                        "error", "PDF_SIGNING_POLICY_OVERRIDE_FORBIDDEN"
-                ));
+                writePolicyError(response, "PDF_SIGNING_POLICY_OVERRIDE_FORBIDDEN");
+                return;
             }
         }
-        if (containsExistingSignature(pdf)) {
-            return ResponseEntity.unprocessableEntity().body(Map.of(
-                    "success", false,
-                    "error", "PDF_LEGACY_PROCESS_SIGNED_INPUT_FORBIDDEN"
-            ));
-        }
-
         // 收集功能章图片
         List<MultipartFile> functionStamps = new ArrayList<>();
         if (functionStampCount != null && functionStampCount > 0) {
@@ -145,84 +136,79 @@ public class PdfController {
                 safeSize(qrCodeImg),
                 functionStamps.size());
 
-        SignerService.ProcessResult result = signerService.process(pdf, perforation, sigImg, functionStamps,
-                mode,
-                null, contact, location, reason,
-                signingPolicy.hashAlgorithm(),
-                false,
-                null,
-                qrCodeImg,
-                qrCodeUrl);
-
-        // 返回JSON响应：包含PDF base64编码和封面信息
-        Map<String, Object> response = new java.util.HashMap<>();
-        response.put("success", true);
-        response.put("pdf_base64", java.util.Base64.getEncoder().encodeToString(result.getPdfBytes()));
-
-        // 添加封面信息
-        CoverExtractionResponse cover = result.getCoverFields();
-        if (cover != null) {
-            Map<String, String> coverFields = new java.util.HashMap<>();
-            coverFields.put("report_number", cover.reportNumber());
-            coverFields.put("product_name", cover.productName());
-            coverFields.put("model_specification", cover.modelSpecification());
-            coverFields.put("entrust_company", cover.entrustCompany());
-            coverFields.put("test_items", cover.testItems());
-            coverFields.put("report_date", cover.reportDate());
-            response.put("cover_fields", coverFields);
+        try (SignerService.FileProcessResult result = signerService.processToFile(pdf, perforation, sigImg, functionStamps,
+                mode, null, contact, location, reason,
+                signingPolicy.hashAlgorithm(), false,
+                null, qrCodeImg, qrCodeUrl)) {
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            try (var json = new JsonFactory().createGenerator(response.getOutputStream());
+                 InputStream input = Files.newInputStream(result.pdfFile().toPath())) {
+                json.writeStartObject();
+                json.writeBooleanField("success", true);
+                json.writeFieldName("pdf_base64");
+                json.writeBinary(com.fasterxml.jackson.core.Base64Variants.getDefaultVariant(), input, -1);
+                CoverExtractionResponse cover = result.coverFields();
+                if (cover != null) {
+                    json.writeObjectFieldStart("cover_fields");
+                    json.writeStringField("report_number", cover.reportNumber());
+                    json.writeStringField("product_name", cover.productName());
+                    json.writeStringField("model_specification", cover.modelSpecification());
+                    json.writeStringField("entrust_company", cover.entrustCompany());
+                    json.writeStringField("test_items", cover.testItems());
+                    json.writeStringField("report_date", cover.reportDate());
+                    json.writeEndObject();
+                }
+                json.writeEndObject();
+            }
+        } catch (SignerService.SignedInputException exception) {
+            writePolicyError(response, exception.getMessage());
         }
-
-        return ResponseEntity.ok(response);
     }
 
     @PostMapping(value = "/entrust-order", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ByteArrayResource> renderEntrustOrder(@RequestBody EntrustOrderPayload payload) throws Exception {
-        byte[] bytes = entrustOrderRenderer.render(payload);
-        ByteArrayResource resource = new ByteArrayResource(bytes);
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=entrust-order.pdf")
-                .body(resource);
+    public void renderEntrustOrder(@RequestBody EntrustOrderPayload payload, HttpServletResponse response) throws Exception {
+        try (PdfFiles files = new PdfFiles()) {
+            var file = files.create();
+            try (var output = new java.io.BufferedOutputStream(Files.newOutputStream(file.toPath()))) {
+                entrustOrderRenderer.render(payload, output);
+            }
+            writePdf(response, file, "entrust-order.pdf");
+        }
     }
 
     @PostMapping(value = "/contract", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ByteArrayResource> renderContract(@RequestBody ContractPdfPayload payload) throws Exception {
-        byte[] bytes = contractPdfRenderer.render(payload);
-        ByteArrayResource resource = new ByteArrayResource(bytes);
-        return ResponseEntity.ok()
-                .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=contract.pdf")
-                .body(resource);
+    public void renderContract(@RequestBody ContractPdfPayload payload, HttpServletResponse response) throws Exception {
+        try (PdfFiles files = new PdfFiles()) {
+            var file = files.create();
+            try (var output = new java.io.BufferedOutputStream(Files.newOutputStream(file.toPath()))) {
+                contractPdfRenderer.render(payload, output);
+            }
+            writePdf(response, file, "contract.pdf");
+        }
+    }
+
+    private void writePdf(HttpServletResponse response, java.io.File file, String filename) throws java.io.IOException {
+        response.setContentType(MediaType.APPLICATION_PDF_VALUE);
+        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename);
+        response.setContentLengthLong(file.length());
+        try (InputStream input = Files.newInputStream(file.toPath())) {
+            input.transferTo(response.getOutputStream());
+        }
     }
 
     private Long safeSize(MultipartFile f) {
         try { return (f == null || f.isEmpty()) ? null : f.getSize(); } catch (Exception e) { return null; }
     }
 
-    private boolean containsExistingSignature(MultipartFile pdf) throws Exception {
-        try (PDDocument document = Loader.loadPDF(pdf.getBytes())) {
-            if (!document.getSignatureDictionaries().isEmpty()) {
-                return true;
-            }
-            COSDictionary permissions = document.getDocumentCatalog().getCOSObject()
-                    .getCOSDictionary(COSName.getPDFName("Perms"));
-            return permissions != null && permissions.containsKey(COSName.getPDFName("DocMDP"));
+    private static void writePolicyError(HttpServletResponse response, String error) throws java.io.IOException {
+        response.setStatus(HttpStatus.UNPROCESSABLE_ENTITY.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        try (var json = new JsonFactory().createGenerator(response.getOutputStream())) {
+            json.writeStartObject();
+            json.writeBooleanField("success", false);
+            json.writeStringField("error", error);
+            json.writeEndObject();
         }
-    }
-
-    /**
-     * 安全地将字符串转换为JSON字符串（带引号和转义）
-     */
-    private String jsonString(String str) {
-        if (str == null) {
-            return "null";
-        }
-        String escaped = str.replace("\\", "\\\\")
-                           .replace("\"", "\\\"")
-                           .replace("\n", "\\n")
-                           .replace("\r", "\\r")
-                           .replace("\t", "\\t");
-        return "\"" + escaped + "\"";
     }
 
     @PostMapping(value = "/extract-cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

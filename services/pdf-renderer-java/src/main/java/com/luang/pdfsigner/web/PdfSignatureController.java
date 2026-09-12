@@ -107,8 +107,8 @@ public final class PdfSignatureController {
         try {
             ExecutionRecord execution = executionService.execute(
                     operation.toClaim(),
-                    pdf.getBytes(),
-                    appearance.getBytes(),
+                    pdf::getBytes,
+                    appearance::getBytes,
                     command
             );
             HttpStatus status = isTerminal(execution.state()) ? HttpStatus.OK : HttpStatus.ACCEPTED;

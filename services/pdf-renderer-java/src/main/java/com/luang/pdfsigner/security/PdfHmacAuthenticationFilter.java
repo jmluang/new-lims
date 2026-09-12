@@ -25,6 +25,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
+@org.springframework.core.annotation.Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE + 10)
 public final class PdfHmacAuthenticationFilter extends OncePerRequestFilter {
     public static final String AUTH_VERSION = "X-Pdf-Auth-Version";
     public static final String KEY_ID = "X-Pdf-Key-Id";

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.pdfbox.Loader;
+import com.luang.pdfsigner.service.PdfFiles;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSBoolean;
@@ -45,7 +46,7 @@ final class PdfRevisionPermissionValidator {
     private static final COSName V = COSName.getPDFName("V");
 
     Validation validate(byte[] pdf) throws Exception {
-        try (PDDocument finalDocument = Loader.loadPDF(pdf)) {
+        try (PDDocument finalDocument = Loader.loadPDF(pdf, "", null, null, PdfFiles.streamCache())) {
             List<PDSignature> signatures = new ArrayList<>(finalDocument.getSignatureDictionaries());
             signatures.sort(Comparator.comparingInt(PdfRevisionPermissionValidator::signedRevisionEnd));
             if (signatures.isEmpty()) {
@@ -77,8 +78,8 @@ final class PdfRevisionPermissionValidator {
 
     private static void validateTransition(byte[] baseBytes, byte[] currentBytes, int signatureIndex)
             throws Exception {
-        try (PDDocument base = Loader.loadPDF(baseBytes);
-             PDDocument current = Loader.loadPDF(currentBytes)) {
+        try (PDDocument base = Loader.loadPDF(baseBytes, "", null, null, PdfFiles.streamCache());
+             PDDocument current = Loader.loadPDF(currentBytes, "", null, null, PdfFiles.streamCache())) {
             List<PDSignature> currentSignatures = new ArrayList<>(current.getSignatureDictionaries());
             currentSignatures.sort(Comparator.comparingInt(PdfRevisionPermissionValidator::signedRevisionEnd));
             if (base.getSignatureDictionaries().size() != signatureIndex

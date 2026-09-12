@@ -80,6 +80,12 @@ public class ContractPdfRenderer {
     private final Gb70001FormRenderer gb70001FormRenderer = new Gb70001FormRenderer();
 
     public byte[] render(ContractPdfPayload payload) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        render(payload, output);
+        return output.toByteArray();
+    }
+
+    public void render(ContractPdfPayload payload, java.io.OutputStream output) throws IOException {
         ContractPdfPayload safePayload = payload != null ? payload : ContractPdfPayload.sample();
         ContractPdfPayload sample = ContractPdfPayload.sample();
 
@@ -97,7 +103,8 @@ public class ContractPdfRenderer {
         var templates = safePayload.templates();
         var templateData = safePayload.templateData();
 
-        try (PDDocument document = new PDDocument()) {
+        try (PdfFiles files = new PdfFiles();
+             PDDocument document = new PDDocument(PdfFiles.streamCache())) {
             PDFont font = ContractPdfAssets.loadPrimaryFont(document);
             ContractPdfDrawUtils utils = new ContractPdfDrawUtils(document, font);
             ContractPdfPageContext pageContext = new ContractPdfPageContext(document, CONTENT_TOP, CONTENT_BOTTOM);
@@ -115,10 +122,10 @@ public class ContractPdfRenderer {
 
         if (templates != null) {
             for (var tpl : templates) {
-                if (renderCustomTemplate(document, tpl, templateData, safePayload, pageContext, utils)) {
+                if (renderCustomTemplate(files, document, tpl, templateData, safePayload, pageContext, utils)) {
                     continue;
                 }
-                applyTemplate(document, tpl);
+                applyTemplate(files, document, tpl);
                 }
             }
 
@@ -130,9 +137,7 @@ public class ContractPdfRenderer {
             // 设置PDF元信息
             setPdfMetadata(document, headerWithTotal);
 
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            document.save(out);
-            return out.toByteArray();
+            document.save(output);
         }
     }
 
@@ -143,7 +148,7 @@ public class ContractPdfRenderer {
         return new ContractPdfPayload.PageTwo(payload.toc()).withDefaults();
     }
 
-    private void applyTemplate(PDDocument document, ContractPdfPayload.Template template) throws IOException {
+    private void applyTemplate(PdfFiles files, PDDocument document, ContractPdfPayload.Template template) throws IOException {
         if (template == null || template.type() == null) {
             return;
         }
@@ -156,7 +161,7 @@ public class ContractPdfRenderer {
                 return;
             }
 
-            PDDocument extra = loadExternalPdf(pdfPath);
+            PDDocument extra = loadExternalPdf(files, pdfPath);
             if (extra == null) {
                 log.warn("Template pdf could not be loaded for {}", template.code());
                 return;
@@ -194,17 +199,18 @@ public class ContractPdfRenderer {
         return null;
     }
 
-    private PDDocument loadExternalPdf(String location) throws IOException {
+    private PDDocument loadExternalPdf(PdfFiles files, String location) throws IOException {
         if (location == null || location.isBlank()) {
             return null;
         }
         if (location.startsWith("http://") || location.startsWith("https://")) {
             try (InputStream stream = new URL(location).openStream()) {
-                byte[] bytes = stream.readAllBytes();
-                if (bytes.length == 0) {
+                java.io.File file = files.create();
+                Files.copy(stream, file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                if (file.length() == 0) {
                     return null;
                 }
-                return Loader.loadPDF(bytes);
+                return Loader.loadPDF(file, PdfFiles.streamCache());
             }
         }
 
@@ -212,10 +218,10 @@ public class ContractPdfRenderer {
         if (!Files.exists(path)) {
             return null;
         }
-        return Loader.loadPDF(path.toFile());
+        return Loader.loadPDF(path.toFile(), PdfFiles.streamCache());
     }
 
-    private boolean renderCustomTemplate(PDDocument document,
+    private boolean renderCustomTemplate(PdfFiles files, PDDocument document,
                                          ContractPdfPayload.Template template,
                                          Map<String, Object> templateData,
                                          ContractPdfPayload payload,
@@ -236,7 +242,7 @@ public class ContractPdfRenderer {
             gb70001FormRenderer.render(document, payload, perTemplate, pageContext, utils);
             String pdfPath = resolveTemplatePath(template);
             if (pdfPath != null) {
-                PDDocument extra = loadExternalPdf(pdfPath);
+                PDDocument extra = loadExternalPdf(files, pdfPath);
                 if (extra != null) {
                     try {
                         extra.setAllSecurityToBeRemoved(true);

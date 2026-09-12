@@ -143,6 +143,28 @@ class PdfHmacControllerIntegrationTest {
         assertThat(response).isEqualTo(pdf);
     }
 
+    @Autowired
+    private com.luang.pdfsigner.service.PdfWorkLimiter limiter;
+
+    @Test
+    void authenticatesBeforeBusyAdmissionAndStillConsumesNonceWithoutQueueing() throws Exception {
+        byte[] pdf = samplePdf();
+        String digest = multipartManifestDigest(List.of(part("pdf", "application/pdf", pdf),
+                part("mode", "text/plain;charset=utf-8", "stamp".getBytes(StandardCharsets.UTF_8))));
+        var accepted = unsignedRequest();
+        addAuthentication(accepted, digest, "nonce-busy-admission-0001");
+        try (var permit = limiter.acquire()) {
+            mockMvc.perform(unsignedRequest()).andExpect(status().isUnauthorized());
+            mockMvc.perform(accepted).andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.error").value("PDF_BUSY"));
+        }
+        mockMvc.perform(accepted).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("PDF_HMAC_REPLAYED"));
+        var fresh = unsignedRequest();
+        addAuthentication(fresh, digest, "nonce-busy-admission-0002");
+        mockMvc.perform(fresh).andExpect(status().isOk());
+    }
+
     private MockMultipartHttpServletRequestBuilder unsignedRequest() throws Exception {
         MockMultipartHttpServletRequestBuilder request = multipart("/api/pdf/process");
         request.file(new MockMultipartFile("pdf", "sample.pdf", "application/pdf", samplePdf()));

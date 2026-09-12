@@ -146,3 +146,10 @@ Hot Reload & Debugging
 
 The Java service accepts every configured key during the overlap; Laravel signs
 only with the active id. Never reuse a PDF HMAC secret for another subsystem.
+
+## Memory and concurrency
+
+PDF processing uses operation-owned temporary files and disk-backed PDFBox stream caches.
+`PDF_MAX_CONCURRENT_JOBS` defaults to one shared heavy job; busy requests do not wait inside authentication or execution deadlines.
+Handwritten signing records capacity refusals through the existing pre-key execution ledger policy.
+See [memory port verification](docs/memory-port-verification.md) for endpoint admission order, preserved behavior, remaining byte-array paths and reproducible baseline checks.

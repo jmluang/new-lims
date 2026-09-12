@@ -65,7 +65,22 @@ public class SimpleSignatureInterface implements SignatureInterface {
                 throw new IOException("Signer initialization failed: " + e.getMessage(), e);
             }
 
-            CMSProcessableByteArray msg = new CMSProcessableByteArray(content.readAllBytes());
+            CMSTypedData msg = new CMSTypedData() {
+                @Override
+                public org.bouncycastle.asn1.ASN1ObjectIdentifier getContentType() {
+                    return org.bouncycastle.asn1.cms.CMSObjectIdentifiers.data;
+                }
+
+                @Override
+                public Object getContent() {
+                    return content;
+                }
+
+                @Override
+                public void write(java.io.OutputStream output) throws IOException {
+                    content.transferTo(output);
+                }
+            };
             // 必须使用 DETACHED 模式以匹配 /SubFilter ETSI.CAdES.detached
             CMSSignedData signedData = gen.generate(msg, false);
 

@@ -32,6 +32,7 @@ class SigningExecutionServiceTest {
     private SigningExecutionRepository.ExecutionReadClaim claim;
     private ExecutionRecord executing;
     private UUID operationUuid;
+    private com.luang.pdfsigner.service.PdfWorkLimiter limiter;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -44,6 +45,7 @@ class SigningExecutionServiceTest {
                 temporaryDirectory.toString()
         ));
         verifier = mock(PdfSignatureVerifier.class);
+        limiter = new com.luang.pdfsigner.service.PdfWorkLimiter(1);
         service = new SigningExecutionService(
                 repository,
                 storage,
@@ -53,7 +55,8 @@ class SigningExecutionServiceTest {
                         new DocumentSigningCertificatePolicy("")
                 ),
                 verifier,
-                new ObjectMapper()
+                new ObjectMapper(),
+                limiter
         );
         operationUuid = UUID.randomUUID();
         claim = new SigningExecutionRepository.ExecutionReadClaim(
@@ -122,6 +125,74 @@ class SigningExecutionServiceTest {
         )).thenReturn(unknown);
 
         assertThat(service.status(claim)).isSameAs(unknown);
+    }
+
+    @Test
+    void busySigningRecordsPreKeyFailureWithoutReadingUploadsOrCallingTheKey() throws Exception {
+        var operation = operationClaim();
+        var policy = policy();
+        var failed = execution("failed_before_private_key");
+        when(repository.claim(operation)).thenReturn(new SigningExecutionRepository.ClaimResult(executing, true, policy));
+        when(repository.markExecuting(eq(operationUuid), any())).thenReturn(executing);
+        when(repository.markPrePrivateKeyFailure(operationUuid, "PDF_BUSY", policy)).thenReturn(failed);
+        try (var permit = limiter.acquire()) {
+            assertThat(service.execute(operation,
+                    () -> { throw new AssertionError("PDF must remain on disk while busy"); },
+                    () -> { throw new AssertionError("Appearance must remain on disk while busy"); },
+                    null)).isSameAs(failed);
+        }
+        verify(repository, never()).markPrivateKeyStarted(any());
+        verify(repository).markPrePrivateKeyFailure(operationUuid, "PDF_BUSY", policy);
+    }
+
+    @Test
+    void uploadFailureReleasesAdmissionAndKeepsThePreKeyLedgerBoundary() throws Exception {
+        var operation = operationClaim();
+        var policy = policy();
+        var failed = execution("failed_before_private_key");
+        when(repository.claim(operation)).thenReturn(new SigningExecutionRepository.ClaimResult(executing, true, policy));
+        when(repository.markExecuting(eq(operationUuid), any())).thenReturn(executing);
+        when(repository.markPrePrivateKeyFailure(operationUuid, "PRE_KEY_VALIDATION_FAILED", policy)).thenReturn(failed);
+        assertThat(service.execute(operation,
+                () -> { throw new java.io.IOException("Upload unavailable"); }, () -> new byte[0], null)).isSameAs(failed);
+        verify(repository, never()).markPrivateKeyStarted(any());
+        try (var permit = limiter.acquire()) {
+            assertThat(permit).isNotNull();
+        }
+    }
+
+    @Test
+    void duplicateCompletedExecutionDoesNotReadUploadsOrRequireAdmission() throws Exception {
+        var operation = operationClaim();
+        var completed = execution("completed");
+        when(repository.claim(operation)).thenReturn(new SigningExecutionRepository.ClaimResult(completed, false, policy()));
+        try (var permit = limiter.acquire()) {
+            assertThat(service.execute(operation, () -> { throw new AssertionError("Duplicate read"); },
+                    () -> { throw new AssertionError("Duplicate read"); }, null)).isSameAs(completed);
+        }
+        verify(repository, never()).markExecuting(any(), any());
+    }
+
+    @Test
+    void busyDeadlineRecoveryDoesNotReclassifyOrDeleteAnUncertainResult() throws Exception {
+        try (var permit = limiter.acquire()) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.status(claim))
+                    .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
+                    .hasMessageContaining("PDF_BUSY");
+        }
+        verify(repository, never()).markFailure(any(), anyString(), anyString(), anyString());
+        verify(repository, never()).recoveryMaximumBytes(any());
+    }
+
+    private SigningExecutionRepository.OperationClaim operationClaim() {
+        return new SigningExecutionRepository.OperationClaim(operationUuid, 1, 7, "a".repeat(64),
+                "b".repeat(64), "c".repeat(64), 1, UUID.randomUUID(), "d".repeat(64), "e".repeat(64),
+                "f".repeat(64), "a".repeat(64), "certification_p2", "inspector", "b".repeat(64), "c".repeat(64));
+    }
+
+    private SigningExecutionRepository.PolicySnapshot policy() {
+        return new SigningExecutionRepository.PolicySnapshot(1, UUID.randomUUID(), "d".repeat(64),
+                "e".repeat(64), 60, 3, List.of(1, 2), java.util.Set.of("PDF_BUSY"), 24L * 1024 * 1024, 1024 * 1024);
     }
 
     private PdfSignatureVerifier.VerificationReport validSignedReport() {

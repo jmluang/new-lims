@@ -256,6 +256,50 @@ class IncrementalSigningServiceTest {
         }
     }
 
+    @Test
+    void signsAndVerifiesNearTheInputLimitIn512MiBHeap() throws Exception {
+        java.nio.file.Path directory = java.nio.file.Files.createTempDirectory("signature-memory-test-");
+        java.nio.file.Path log = directory.resolve("child.log");
+        try {
+            Process child = new ProcessBuilder(
+                    java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                    "-Xmx512m", "-Djava.awt.headless=true", "-cp",
+                    System.getProperty("surefire.test.class.path", System.getProperty("java.class.path")),
+                    getClass().getName(), directory.toString())
+                    .redirectErrorStream(true).redirectOutput(log.toFile()).start();
+            boolean finished = child.waitFor(90, java.util.concurrent.TimeUnit.SECONDS);
+            if (!finished) child.destroyForcibly().waitFor();
+            assertThat(finished).withFailMessage(java.nio.file.Files.readString(log)).isTrue();
+            assertThat(child.exitValue()).withFailMessage(java.nio.file.Files.readString(log)).isZero();
+        } finally {
+            try (var files = java.nio.file.Files.list(directory)) {
+                for (var file : files.toList()) java.nio.file.Files.deleteIfExists(file);
+            }
+            java.nio.file.Files.deleteIfExists(directory);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        addProvider();
+        var test = new IncrementalSigningServiceTest();
+        var file = java.nio.file.Path.of(args[0], "large.pdf");
+        com.luang.pdfsigner.PdfMemoryRegressionTest.createPdf(file, 2, 19);
+        byte[] source = java.nio.file.Files.readAllBytes(file);
+        assertThat(source.length).isLessThan(20 * 1024 * 1024);
+        byte[] prepared = test.service.prepareFields(source, List.of(
+                plan("inspector", 0, "0.1", "0.1", "0.2", "0.1", false),
+                plan("reviewer", 1, "0.1", "0.1", "0.2", "0.1", false)));
+        byte[] certified = test.sign(prepared, "inspector", "certification_p2", Color.BLUE);
+        byte[] approved = test.sign(certified, "reviewer", "approval", Color.RED);
+        var report = new PdfSignatureVerifier(test.signingIdentity.rootFingerprint(),
+                test.timestampAuthority.certificateFingerprint()).verify(approved);
+        assertThat(report.documentCurrentState()).as(report.toString()).isEqualTo("valid");
+        assertThat(report.signatures()).hasSize(2).allSatisfy(signature -> {
+            assertThat(signature.cmsIntegrity()).isEqualTo("valid");
+            assertThat(signature.timestampTrust()).isEqualTo("valid");
+        });
+    }
+
     private byte[] sign(byte[] input, String fieldName, String role, Color color) throws Exception {
         return service.signExistingField(input, appearance(color), new IncrementalSigningService.SignCommand(
                 fieldName,

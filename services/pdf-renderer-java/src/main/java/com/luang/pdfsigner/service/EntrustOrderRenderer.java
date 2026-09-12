@@ -5,6 +5,7 @@ import com.luang.pdfsigner.dto.EntrustOrderPayload.EnumValue;
 import com.luang.pdfsigner.dto.EntrustOrderPayload.Standard;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -121,7 +122,13 @@ public class EntrustOrderRenderer {
     }
 
     public byte[] render(EntrustOrderPayload payload) throws IOException {
-        try (PDDocument document = new PDDocument()) {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        render(payload, output);
+        return output.toByteArray();
+    }
+
+    public void render(EntrustOrderPayload payload, OutputStream output) throws IOException {
+        try (PDDocument document = new PDDocument(PdfFiles.streamCache())) {
             PDFont font = resolveFont(document);
 
             try (PageCursor cursor = new PageCursor(document, font, mm(PAGE_MARGIN_MM))) {
@@ -131,9 +138,7 @@ public class EntrustOrderRenderer {
                 drawFooter(cursor.content(), font, cursor.margin(), cursor.y(), cursor.contentWidth());
             }
 
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
             document.save(output);
-            return output.toByteArray();
         }
     }
 

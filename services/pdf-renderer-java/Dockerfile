@@ -11,7 +11,7 @@ RUN mvn -e -B -DskipTests package
 # Run stage
 FROM m.daocloud.io/docker.io/library/eclipse-temurin:17-jre
 WORKDIR /app
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=25.0 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+ENV JAVA_TOOL_OPTIONS="-Xms64m -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 COPY --from=build /app/target/pdf-signer-*.jar app.jar
 EXPOSE 8081
 ENTRYPOINT ["java","-jar","/app/app.jar"]

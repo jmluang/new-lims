@@ -9,7 +9,6 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream.AppendMode;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
-import org.apache.pdfbox.pdmodel.interactive.digitalsignature.ExternalSigningSupport;
 // import org.apache.pdfbox.pdmodel.interactive.digitalsignature.SignatureOptions;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
@@ -38,10 +37,8 @@ import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSObject;
 import org.apache.pdfbox.cos.COSStream;
-import org.apache.pdfbox.io.MemoryUsageSetting;
+import java.nio.file.Files;
 import org.apache.pdfbox.util.Matrix;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -58,8 +55,6 @@ public class SignerService {
         this.signingKeyProvider = signingKeyProvider;
     }
 
-    // 图像缓存
-    private static final Map<String, BufferedImage> imageCache = new ConcurrentHashMap<>();
     /**
      * 处理结果，包含PDF字节和封面信息
      */
@@ -81,7 +76,20 @@ public class SignerService {
         }
     }
 
-    // 新的process方法，支持功能章和二维码，返回包含封面信息的结果
+    public static final class SignedInputException extends IllegalArgumentException {
+        public SignedInputException() {
+            super("PDF_LEGACY_PROCESS_SIGNED_INPUT_FORBIDDEN");
+        }
+    }
+
+    public record FileProcessResult(File pdfFile, CoverExtractionResponse coverFields, PdfFiles files)
+            implements AutoCloseable {
+        @Override
+        public void close() throws IOException {
+            files.close();
+        }
+    }
+
     public ProcessResult process(
             MultipartFile pdf,
             MultipartFile perforation,
@@ -98,19 +106,58 @@ public class SignerService {
             MultipartFile qrCodeImg,
             String qrCodeUrl
     ) throws Exception {
-        // 首先提取封面信息
-        File tempPdf = toTempFile(pdf);
-        CoverExtractionResponse coverFields = extractCoverFields(tempPdf);
+        try (FileProcessResult result = processToFile(pdf, perforation, sigImg, functionStamps, mode, signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, qrCodeImg, qrCodeUrl)) {
+            return new ProcessResult(Files.readAllBytes(result.pdfFile().toPath()), result.coverFields());
+        }
+    }
 
-        // 然后处理PDF（使用原有逻辑）
-        byte[] processedPdf = processPdf(pdf, perforation, sigImg, functionStamps, mode, signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, coverFields);
-
-        return new ProcessResult(processedPdf, coverFields);
+    public FileProcessResult processToFile(
+            MultipartFile pdf,
+            MultipartFile perforation,
+            MultipartFile sigImg,
+            List<MultipartFile> functionStamps,
+            String mode,
+            String signingKeyId,
+            String contact,
+            String location,
+            String reason,
+            String hashAlgo,
+            boolean tsaEnabled,
+            String tsaUrl,
+            MultipartFile qrCodeImg,
+            String qrCodeUrl
+    ) throws Exception {
+        PdfFiles files = new PdfFiles();
+        try {
+            File input = files.create();
+            try (InputStream stream = pdf.getInputStream()) {
+                Files.copy(stream, input.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            try (PDDocument document = Loader.loadPDF(input, PdfFiles.streamCache())) {
+                COSDictionary permissions = document.getDocumentCatalog().getCOSObject()
+                        .getCOSDictionary(COSName.getPDFName("Perms"));
+                if (!document.getSignatureDictionaries().isEmpty()
+                        || (permissions != null && permissions.containsKey(COSName.getPDFName("DocMDP")))) {
+                    throw new SignedInputException();
+                }
+            }
+            CoverExtractionResponse coverFields = extractCoverFields(input);
+            File output = processPdf(files, input, perforation, sigImg, functionStamps, mode,
+                    signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, coverFields);
+            return new FileProcessResult(output, coverFields, files);
+        } catch (Exception | Error failure) {
+            try {
+                files.close();
+            } catch (IOException cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+            throw failure;
+        }
     }
 
     // 原有的process逻辑，抽取为私有方法
-    private byte[] processPdf(
-            MultipartFile pdf,
+    private File processPdf(PdfFiles files,
+            File tempPdf,
             MultipartFile perforation,
             MultipartFile sigImg,
             List<MultipartFile> functionStamps,
@@ -124,12 +171,9 @@ public class SignerService {
             String tsaUrl,
             CoverExtractionResponse coverFields
     ) throws Exception {
-        File tempPdf = toTempFile(pdf);
         log.info("SignerService.processPdf: mode={}, pdfTemp={}, perfPresent={}, sigImgPresent={}",
                 mode, tempPdf.getAbsolutePath(), perforation != null && !perforation.isEmpty(), sigImg != null && !sigImg.isEmpty());
-        PDDocument doc = null;
-        try {
-            doc = Loader.loadPDF(tempPdf);
+        try (PDDocument doc = Loader.loadPDF(tempPdf, PdfFiles.streamCache())) {
 
             // 清理上传PDF的元信息，避免使用原始文件的元信息
             cleanPdfMetadata(doc, coverFields);
@@ -156,7 +200,7 @@ public class SignerService {
                     int qrHeight = pixelSize[1];
 
                     byte[] qrCodeBytes = generateQrCode(queryUrl, qrWidth, qrHeight);
-                    doc = addQrCodeToFirstPage(doc, qrCodeBytes);
+                    addQrCodeToFirstPage(doc, qrCodeBytes);
                     log.info("QR code added successfully to first page");
                 } catch (Exception qrEx) {
                     log.error("Failed to generate or add QR code", qrEx);
@@ -182,11 +226,11 @@ public class SignerService {
                     log.info("Applying perforation: pages={} bytes={}", doc.getNumberOfPages(), perforation.getSize());
                     applyPerforation(doc, perforation.getBytes());
                 }
-                
+
                 // 如果有功能章，需要签名
                 if (hasFunctionStamps) {
                     log.info("Applying {} function stamps with signature", functionStamps.size());
-                    return signExternalWithFunctionStamps(doc, functionStamps, null, null, signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl);
+                    return signExternalWithFunctionStamps(files, doc, functionStamps, null, null, signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl);
                 }
             }
 
@@ -195,7 +239,7 @@ public class SignerService {
                 if (hasFunctionStamps || hasFrontSeal) {
                     log.info("Signing with function/front seals: functionCount={}, hasFrontSeal={}",
                             hasFunctionStamps ? functionStamps.size() : 0, hasFrontSeal);
-                    return signExternalWithFunctionStamps(
+                    return signExternalWithFunctionStamps(files,
                             doc,
                             hasFunctionStamps ? functionStamps : java.util.Collections.emptyList(),
                             hasFrontSeal ? sigImg.getBytes() : null,
@@ -210,7 +254,7 @@ public class SignerService {
                     );
                 }
                 log.info("Signing incremental (single visible signature if provided): hashAlgo={}, tsaEnabled={}", hashAlgo, tsaEnabled);
-                return signExternal(doc, sigImg, signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl);
+                return signExternal(files, doc, sigImg, signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl);
             }
 
             if ("custom".equalsIgnoreCase(mode)) {
@@ -218,7 +262,7 @@ public class SignerService {
                 if (hasFunctionStamps || hasPerforation || hasFrontSeal) {
                     log.info("Custom mode with stamps: functionCount={}, hasPerforation={}, hasFrontSeal={}",
                             hasFunctionStamps ? functionStamps.size() : 0, hasPerforation, hasFrontSeal);
-                    return signExternalWithAllStamps(
+                    return signExternalWithAllStamps(files,
                             doc,
                             hasPerforation ? perforation.getBytes() : null,
                             hasFrontSeal ? sigImg.getBytes() : null,
@@ -233,10 +277,7 @@ public class SignerService {
                     );
                 }
                 // 如果什么都没有，返回原PDF
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                doc.save(out);
-                doc.close();
-                return out.toByteArray();
+                return files.save(doc);
             }
             
             if ("stamp_and_sign".equalsIgnoreCase(mode)) {
@@ -247,7 +288,7 @@ public class SignerService {
                 log.info("Per-page incremental signing with perforation slices: pages={}, hashAlgo={}, tsaEnabled={}",
                         doc.getNumberOfPages(), hashAlgo, tsaEnabled);
 
-                return signExternalPerPageIncrementalOptimized(
+                return signExternalPerPageIncrementalOptimized(files,
                         doc,
                         perforation.getBytes(),
                         sigImg != null && !sigImg.isEmpty() ? sigImg.getBytes() : null,
@@ -261,56 +302,14 @@ public class SignerService {
                 );
             }
 
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            doc.save(out);
-            log.info("Processing done. Output bytes={}", out.size());
-            return out.toByteArray();
-        } finally {
-            if (doc != null) {
-                try { doc.close(); } catch (IOException ignore) {}
-            }
-            tempPdf.delete();
+            File output = files.save(doc);
+            log.info("Processing done. Output bytes={}", output.length());
+            return output;
         }
-    }
-
-    // 优化内存策略：根据页数动态调整
-    private MemoryUsageSetting pdfMemorySetting() {
-        return pdfMemorySetting(0);
-    }
-
-    private MemoryUsageSetting pdfMemorySetting(int pageCount) {
-        String mode = getCfg("PDFBOX_MEMORY_MODE"); // temp | mixed | auto
-
-        // 自动模式：根据页数决定
-        if (mode == null || mode.isBlank() || mode.equalsIgnoreCase("auto")) {
-            if (pageCount > 50) {
-                // 大文档使用纯临时文件
-                return MemoryUsageSetting.setupTempFileOnly();
-            } else if (pageCount > 20) {
-                // 中等文档使用混合模式，减少内存
-                return MemoryUsageSetting.setupMixed(32L * 1024L * 1024L);
-            } else {
-                // 小文档可以使用更多内存
-                return MemoryUsageSetting.setupMixed(64L * 1024L * 1024L);
-            }
-        }
-
-        if (mode.equalsIgnoreCase("temp")) {
-            return MemoryUsageSetting.setupTempFileOnly();
-        }
-        if (mode.equalsIgnoreCase("mixed")) {
-            long mb = 64; // 默认 64MB 堆内缓存
-            try {
-                String v = getCfg("PDFBOX_MAX_MAIN_MEMORY_MB");
-                if (v != null && !v.isBlank()) mb = Long.parseLong(v.trim());
-            } catch (Exception ignore) {}
-            return MemoryUsageSetting.setupMixed(mb * 1024L * 1024L);
-        }
-        return MemoryUsageSetting.setupTempFileOnly();
     }
 
     // 新的签名方法：每个功能章独立增量签名（支持失效显示叉）
-    private byte[] signExternalWithFunctionStamps(
+    private File signExternalWithFunctionStamps(PdfFiles files,
             PDDocument doc,
             List<MultipartFile> functionStamps,
             byte[] sigImgData,  // 添加首页盖章参数
@@ -334,10 +333,8 @@ public class SignerService {
                 : java.util.Collections.emptyList();
 
         // 保存初始文档
-        ByteArrayOutputStream initialDoc = new ByteArrayOutputStream();
-        doc.save(initialDoc);
+        File currentPdf = files.save(doc);
         doc.close();
-        byte[] currentPdfBytes = initialDoc.toByteArray();
         
         // 设置功能章位置参数
         // 左/右边距（mm，可通过环境变量 FUNCTION_STAMP_LEFT_MARGIN_MM 配置；默认约7mm）
@@ -366,7 +363,7 @@ public class SignerService {
         
         // 如果需要首页盖章，优先处理，使其成为认证签名
         if (sigImgData != null && sigImgData.length > 0) {
-            currentPdfBytes = addFrontSealSignatures(currentPdfBytes, sigImgData, contact,
+            currentPdf = addFrontSealSignatures(files, currentPdf, sigImgData, contact,
                     location, reason, privateKey, chain, hashAlgo, tsaEnabled, tsaUrl);
         }
 
@@ -385,49 +382,49 @@ public class SignerService {
             float stampWidth = stampHeight * aspectRatio;
             
             // 重新加载PDF
-            PDDocument currentDoc = Loader.loadPDF(currentPdfBytes);
-            PDPage firstPage = currentDoc.getPage(0);
-            PDRectangle box = firstPage.getMediaBox();
-            // 从页面顶部向下偏移 topMarginPt，使顶部间距为 topMarginMm 毫米
-            float y = box.getHeight() - stampHeight - topMarginPt;
-            
-            // 检查边界
-            if (currentX + stampWidth > box.getWidth() - rightMarginPt) {
-                log.warn("Function stamp {} would exceed page boundary, skipping", i);
-                currentDoc.close();
-                break;
-            }
-            
-            // 创建签名
-            PDSignature signature = createDetachedSignature();
-            
-            // 创建签名选项（注意：使用 try-with-resources 以避免内存泄漏）
-            try (SignatureOptions sigOpts = new SignatureOptions()) {
-                sigOpts.setPreferredSignatureSize(SignatureOptions.DEFAULT_SIGNATURE_SIZE);
+            try (PDDocument currentDoc = Loader.loadPDF(currentPdf, PdfFiles.streamCache())) {
+                PDPage firstPage = currentDoc.getPage(0);
+                PDRectangle box = firstPage.getMediaBox();
+                // 从页面顶部向下偏移 topMarginPt，使顶部间距为 topMarginMm 毫米
+                float y = box.getHeight() - stampHeight - topMarginPt;
 
-                try (InputStream visualTemplate = createVisualSignatureTemplateStream(
-                        box.getWidth(), box.getHeight(),
-                        currentX, y, stampWidth, stampHeight,
-                        stampBytes,
-                        randomFieldName()
-                )) {
-                    sigOpts.setVisualSignature(visualTemplate);
-                    sigOpts.setPage(0);
-
-                    currentDoc.addSignature(signature, new SimpleSignatureInterface(privateKey, chain, hashAlgo, tsaEnabled, tsaUrl), sigOpts);
+                // 检查边界
+                if (currentX + stampWidth > box.getWidth() - rightMarginPt) {
+                    log.warn("Function stamp {} would exceed page boundary, skipping", i);
+                    currentDoc.close();
+                    break;
                 }
 
-                // 保存增量更新
-                ByteArrayOutputStream tempOut = new ByteArrayOutputStream();
-                normalizeSignatureAppearanceStates(currentDoc);
-                currentDoc.saveIncremental(tempOut);
-                currentDoc.close();
+                // 创建签名
+                PDSignature signature = createDetachedSignature();
 
-                // 更新当前PDF字节供下次使用
-                currentPdfBytes = tempOut.toByteArray();
-                currentX += stampWidth + spacing;
+                // 创建签名选项（注意：使用 try-with-resources 以避免内存泄漏）
+                try (SignatureOptions sigOpts = new SignatureOptions()) {
+                    sigOpts.setPreferredSignatureSize(SignatureOptions.DEFAULT_SIGNATURE_SIZE);
 
-                log.info("Added function stamp {} with incremental signature at position ({}, {})", i, currentX - stampWidth - spacing, y);
+                    try (InputStream visualTemplate = createVisualSignatureTemplateStream(
+                            box.getWidth(), box.getHeight(),
+                            currentX, y, stampWidth, stampHeight,
+                            stampBytes,
+                            randomFieldName()
+                    )) {
+                        sigOpts.setVisualSignature(visualTemplate);
+                        sigOpts.setPage(0);
+
+                        currentDoc.addSignature(signature, new SimpleSignatureInterface(privateKey, chain, hashAlgo, tsaEnabled, tsaUrl), sigOpts);
+                    }
+
+                    // 保存增量更新
+                    normalizeSignatureAppearanceStates(currentDoc);
+                    File next = files.saveIncremental(currentDoc);
+                    currentDoc.close();
+
+                    // Keep only the next revision after closing the previous document.
+                    currentPdf = files.replace(currentPdf, next);
+                    currentX += stampWidth + spacing;
+
+                    log.info("Added function stamp {} with incremental signature at position ({}, {})", i, currentX - stampWidth - spacing, y);
+                }
             }
         }
         
@@ -451,13 +448,13 @@ public class SignerService {
             
             // 获取总页数
             int totalPages;
-            try (PDDocument probe = Loader.loadPDF(currentPdfBytes)) {
+            try (PDDocument probe = Loader.loadPDF(currentPdf, PdfFiles.streamCache())) {
                 totalPages = probe.getNumberOfPages();
             }
             
             // 为每页添加骑缝章签名
             for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-                try (PDDocument currentDoc = Loader.loadPDF(currentPdfBytes)) {
+                try (PDDocument currentDoc = Loader.loadPDF(currentPdf, PdfFiles.streamCache())) {
                     PDPage page = currentDoc.getPage(pageIndex);
                     PDRectangle box = page.getMediaBox();
                     
@@ -486,57 +483,32 @@ public class SignerService {
                         sigOpts.setPreferredSignatureSize(SignatureOptions.DEFAULT_SIGNATURE_SIZE);
 
                         // 创建可视签名模板
-                        InputStream template = createVisualSignatureTemplateStream(
+                        try (InputStream template = createVisualSignatureTemplateStream(
                                 box.getWidth(), box.getHeight(),
                                 x, y, sliceWidthPt, totalStampHeightPt,
                                 slicePng,
                                 randomFieldName()
-                        );
-                        sigOpts.setVisualSignature(template);
-                        sigOpts.setPage(pageIndex);
+                        )) {
+                            sigOpts.setVisualSignature(template);
+                            sigOpts.setPage(pageIndex);
+                            currentDoc.addSignature(signature, new SimpleSignatureInterface(privateKey, chain, hashAlgo, tsaEnabled, tsaUrl), sigOpts);
+                        }
 
-                        currentDoc.addSignature(signature, new SimpleSignatureInterface(privateKey, chain, hashAlgo, tsaEnabled, tsaUrl), sigOpts);
-
-                        // 保存增量更新
-                        ByteArrayOutputStream tempOut = new ByteArrayOutputStream();
+                        // Save only after the appearance has been registered.
                         normalizeSignatureAppearanceStates(currentDoc);
-                        currentDoc.saveIncremental(tempOut);
+                        File next = files.saveIncremental(currentDoc);
                         currentDoc.close();
 
-                        currentPdfBytes = tempOut.toByteArray();
+                        currentPdf = files.replace(currentPdf, next);
                         log.info("Added perforation slice {} of {} to signature list", pageIndex + 1, totalPages);
                     }
                 }
             }
         }
 
-        return currentPdfBytes;
+        return currentPdf;
     }
     
-    // 创建可视签名流
-    private InputStream createVisualSignatureStream(PDDocument doc, byte[] stampData, float width, float height) throws IOException {
-        // 创建一个临时的PDF文档作为外观
-        PDDocument appearanceDoc = new PDDocument();
-        PDPage appearancePage = new PDPage(new PDRectangle(width, height));
-        appearanceDoc.addPage(appearancePage);
-        
-        try (PDPageContentStream cs = new PDPageContentStream(appearanceDoc, appearancePage)) {
-            BufferedImage stampImage = ImageIO.read(new ByteArrayInputStream(stampData));
-            PDImageXObject pdImage = LosslessFactory.createFromImage(appearanceDoc, stampImage);
-            // 关键修复：为Image XObject添加空的Resources字典，避免Acrobat报错
-            pdImage.getCOSObject().setItem(COSName.RESOURCES, new COSDictionary());
-            cs.drawImage(pdImage, 0, 0, width, height);
-        }
-        
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        appearanceDoc.save(baos);
-        appearanceDoc.close();
-        
-        return new ByteArrayInputStream(baos.toByteArray());
-    }
-    
-    // 创建功能章外观流
-    // 新方法：创建功能章外观流（支持自定义宽高）
     private PDAppearanceStream createFunctionStampAppearanceWithSize(PDDocument doc, byte[] stampData, float width, float height) throws IOException {
         PDAppearanceStream appearanceStream = new PDAppearanceStream(doc);
         appearanceStream.setBBox(new org.apache.pdfbox.pdmodel.common.PDRectangle(width, height));
@@ -595,7 +567,7 @@ public class SignerService {
     }
     
     // 综合处理所有类型的章（功能章、骑缝章、首页章）
-    private byte[] signExternalWithAllStamps(
+    private File signExternalWithAllStamps(PdfFiles files,
             PDDocument doc,
             byte[] perforationData,
             byte[] sigImgData,
@@ -617,7 +589,7 @@ public class SignerService {
 
         // 统一处理所有章和签名（功能章、首页盖章、骑缝章）
         if (hasFunctionStamps || hasFrontSeal || hasPerforation) {
-            return signExternalWithFunctionStamps(
+            return signExternalWithFunctionStamps(files,
                     doc,
                     normalizedFunctionStamps,
                     hasFrontSeal ? sigImgData : null,
@@ -633,7 +605,7 @@ public class SignerService {
         }
 
         // 如果没有任何章，只执行普通签名
-        return signExternal(doc, null, signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl);
+        return signExternal(files, doc, null, signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl);
     }
     
     // 保留原有的重载方法以保持向后兼容
@@ -655,15 +627,7 @@ public class SignerService {
     }
     
     private void applyPerforation(PDDocument doc, byte[] stampBytes) throws IOException {
-        // 优化：缓存图像
-        String cacheKey = "perf_full_" + stampBytes.length;
-        java.awt.image.BufferedImage full = imageCache.computeIfAbsent(cacheKey, k -> {
-            try {
-                return loadBufferedImage(stampBytes);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        BufferedImage full = loadBufferedImage(stampBytes);
         int imgW = full.getWidth();
         int imgH = full.getHeight();
 
@@ -700,11 +664,7 @@ public class SignerService {
             int sliceWidthPx = endPixelX - startPixelX;
             if (sliceWidthPx <= 0) continue;
 
-            // 优化：缓存切片
-            String sliceCacheKey = "perf_slice_" + i + "_" + startPixelX + "_" + sliceWidthPx;
-            BufferedImage slice = imageCache.computeIfAbsent(sliceCacheKey, k ->
-                full.getSubimage(startPixelX, 0, sliceWidthPx, imgH)
-            );
+            BufferedImage slice = full.getSubimage(startPixelX, 0, sliceWidthPx, imgH);
 
             PDImageXObject sliceX = LosslessFactory.createFromImage(doc, slice);
             // 关键修复：为Image XObject添加空的Resources字典，避免Acrobat报错
@@ -745,7 +705,7 @@ public class SignerService {
         }
     }
 
-    private byte[] signExternal(
+    private File signExternal(PdfFiles files,
             PDDocument doc,
             MultipartFile sigImg,
             String signingKeyId,
@@ -832,7 +792,7 @@ public class SignerService {
         }
 
         // 添加签名（确保 SignatureOptions 及时关闭以释放资源）
-        ByteArrayOutputStream signedOut = new ByteArrayOutputStream();
+        File signedOut;
         try (SignatureOptions sigOpts = new SignatureOptions()) {
             try {
                 int defaultSize = 512 * 1024;
@@ -844,13 +804,11 @@ public class SignerService {
             normalizeSignatureAppearanceStates(doc);
 
             // 外部签名：生成 CMS（CAdES detached），回填
-            ExternalSigningSupport ext = doc.saveIncrementalForExternalSigning(signedOut);
-            byte[] cms = new SimpleSignatureInterface(privateKey, chain, hashAlgo, tsaEnabled, tsaUrl).sign(ext.getContent());
-            ext.setSignature(cms);
+            signedOut = files.sign(doc, new SimpleSignatureInterface(privateKey, chain, hashAlgo, tsaEnabled, tsaUrl));
         }
         doc.close();
-        log.info("Processing done (3.x ext sign). Output bytes={}", signedOut.size());
-        return signedOut.toByteArray();
+        log.info("Processing done (3.x ext sign). Output bytes={}", signedOut.length());
+        return signedOut;
     }
 
     private void applyCompliantSignatureAppearance(
@@ -924,7 +882,7 @@ public class SignerService {
      * - 使用单次签名操作完成所有页面
      * - 优化图像切片和缓存
      */
-    private byte[] signExternalPerPageIncrementalOptimized(
+    private File signExternalPerPageIncrementalOptimized(PdfFiles files,
             PDDocument initialDoc,
             byte[] perforationImageBytes,
             byte[] firstPageSealImageBytes,
@@ -939,13 +897,13 @@ public class SignerService {
         // 使用优化版本
         String useOptimized = getCfg("USE_OPTIMIZED_PERFORATION");
         if (useOptimized == null || !"false".equalsIgnoreCase(useOptimized)) {
-            return signExternalPerPageIncrementalBatch(
+            return signExternalPerPageIncrementalBatch(files,
                 initialDoc, perforationImageBytes, firstPageSealImageBytes,
                 signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl
             );
         }
         // 保留原始实现作为后备
-        return signExternalPerPageIncrementalOriginal(
+        return signExternalPerPageIncrementalOriginal(files,
             initialDoc, perforationImageBytes, firstPageSealImageBytes,
             signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl
         );
@@ -954,7 +912,7 @@ public class SignerService {
     /**
      * 批量处理版本：一次性处理所有骑缝章
      */
-    private byte[] signExternalPerPageIncrementalBatch(
+    private File signExternalPerPageIncrementalBatch(PdfFiles files,
             PDDocument initialDoc,
             byte[] perforationImageBytes,
             byte[] firstPageSealImageBytes,
@@ -971,15 +929,7 @@ public class SignerService {
         PrivateKey privateKey = km.privateKey();
         Certificate[] chain = km.certificateChain();
 
-        // 优化：缓存和重用图像
-        String imgKey = "perf_" + perforationImageBytes.length;
-        BufferedImage fullImg = imageCache.computeIfAbsent(imgKey, k -> {
-            try {
-                return loadBufferedImage(perforationImageBytes);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        });
+        BufferedImage fullImg = loadBufferedImage(perforationImageBytes);
 
         int imgW = fullImg.getWidth();
         int imgH = fullImg.getHeight();
@@ -994,35 +944,33 @@ public class SignerService {
         float totalStampWidthPt = totalStampHeightPt * ((float) imgW / (float) imgH);
 
         // 保存初始文档
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        initialDoc.save(bos);
+        File current = files.save(initialDoc);
         initialDoc.close();
-        byte[] current = bos.toByteArray();
 
         // 处理首页盖章（如果有）
         if (firstPageSealImageBytes != null && firstPageSealImageBytes.length > 0) {
-            current = addFirstPageSeal(current, firstPageSealImageBytes, contact, location,
+            current = addFirstPageSeal(files, current, firstPageSealImageBytes, contact, location,
                                       reason, privateKey, chain, hashAlgo, tsaEnabled, tsaUrl);
         }
 
         // 读取总页数
         int totalPages;
-        try (PDDocument probe = Loader.loadPDF(current)) {
+        try (PDDocument probe = Loader.loadPDF(current, PdfFiles.streamCache())) {
             totalPages = probe.getNumberOfPages();
         }
 
         // 批量处理骑缝章：先添加所有外观，然后一次签名
         if (totalPages <= 10) {
             // 小文档：使用原方法
-            return signExternalPerPageIncrementalOriginal(
-                Loader.loadPDF(current),
-                perforationImageBytes, null, signingKeyId, contact, location,
-                reason, hashAlgo, tsaEnabled, tsaUrl
-            );
+            try (PDDocument fallback = Loader.loadPDF(current, PdfFiles.streamCache())) {
+                return signExternalPerPageIncrementalOriginal(files,
+                        fallback, perforationImageBytes, null, signingKeyId, contact, location,
+                        reason, hashAlgo, tsaEnabled, tsaUrl);
+            }
         }
 
         // 大文档：批量处理
-        PDDocument doc = Loader.loadPDF(current);
+        PDDocument doc = Loader.loadPDF(current, PdfFiles.streamCache());
 
         try {
             // 创建单个签名覆盖所有页面
@@ -1031,22 +979,20 @@ public class SignerService {
             attachPerforationFields(doc, acroForm, signature, fullImg, totalPages, totalStampWidthPt, totalStampHeightPt);
 
             // 添加签名
-            ByteArrayOutputStream signedOut = new ByteArrayOutputStream();
+            File signedOut;
             try (SignatureOptions sigOpts = new SignatureOptions()) {
                 int reserved = getSignatureReservedSize();
                 sigOpts.setPreferredSignatureSize(reserved);
                 doc.addSignature(signature, sigOpts);
                 normalizeSignatureAppearanceStates(doc);
 
-                ExternalSigningSupport ext = doc.saveIncrementalForExternalSigning(signedOut);
-                byte[] cms = new SimpleSignatureInterface(privateKey, chain, hashAlgo,
-                                                         tsaEnabled, tsaUrl).sign(ext.getContent());
-                ext.setSignature(cms);
+                signedOut = files.sign(doc, new SimpleSignatureInterface(privateKey, chain, hashAlgo,
+                                                         tsaEnabled, tsaUrl));
             }
 
             log.info("Batch perforation signing done. Pages={}, Output bytes={}",
-                    totalPages, signedOut.size());
-            return signedOut.toByteArray();
+                    totalPages, signedOut.length());
+            return signedOut;
 
         } finally {
             doc.close();
@@ -1100,15 +1046,15 @@ public class SignerService {
     /**
      * 添加首页盖章
      */
-    private byte[] addFirstPageSeal(byte[] current, byte[] sealImageBytes, String contact,
+    private File addFirstPageSeal(PdfFiles files, File current, byte[] sealImageBytes, String contact,
                                    String location, String reason, PrivateKey privateKey,
                                    Certificate[] chain, String hashAlgo, boolean tsaEnabled,
                                    String tsaUrl) throws Exception {
-        return addFrontSealSignatures(current, sealImageBytes, contact, location, reason,
+        return addFrontSealSignatures(files, current, sealImageBytes, contact, location, reason,
                 privateKey, chain, hashAlgo, tsaEnabled, tsaUrl);
     }
 
-    private byte[] addFrontSealSignatures(byte[] current, byte[] sealImageBytes, String contact,
+    private File addFrontSealSignatures(PdfFiles files, File current, byte[] sealImageBytes, String contact,
                                           String location, String reason, PrivateKey privateKey,
                                           Certificate[] chain, String hashAlgo, boolean tsaEnabled,
                                           String tsaUrl) throws Exception {
@@ -1116,7 +1062,7 @@ public class SignerService {
             return current;
         }
 
-        byte[] updated = addFrontSealToSinglePage(current, sealImageBytes, contact, location,
+        File updated = addFrontSealToSinglePage(files, current, sealImageBytes, contact, location,
                 reason, privateKey, chain, hashAlgo, tsaEnabled, tsaUrl, 0, randomFieldName());
 
         // 如果PDF不足一页，直接返回原始结果
@@ -1125,9 +1071,9 @@ public class SignerService {
         }
 
         // 判断是否需要在第三页添加同样的盖章
-        try (PDDocument probe = Loader.loadPDF(updated)) {
+        try (PDDocument probe = Loader.loadPDF(updated, PdfFiles.streamCache())) {
             if (probe.getNumberOfPages() >= 3) {
-                byte[] thirdPageResult = addFrontSealToSinglePage(updated, sealImageBytes,
+                File thirdPageResult = addFrontSealToSinglePage(files, updated, sealImageBytes,
                         contact, location, reason, privateKey, chain, hashAlgo,
                         tsaEnabled, tsaUrl, 2, randomFieldName());
                 if (thirdPageResult != null) {
@@ -1142,12 +1088,12 @@ public class SignerService {
         return updated;
     }
 
-    private byte[] addFrontSealToSinglePage(byte[] current, byte[] sealImageBytes, String contact,
+    private File addFrontSealToSinglePage(PdfFiles files, File current, byte[] sealImageBytes, String contact,
                                             String location, String reason, PrivateKey privateKey,
                                             Certificate[] chain, String hashAlgo,
                                             boolean tsaEnabled, String tsaUrl, int pageIndex,
                                             String fieldName) throws Exception {
-        try (PDDocument doc = Loader.loadPDF(current)) {
+        try (PDDocument doc = Loader.loadPDF(current, PdfFiles.streamCache())) {
             if (doc.getNumberOfPages() <= pageIndex) {
                 log.warn("Cannot add front seal to page {} (document has {} pages)",
                         pageIndex + 1, doc.getNumberOfPages());
@@ -1181,14 +1127,12 @@ public class SignerService {
                 doc.addSignature(signature, sigOpts);
                 normalizeSignatureAppearanceStates(doc);
 
-                ByteArrayOutputStream signedOut = new ByteArrayOutputStream();
-                ExternalSigningSupport ext = doc.saveIncrementalForExternalSigning(signedOut);
-                byte[] cms = new SimpleSignatureInterface(privateKey, chain, hashAlgo,
-                        tsaEnabled, tsaUrl).sign(ext.getContent());
-                ext.setSignature(cms);
+                File signedOut;
+                signedOut = files.sign(doc, new SimpleSignatureInterface(privateKey, chain, hashAlgo,
+                        tsaEnabled, tsaUrl));
                 log.info("Added front seal on page {} at position ({}, {})",
                         pageIndex + 1, x, y);
-                return signedOut.toByteArray();
+                return signedOut;
             }
         }
     }
@@ -1262,7 +1206,7 @@ public class SignerService {
     /**
      * 原始逐页签名实现（保留作为后备）
      */
-    private byte[] signExternalPerPageIncrementalOriginal(
+    private File signExternalPerPageIncrementalOriginal(PdfFiles files,
             PDDocument initialDoc,
             byte[] perforationImageBytes,
             byte[] firstPageSealImageBytes,
@@ -1293,26 +1237,24 @@ public class SignerService {
         float totalStampHeightPt = (float) (perforationStampHeightMm * 2.83465);
         float totalStampWidthPt = totalStampHeightPt * ((float) imgW / (float) imgH);
 
-        // 3) 以字节为中间形态逐页增量签名
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        initialDoc.save(bos);
+        // Save revisions to separate files so existing byte ranges remain unchanged.
+        File current = files.save(initialDoc);
         initialDoc.close();
-        byte[] current = bos.toByteArray();
 
         // 可选：先对首页盖章做一次增量签名（可见签名域）
         if (firstPageSealImageBytes != null && firstPageSealImageBytes.length > 0) {
-            current = addFrontSealSignatures(current, firstPageSealImageBytes, contact,
+            current = addFrontSealSignatures(files, current, firstPageSealImageBytes, contact,
                     location, reason, privateKey, chain, hashAlgo, tsaEnabled, tsaUrl);
         }
 
-        try (PDDocument doc = Loader.loadPDF(current)) {
+        try (PDDocument doc = Loader.loadPDF(current, PdfFiles.streamCache())) {
             int totalPages = doc.getNumberOfPages();
             PDSignature signature = createDetachedSignature();
             PDAcroForm acroForm = ensureAcroForm(doc);
 
             attachPerforationFields(doc, acroForm, signature, fullImg, totalPages, totalStampWidthPt, totalStampHeightPt);
 
-            ByteArrayOutputStream signedOut = new ByteArrayOutputStream();
+            File signedOut;
             try (SignatureOptions sigOpts = new SignatureOptions()) {
                 try {
                     int defaultSize = 512 * 1024;
@@ -1322,14 +1264,12 @@ public class SignerService {
 
                 doc.addSignature(signature, sigOpts);
 
-                ExternalSigningSupport ext = doc.saveIncrementalForExternalSigning(signedOut);
-                byte[] cms = new SimpleSignatureInterface(privateKey, chain, hashAlgo, tsaEnabled, tsaUrl).sign(ext.getContent());
-                ext.setSignature(cms);
+                signedOut = files.sign(doc, new SimpleSignatureInterface(privateKey, chain, hashAlgo, tsaEnabled, tsaUrl));
             }
-            current = signedOut.toByteArray();
+            current = signedOut;
         }
 
-        log.info("Per-page shared signature done. Output bytes={}", current.length);
+        log.info("Per-page shared signature done. Output bytes={}", current.length());
         return current;
     }
 
@@ -1490,14 +1430,6 @@ public class SignerService {
 
     // 可见签名外观将于后续版本完善
 
-    private File toTempFile(MultipartFile f) throws IOException {
-        File tmp = File.createTempFile("pdf_input_", ".pdf");
-        try (OutputStream os = new FileOutputStream(tmp)) {
-            f.getInputStream().transferTo(os);
-        }
-        return tmp;
-    }
-
     private java.io.InputStream createVisualSignatureTemplateStream(
             float pageWidth, float pageHeight,
             float x, float y, float w, float h,
@@ -1511,7 +1443,7 @@ public class SignerService {
             byte[] sigImageBytes,
             String fieldPartialName) throws java.io.IOException {
 
-        PDDocument templateDoc = new PDDocument();
+        PDDocument templateDoc = new PDDocument(PdfFiles.streamCache());
         try {
             PDPage templatePage = new PDPage(new PDRectangle(pageWidth, pageHeight));
             templateDoc.addPage(templatePage);
@@ -1636,19 +1568,17 @@ public class SignerService {
             log.info("Extracting cover fields from PDF: {}", pdfFile.getAbsolutePath());
 
             // 使用PdfCoverExtractor提取封面信息
-            try (java.io.FileInputStream fis = new java.io.FileInputStream(pdfFile)) {
-                PdfCoverExtractor extractor = new PdfCoverExtractor();
-                CoverExtractionResponse response = extractor.extract(fis);
+            PdfCoverExtractor extractor = new PdfCoverExtractor();
+            CoverExtractionResponse response = extractor.extract(pdfFile);
 
-                if (response.reportNumber() != null && !response.reportNumber().isBlank()) {
-                    log.info("Successfully extracted cover fields: reportNumber={}, productName={}, modelSpecification={}, entrustCompany={}, testItems={}, reportDate={}",
-                            response.reportNumber(), response.productName(), response.modelSpecification(),
-                            response.entrustCompany(), response.testItems(), response.reportDate());
-                    return response;
-                } else {
-                    log.info("No report number found in PDF cover");
-                    return response; // 返回响应，即使为空也供metadata使用
-                }
+            if (response.reportNumber() != null && !response.reportNumber().isBlank()) {
+                log.info("Successfully extracted cover fields: reportNumber={}, productName={}, modelSpecification={}, entrustCompany={}, testItems={}, reportDate={}",
+                        response.reportNumber(), response.productName(), response.modelSpecification(),
+                        response.entrustCompany(), response.testItems(), response.reportDate());
+                return response;
+            } else {
+                log.info("No report number found in PDF cover");
+                return response; // 返回响应，即使为空也供metadata使用
             }
         } catch (Exception e) {
             log.error("Failed to extract cover fields from PDF: {}", pdfFile.getAbsolutePath(), e);

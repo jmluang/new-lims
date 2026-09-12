@@ -6,6 +6,8 @@ import com.luang.pdfsigner.execution.SigningExecutionRepository.OperationClaim;
 import com.luang.pdfsigner.signature.IncrementalSigningService;
 import com.luang.pdfsigner.signature.PdfSignatureVerifier;
 import java.net.http.HttpTimeoutException;
+import java.util.concurrent.Callable;
+import com.luang.pdfsigner.service.PdfWorkLimiter;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,25 +27,37 @@ public final class SigningExecutionService {
     private final IncrementalSigningService signingService;
     private final PdfSignatureVerifier verifier;
     private final ObjectMapper objectMapper;
+    private final PdfWorkLimiter limiter;
 
     public SigningExecutionService(
             SigningExecutionRepository repository,
             ExecutionStorage storage,
             IncrementalSigningService signingService,
             PdfSignatureVerifier verifier,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            PdfWorkLimiter limiter
     ) {
         this.repository = repository;
         this.storage = storage;
         this.signingService = signingService;
         this.verifier = verifier;
         this.objectMapper = objectMapper;
+        this.limiter = limiter;
     }
 
     public ExecutionRecord execute(
             OperationClaim claim,
             byte[] sourcePdf,
             byte[] appearancePng,
+            IncrementalSigningService.SignCommand command
+    ) throws Exception {
+        return execute(claim, () -> sourcePdf, () -> appearancePng, command);
+    }
+
+    public ExecutionRecord execute(
+            OperationClaim claim,
+            Callable<byte[]> sourceLoader,
+            Callable<byte[]> appearanceLoader,
             IncrementalSigningService.SignCommand command
     ) throws Exception {
         ClaimResult claimed = repository.claim(claim);
@@ -64,26 +78,30 @@ public final class SigningExecutionService {
             if (!"executing".equals(executing.state())) {
                 return executing;
             }
-            preflight(claim, claimed, sourcePdf, appearancePng, command);
-            repository.markPrivateKeyStarted(claim);
-            privateKeyStarted = true;
-            byte[] signed = signingService.signExistingField(
-                    sourcePdf,
-                    appearancePng,
-                    command,
-                    claim.expectedCertificateFingerprint()
-            );
-            PdfSignatureVerifier.VerificationReport verification = verifier.verify(signed);
-            if (!isAcceptableGeneratedRevision(verification)) {
-                throw new KnownPostPrivateKeyFailure("Generated revision failed layered PAdES-B-T verification");
+            try (var permit = limiter.acquire()) {
+                byte[] sourcePdf = sourceLoader.call();
+                byte[] appearancePng = appearanceLoader.call();
+                preflight(claim, claimed, sourcePdf, appearancePng, command);
+                repository.markPrivateKeyStarted(claim);
+                privateKeyStarted = true;
+                byte[] signed = signingService.signExistingField(
+                        sourcePdf,
+                        appearancePng,
+                        command,
+                        claim.expectedCertificateFingerprint()
+                );
+                PdfSignatureVerifier.VerificationReport verification = verifier.verify(signed);
+                if (!isAcceptableGeneratedRevision(verification)) {
+                    throw new KnownPostPrivateKeyFailure("Generated revision failed layered PAdES-B-T verification");
+                }
+                long maximumBytes = Math.min(
+                        claimed.policy().maximumGeneratedRevisionBytes(),
+                        (long) sourcePdf.length + claimed.policy().maximumSignatureIncrementBytes()
+                );
+                ExecutionStorage.StoredResult stored = storage.persist(claim.operationUuid(), signed, maximumBytes);
+                String validationReportHash = sha256(objectMapper.writeValueAsBytes(verification));
+                return repository.markCompleted(claim.operationUuid(), stored, validationReportHash);
             }
-            long maximumBytes = Math.min(
-                    claimed.policy().maximumGeneratedRevisionBytes(),
-                    (long) sourcePdf.length + claimed.policy().maximumSignatureIncrementBytes()
-            );
-            ExecutionStorage.StoredResult stored = storage.persist(claim.operationUuid(), signed, maximumBytes);
-            String validationReportHash = sha256(objectMapper.writeValueAsBytes(verification));
-            return repository.markCompleted(claim.operationUuid(), stored, validationReportHash);
         } catch (Exception exception) {
             if (!privateKeyStarted) {
                 String errorCode = stableErrorCode(exception, "PRE_KEY_VALIDATION_FAILED");
@@ -136,7 +154,12 @@ public final class SigningExecutionService {
                         "EXECUTION_DEADLINE_BEFORE_PRIVATE_KEY"
                 );
             }
-            return recoverDeadlineResult(operationUuid);
+            try (var permit = limiter.acquire()) {
+                return recoverDeadlineResult(operationUuid);
+            } catch (PdfWorkLimiter.BusyException exception) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "PDF_BUSY", exception);
+            }
         }
         return execution;
     }
@@ -262,6 +285,9 @@ public final class SigningExecutionService {
     }
 
     private static String stableErrorCode(Throwable exception, String fallback) {
+        if (exception instanceof PdfWorkLimiter.BusyException) {
+            return "PDF_BUSY";
+        }
         if (exception instanceof KnownPostPrivateKeyFailure) {
             return "GENERATED_REVISION_VERIFICATION_FAILED";
         }

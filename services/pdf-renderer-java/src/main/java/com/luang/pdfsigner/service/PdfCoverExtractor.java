@@ -1,6 +1,6 @@
 package com.luang.pdfsigner.service;
 
-import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.Normalizer;
@@ -53,9 +53,15 @@ public class PdfCoverExtractor {
      * @throws IOException when PDF cannot be parsed
      */
     public CoverExtractionResponse extract(InputStream stream) throws IOException {
-        byte[] pdfBytes = toByteArray(stream);
+        try (PdfFiles files = new PdfFiles()) {
+            File file = files.create();
+            java.nio.file.Files.copy(stream, file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            return extract(file);
+        }
+    }
 
-        try (PDDocument document = Loader.loadPDF(pdfBytes)) {
+    public CoverExtractionResponse extract(File file) throws IOException {
+        try (PDDocument document = Loader.loadPDF(file, PdfFiles.streamCache())) {
             if (document.getNumberOfPages() == 0) {
                 log.warn("PDF contains no pages, skip cover extraction");
                 return CoverExtractionResponse.empty();
@@ -227,13 +233,4 @@ public class PdfCoverExtractor {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    private byte[] toByteArray(InputStream stream) throws IOException {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        byte[] data = new byte[8192];
-        int n;
-        while ((n = stream.read(data)) != -1) {
-            buffer.write(data, 0, n);
-        }
-        return buffer.toByteArray();
-    }
 }
