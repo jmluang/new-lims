@@ -235,10 +235,11 @@ php artisan queue:work --tries=3 --timeout=120
 php artisan queue:work backups --queue=backups --tries=1 --timeout=1800
 ```
 
-If the server does not run Laravel queue workers, set synchronous backup execution instead:
+The PDF signing workflow must keep an asynchronous queue connection and a running
+worker. If backups need to run synchronously on a small server, only override the
+dedicated backup queue:
 
 ```dotenv
-QUEUE_CONNECTION=sync
 BACKUP_QUEUE_CONNECTION=sync
 ```
 

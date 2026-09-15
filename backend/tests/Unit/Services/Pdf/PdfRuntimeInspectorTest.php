@@ -23,6 +23,7 @@ class PdfRuntimeInspectorTest extends TestCase
             'pdf_service.hmac.enabled' => true,
             'pdf_service.hmac.active_key_id' => 'primary',
             'pdf_service.hmac.keys' => 'primary:'.base64_encode(self::SECRET),
+            'queue.default' => 'database',
         ]);
     }
 
@@ -56,6 +57,21 @@ class PdfRuntimeInspectorTest extends TestCase
 
         $this->assertTrue($report['ok']);
         $this->assertNull($report['secret_bytes']);
+    }
+
+    public function test_local_configuration_rejects_the_synchronous_queue_for_pdf_operations(): void
+    {
+        $originalQueue = config('queue.default');
+        config(['queue.default' => 'sync']);
+
+        try {
+            $report = $this->inspector([])->localConfiguration();
+        } finally {
+            config(['queue.default' => $originalQueue]);
+        }
+
+        $this->assertFalse($report['ok']);
+        $this->assertStringContainsString('asynchronous queue', $report['problem']);
     }
 
     public function test_signing_service_health_projects_the_readiness_flags(): void

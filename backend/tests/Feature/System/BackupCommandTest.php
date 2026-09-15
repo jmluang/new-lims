@@ -188,7 +188,7 @@ class BackupCommandTest extends TestCase
         $this->assertStringContainsString('BACKUP_QUEUE_RETRY_AFTER=1920', $envExample);
         $this->assertStringContainsString('BACKUP_JOB_TIMEOUT=1800', $envExample);
         $this->assertStringContainsString('BACKUP_QUEUE_CONNECTION=sync', file_get_contents(base_path('../README.md')));
-        $this->assertStringContainsString('QUEUE_CONNECTION=sync', file_get_contents(base_path('../README.md')));
+        $this->assertStringNotContainsString("QUEUE_CONNECTION=sync\nBACKUP_QUEUE_CONNECTION=sync", file_get_contents(base_path('../README.md')));
         $this->assertContains(
             'npx concurrently -c "#93c5fd,#c4b5fd,#fb7185,#fdba74,#86efac" "php artisan serve" "php artisan queue:listen --tries=1 --timeout=0" "php artisan queue:work backups --queue=backups --tries=1 --timeout=1800" "php artisan pail --timeout=0" "npm run dev" --names=server,queue,backup-queue,logs,vite --kill-others',
             $composer['scripts']['dev']

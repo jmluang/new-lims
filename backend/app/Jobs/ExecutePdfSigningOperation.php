@@ -16,6 +16,7 @@ use App\Models\PdfSigningWorkflow;
 use App\Models\User;
 use App\Services\Pdf\CanonicalJson;
 use App\Services\Pdf\PdfImmutableFileStore;
+use App\Services\Pdf\PdfOperationQueue;
 use App\Services\Pdf\PdfRendererClient;
 use App\Services\Pdf\PdfRendererHttpException;
 use App\Services\Pdf\PdfRevisionService;
@@ -1005,6 +1006,12 @@ final class ExecutePdfSigningOperation implements ShouldQueue
         ?string $errorCode,
         ?array $response = null,
     ): void {
+        if (! app()->runningUnitTests() && ! PdfOperationQueue::isAsynchronous()) {
+            $this->finishFailure($operation, 'manual_review', 'PDF_SIGNING_ASYNC_QUEUE_REQUIRED', true);
+
+            return;
+        }
+
         $delay = 2;
         DB::transaction(function () use ($operation, $errorCode, $response, $delay): void {
             $locked = PdfSigningOperation::query()->lockForUpdate()->findOrFail($operation->id);

@@ -21,21 +21,30 @@ final class PdfRuntimeInspector
      * Local configuration only; performs no network calls so it stays usable
      * when the signing service is down. Never returns the secret itself.
      *
-     * @return array{ok: bool, enabled: bool, hmac_enabled: bool, active_key_id: string, secret_bytes: ?int, problem: ?string}
+     * @return array{ok: bool, enabled: bool, hmac_enabled: bool, active_key_id: string, secret_bytes: ?int, queue_connection: string, queue_async: bool, problem: ?string}
      */
     public function localConfiguration(): array
     {
         $enabled = (bool) config('pdf_service.enabled');
         $hmacEnabled = (bool) config('pdf_service.hmac.enabled');
         $activeKeyId = (string) config('pdf_service.hmac.active_key_id');
+        $queueConnection = PdfOperationQueue::connection();
+        $queueAsync = PdfOperationQueue::isAsynchronous();
         $report = [
             'ok' => true,
             'enabled' => $enabled,
             'hmac_enabled' => $hmacEnabled,
             'active_key_id' => $activeKeyId,
             'secret_bytes' => null,
+            'queue_connection' => $queueConnection,
+            'queue_async' => $queueAsync,
             'problem' => null,
         ];
+
+        if ($enabled && (bool) config('pdf_service.signing.enabled') && ! $queueAsync) {
+            $report['ok'] = false;
+            $report['problem'] = 'PDF signing operations require an asynchronous queue connection; QUEUE_CONNECTION=sync is not supported.';
+        }
 
         if (! $enabled || ! $hmacEnabled) {
             return $report;
@@ -45,9 +54,12 @@ final class PdfRuntimeInspector
             $report['secret_bytes'] = $this->renderer->activeHmacSecretBytes();
         } catch (RuntimeException $exception) {
             $report['ok'] = false;
-            $report['problem'] = $exception->getMessage()
+            $hmacProblem = $exception->getMessage()
                 .' Set PDF_SERVICE_HMAC_KEYS in the backend .env to the same key-id:base64-secret'
                 .' entry the Java signing service uses.';
+            $report['problem'] = $report['problem'] === null
+                ? $hmacProblem
+                : $report['problem'].' '.$hmacProblem;
         }
 
         return $report;

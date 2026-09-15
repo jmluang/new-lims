@@ -577,6 +577,7 @@ export const textMap: Record<string, string> = {
   PDF_PLACEMENT_OUTSIDE_PAGE: '签名位置超出页面范围',
   PDF_SIGNING_POLICY_NOT_IMMUTABLE_PADES_BT: '所选签名策略不是有效的 PAdES-B-T 不可变策略',
   PDF_POLICY_CERTIFICATE_FINGERPRINT_INVALID: '签名策略的证书指纹无效',
+  PDF_SIGNING_ASYNC_QUEUE_REQUIRED: '签名服务队列未配置为异步队列，请联系管理员',
 
   PDF_WORKFLOW_NOT_PREPARABLE: '该工作流当前状态不允许准备签名字段',
   PDF_WORKFLOW_NOT_CANCELLABLE: '该工作流当前状态不允许取消',

@@ -35,6 +35,8 @@ Artisan::command('pdf:check-runtime', function (): int {
     $this->line('  hmac secret               '.($configuration['secret_bytes'] === null
         ? 'not checked'
         : $configuration['secret_bytes'].' bytes'));
+    $this->line('  operation queue           '.$configuration['queue_connection']
+        .($configuration['queue_async'] ? ' (async)' : ' (not async)'));
 
     if (! $configuration['ok']) {
         $this->error('  problem                   '.$configuration['problem']);

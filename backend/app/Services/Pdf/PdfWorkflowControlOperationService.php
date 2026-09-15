@@ -142,6 +142,8 @@ final class PdfWorkflowControlOperationService
             return $this->returnIdempotentOrConflict($existing, $idempotencyFingerprint);
         }
 
+        PdfOperationQueue::assertAsynchronous();
+
         // Only a freshly created operation owns a pending outbox row and therefore
         // needs dispatching; a raced or replayed one is already owned by whoever
         // created it. Reset per attempt because DB::transaction retries the closure.
