@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Clock, FileText, Loader2, PenLine, Pencil, Search, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, FileText, Loader2, PenLine, Pencil, Search, ShieldAlert, Trash2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { Button, DataTable, EmptyState, ErrorNotice, LoadingState, Modal, PageShell, PaginationControls, Panel } from '../system/shared'
@@ -8,6 +8,8 @@ import {
   deleteSigningDocument,
   fetchSigningDocuments,
   renameSigningDocument,
+  resolveSigningDocumentManualReview,
+  type ManualReviewDecision,
   type DocumentSigner,
   type SigningDocument,
 } from './handwrittenApi'
@@ -22,6 +24,7 @@ const stageLabels: Record<string, string> = {
   published: '已发布',
   cancelled: '已取消',
   failed: '已失败',
+  manual_review: '待人工复核',
 }
 
 const signerStatusLabels: Record<string, string> = {
@@ -63,6 +66,8 @@ export function PdfDocumentListPage() {
   const [renaming, setRenaming] = useState<SigningDocument | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [deleting, setDeleting] = useState<SigningDocument | null>(null)
+  const [manualReviewing, setManualReviewing] = useState<SigningDocument | null>(null)
+  const [manualReviewDecision, setManualReviewDecision] = useState<ManualReviewDecision>('confirmed_no_usable_result')
 
   const documents = useQuery({
     queryKey: ['pdf', 'documents', appliedSearch, page, perPage],
@@ -84,6 +89,13 @@ export function PdfDocumentListPage() {
       invalidate()
     },
   })
+  const resolveManualReview = useMutation({
+    mutationFn: () => resolveSigningDocumentManualReview(manualReviewing!.document_uuid, manualReviewDecision),
+    onSuccess: () => {
+      setManualReviewing(null)
+      invalidate()
+    },
+  })
 
   const rows = documents.data?.data ?? []
 
@@ -91,6 +103,11 @@ export function PdfDocumentListPage() {
   // revision and previous plan instead of starting from another upload.
   function planDocument(document: SigningDocument) {
     window.location.assign(`/pdf/handwritten-signing?document=${encodeURIComponent(document.document_uuid)}#plan`)
+  }
+
+  function openManualReview(document: SigningDocument) {
+    setManualReviewing(document)
+    setManualReviewDecision('confirmed_no_usable_result')
   }
 
   return (
@@ -200,6 +217,18 @@ export function PdfDocumentListPage() {
                         <Trash2 className="size-4" />
                       </Button>
                     </PermissionGate>
+                    <PermissionGate resource="pdf.manual_review" action="resolve">
+                      {document.status === 'manual_review' ? (
+                        <Button
+                          variant="ghost"
+                          className="text-amber-700 hover:bg-amber-50"
+                          title="人工复核签名结果"
+                          onClick={() => openManualReview(document)}
+                        >
+                          <ShieldAlert className="size-4" />
+                        </Button>
+                      ) : null}
+                    </PermissionGate>
                   </div>
                 </td>
               </tr>
@@ -262,6 +291,14 @@ export function PdfDocumentListPage() {
                     删除
                   </Button>
                 </PermissionGate>
+                <PermissionGate resource="pdf.manual_review" action="resolve">
+                  {document.status === 'manual_review' ? (
+                    <Button variant="secondary" className="border-amber-200 text-amber-800" onClick={() => openManualReview(document)}>
+                      <ShieldAlert className="size-4" />
+                      人工复核
+                    </Button>
+                  ) : null}
+                </PermissionGate>
               </div>
               {planReason(document) ?? editableReason(document) ? (
                 <p className="mt-2 text-xs text-slate-400">{planReason(document) ?? editableReason(document)}</p>
@@ -319,6 +356,47 @@ export function PdfDocumentListPage() {
           >
             {remove.isPending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
             确认删除
+          </Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={manualReviewing !== null}
+        title="人工复核签名结果"
+        onClose={() => {
+          if (!resolveManualReview.isPending) setManualReviewing(null)
+        }}
+      >
+        <p className="mb-3 text-sm leading-6 text-slate-600">
+          报告 <span className="font-semibold text-slate-900">{manualReviewing?.report_number}</span> 的签名结果无法由系统自动确认。
+          请选择有证据支持的处理结论；此操作会写入审计记录。
+        </p>
+        <label className="block text-xs font-medium text-slate-600">
+          复核结论
+          <select
+            className={`${inputClass} mt-1`}
+            value={manualReviewDecision}
+            disabled={resolveManualReview.isPending}
+            onChange={(event) => setManualReviewDecision(event.target.value as ManualReviewDecision)}
+          >
+            <option value="confirmed_no_usable_result">确认没有可用签名结果，结束本次流程</option>
+            <option value="adopt_completed">采用已完成且已验证的签名结果</option>
+            <option value="confirmed_no_private_key">确认未调用私钥，恢复本流程</option>
+          </select>
+        </label>
+        <p className="mt-2 text-xs leading-5 text-amber-800">
+          服务器会再次校验证据；不满足条件时操作会被拒绝，不会强行改写状态。
+        </p>
+        {resolveManualReview.isError ? (
+          <div className="mt-3"><ErrorNotice error={resolveManualReview.error} fallback="人工复核失败" /></div>
+        ) : null}
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="secondary" disabled={resolveManualReview.isPending} onClick={() => setManualReviewing(null)}>
+            取消
+          </Button>
+          <Button variant="primary" disabled={resolveManualReview.isPending} onClick={() => resolveManualReview.mutate()}>
+            {resolveManualReview.isPending ? <Loader2 className="size-4 animate-spin" /> : <ShieldAlert className="size-4" />}
+            确认复核
           </Button>
         </div>
       </Modal>

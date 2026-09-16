@@ -2,6 +2,7 @@ import { api } from '../../lib/api'
 
 export type NormalizedRect = { x: string; y: string; width: string; height: string }
 export type SignatureRole = 'inspector' | 'reviewer' | 'issuer'
+export type ManualReviewDecision = 'adopt_completed' | 'confirmed_no_private_key' | 'confirmed_no_usable_result'
 
 export type Placement = {
   semantic_role: SignatureRole
@@ -146,6 +147,14 @@ export async function renameSigningDocument(documentUuid: string, reportNumber: 
 export async function deleteSigningDocument(documentUuid: string) {
   const response = await api.delete<{ data: { document_uuid: string; report_number: string; deleted_files: number } }>(
     `/api/pdf/documents/${documentUuid}`,
+  )
+  return response.data.data
+}
+
+export async function resolveSigningDocumentManualReview(documentUuid: string, decision: ManualReviewDecision) {
+  const response = await api.post<{ data: { operation_uuid: string; state: string; error_code: string | null } }>(
+    `/api/pdf/documents/${documentUuid}/manual-review`,
+    { decision },
   )
   return response.data.data
 }

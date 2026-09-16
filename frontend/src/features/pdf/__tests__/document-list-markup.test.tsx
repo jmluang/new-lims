@@ -6,8 +6,8 @@ import type { SigningDocument } from '../handwrittenApi'
 const document: SigningDocument = {
   document_uuid: '33f5dde4-539a-416c-b966-db69e2d80de6',
   report_number: 'XDP2025120133',
-  status: 'draft',
-  stage: 'awaiting_signature',
+  status: 'manual_review',
+  stage: 'manual_review',
   integrity_state: 'ok',
   evidence_hold_state: 'none',
   has_running_work: false,
@@ -34,7 +34,12 @@ vi.mock('../handwrittenApi', async (importOriginal) => ({
 
 vi.mock('../../auth/useCurrentUser', () => ({
   useEffectivePermissions: () => ({
-    data: { resources: { 'pdf.document': { actions: { read: true, update: true, delete: true }, fields: {} } } },
+    data: {
+      resources: {
+        'pdf.document': { actions: { read: true, update: true, delete: true }, fields: {} },
+        'pdf.manual_review': { actions: { resolve: true }, fields: {} },
+      },
+    },
   }),
 }))
 
@@ -100,5 +105,11 @@ describe('PdfDocumentListPage markup', () => {
 
     expect(html).toContain('待人工复核')
     expect(html).not.toContain('manual_review')
+  })
+
+  it('shows the manual-review action to an authorized operator', async () => {
+    const html = await markup()
+
+    expect(html).toContain('人工复核')
   })
 })

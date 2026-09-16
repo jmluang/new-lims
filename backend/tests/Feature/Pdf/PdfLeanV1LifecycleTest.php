@@ -840,6 +840,37 @@ final class PdfLeanV1LifecycleTest extends TestCase
         ]);
     }
 
+    public function test_manual_review_can_be_resolved_through_the_document_endpoint(): void
+    {
+        [$admin, $document, $workflow, $request, $operation, $appearance] = $this->manualReviewFixture();
+        PdfJavaSigningExecution::query()->create([
+            'operation_uuid' => $operation->operation_uuid,
+            'operation_input_manifest_hash' => $operation->operation_input_manifest_hash,
+            'input_fingerprint' => $operation->input_fingerprint,
+            'policy_hash' => $operation->policy_hash,
+            'authorized_lease_epoch' => (int) $operation->lease_epoch,
+            'claimed_at' => now()->subMinute(),
+            'private_key_started_at' => now()->subMinute(),
+            'terminal_at' => now(),
+            'state' => 'outcome_unknown',
+            'result_integrity_state' => 'not_applicable',
+            'evidence_hold_mask' => 5,
+            'evidence_hold_state' => 'active',
+        ]);
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/pdf/documents/{$document->document_uuid}/manual-review", [
+            'decision' => 'confirmed_no_usable_result',
+        ])->assertOk()
+            ->assertJsonPath('data.operation_uuid', $operation->operation_uuid)
+            ->assertJsonPath('data.state', 'irreversible_failed');
+
+        $this->assertSame('failed', $request->refresh()->status);
+        $this->assertSame('failed', $workflow->refresh()->status);
+        $this->assertSame('ok', $document->refresh()->integrity_state);
+        $this->assertSame('none', $appearance->refresh()->evidence_hold_state);
+    }
+
     public function test_java_result_retirement_is_authorized_only_after_formal_revision_verification(): void
     {
         Storage::fake('pdf');

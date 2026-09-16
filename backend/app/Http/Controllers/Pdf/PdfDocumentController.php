@@ -10,7 +10,9 @@ use App\Models\PdfSigningRequest;
 use App\Models\PdfSigningWorkflow;
 use App\Models\User;
 use App\Services\Audit\AuditLogger;
+use App\Services\Pdf\CanonicalJson;
 use App\Services\Pdf\PdfDocumentDraftService;
+use App\Services\Pdf\ResolvePdfSigningManualReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -64,6 +66,49 @@ class PdfDocumentController extends Controller
         $this->authorizePermission($request, 'pdf.document.read', self::RESOURCE);
 
         return response()->json(['data' => $this->serialize($document, $request->user())]);
+    }
+
+    public function resolveManualReview(
+        Request $request,
+        PdfDocument $document,
+        ResolvePdfSigningManualReviewService $resolver,
+    ): JsonResponse {
+        $this->authorizePermission($request, 'pdf.manual_review.resolve', 'pdf.manual_review');
+        $validated = $request->validate([
+            'decision' => ['required', 'in:adopt_completed,confirmed_no_private_key,confirmed_no_usable_result'],
+        ]);
+        $operation = PdfSigningOperation::query()
+            ->where('document_id', $document->id)
+            ->where('state', 'manual_review')
+            ->orderByDesc('id')
+            ->firstOrFail();
+        $decision = (string) $validated['decision'];
+        $reasonCode = match ($decision) {
+            'adopt_completed' => 'VERIFIED_COMPLETED_RESULT',
+            'confirmed_no_private_key' => 'PRIVATE_KEY_ABSENCE_CONFIRMED',
+            'confirmed_no_usable_result' => 'NO_USABLE_RESULT_CONFIRMED',
+        };
+        $resolutionFingerprint = hash('sha256', CanonicalJson::encode([
+            'version' => 'pdf-manual-review-ui-v1',
+            'document_uuid' => $document->document_uuid,
+            'operation_uuid' => $operation->operation_uuid,
+            'decision' => $decision,
+            'reason_code' => $reasonCode,
+            'actor_user_id' => $request->user()->id,
+        ]));
+        $resolved = $resolver->resolve(
+            $operation,
+            $decision,
+            $reasonCode,
+            $resolutionFingerprint,
+            $request->user(),
+        );
+
+        return response()->json(['data' => [
+            'operation_uuid' => $resolved->operation_uuid,
+            'state' => $resolved->state,
+            'error_code' => $resolved->error_code,
+        ]]);
     }
 
     public function update(
@@ -186,6 +231,10 @@ class PdfDocumentController extends Controller
             return PdfFile::query()->where('document_id', $document->id)->exists()
                 ? 'finalized_awaiting_workflow'
                 : 'confirmed_awaiting_finalize';
+        }
+
+        if ($workflow->status === 'manual_review') {
+            return 'manual_review';
         }
 
         if (in_array($workflow->status, ['cancelled', 'failed'], true)) {
