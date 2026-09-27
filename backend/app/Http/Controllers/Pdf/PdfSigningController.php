@@ -9,6 +9,7 @@ use App\Models\HomepageFunctionStamp;
 use App\Models\PerforationStamp;
 use App\Services\Audit\AuditLogger;
 use App\Services\Pdf\PdfSigningService;
+use App\Services\Pdf\PdfYanzhenjiaSyncDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -93,7 +94,7 @@ class PdfSigningController extends Controller
         );
     }
 
-    public function process(Request $request, PdfSigningService $pdfSigningService, AuditLogger $auditLogger): BinaryFileResponse|JsonResponse
+    public function process(Request $request, PdfSigningService $pdfSigningService, AuditLogger $auditLogger, PdfYanzhenjiaSyncDispatcher $syncDispatcher): BinaryFileResponse|JsonResponse
     {
         $this->authorizePermission($request, 'pdf_signing.create', self::RESOURCE);
 
@@ -178,6 +179,8 @@ class PdfSigningController extends Controller
                 'remove_photometric_content' => $removePhotometric,
             ],
         );
+
+        $syncDispatcher->enqueue($result['pdf_file']);
 
         return response()->download($result['path'], $result['pdf_file']->signedDownloadName(), [
             'Content-Type' => 'application/pdf',

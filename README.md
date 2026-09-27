@@ -145,6 +145,25 @@ for how to turn it on and why it ships off.
 
 ## Production Deployment
 
+### Signed PDF copy to Yanzhenjia
+
+The signing desk and the three-person signing workflow enqueue their completed
+PDFs for a one-way copy. `pdf:dispatch-yanzhenjia-syncs` runs every minute and
+the database queue worker transfers the exact signed bytes, SHA-256, MD5 and
+size to `POST /api/integrations/new-lims/reports`. The target maps each request
+to the configured `zdlmmm` account and treats repeated source file IDs as the
+same upload. It also keeps the original report number for public report lookup.
+Failed transfers remain visible in `pdf_yanzhenjia_syncs` and are
+retried; they do not change the local signing result.
+
+Deploy the Yanzhenjia API before enabling this sender. Set the same random
+secret of at least 32 characters in `LIMS_SYNC_SECRET` on Yanzhenjia and
+`YANZHENJIA_SYNC_SECRET` here, then set `YANZHENJIA_SYNC_ENABLED=true` here.
+Both hosts need clocks within five minutes. Keep the scheduler and database
+queue worker running. The target account must be active and have enough file
+and storage quota. This copies new completed reports; existing reports and
+deletions are not synchronized retroactively.
+
 Deploy the three runtime parts independently:
 
 ```text

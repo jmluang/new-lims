@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'yanzhenjia' => [
+        'enabled' => env('YANZHENJIA_SYNC_ENABLED', false),
+        'base_url' => env('YANZHENJIA_BASE_URL', 'https://www.yanzhenjia.cn'),
+        'secret' => env('YANZHENJIA_SYNC_SECRET'),
+        'username' => env('YANZHENJIA_USERNAME', 'zdlmmm'),
+    ],
+
 ];

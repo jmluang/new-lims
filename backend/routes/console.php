@@ -13,6 +13,7 @@ use App\Services\Pdf\PdfOperationOutboxDispatcher;
 use App\Services\Pdf\PdfRevisionIntegrityService;
 use App\Services\Pdf\PdfRuntimeInspector;
 use App\Services\Pdf\PdfSigningOperationReconciler;
+use App\Services\Pdf\PdfYanzhenjiaSyncDispatcher;
 use App\Services\Pdf\ResolvePdfSigningManualReviewService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Carbon;
@@ -111,6 +112,18 @@ Artisan::command('pdf:dispatch-signing-outbox {--limit=100}', function (): int {
 })->purpose('Dispatch durable PDF signing operation outbox rows');
 
 Schedule::command('pdf:dispatch-signing-outbox --limit=100')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+Artisan::command('pdf:dispatch-yanzhenjia-syncs {--limit=100}', function (): int {
+    $count = app(PdfYanzhenjiaSyncDispatcher::class)
+        ->dispatchPending((int) $this->option('limit'));
+    $this->info("Dispatched {$count} Yanzhenjia PDF sync(s).");
+
+    return 0;
+})->purpose('Dispatch and recover signed PDF copies to Yanzhenjia');
+
+Schedule::command('pdf:dispatch-yanzhenjia-syncs --limit=100')
     ->everyMinute()
     ->withoutOverlapping();
 

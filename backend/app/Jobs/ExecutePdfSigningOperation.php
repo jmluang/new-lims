@@ -21,6 +21,7 @@ use App\Services\Pdf\PdfRendererClient;
 use App\Services\Pdf\PdfRendererHttpException;
 use App\Services\Pdf\PdfRevisionService;
 use App\Services\Pdf\PdfSigningNotifier;
+use App\Services\Pdf\PdfYanzhenjiaSyncDispatcher;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -559,6 +560,7 @@ final class ExecutePdfSigningOperation implements ShouldQueue
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
+                    app(PdfYanzhenjiaSyncDispatcher::class)->enqueue($revision);
                 }
 
                 $minimumExecutionRetention = now()->addDays(7);

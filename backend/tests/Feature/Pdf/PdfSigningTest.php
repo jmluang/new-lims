@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Pdf;
 
+use App\Jobs\SyncPdfToYanzhenjia;
 use App\Models\DigitalSignature;
 use App\Models\HomepageFunctionStamp;
 use App\Models\PdfFile;
@@ -11,6 +12,7 @@ use App\Services\Pdf\PdfRendererClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -56,6 +58,8 @@ class PdfSigningTest extends TestCase
     public function test_signing_stamps_the_upload_and_records_its_digests(): void
     {
         Storage::fake('pdf');
+        config(['services.yanzhenjia.enabled' => true]);
+        Queue::fake();
 
         $signature = $this->seal(DigitalSignature::class, ['name' => '检测专用章']);
         $perforation = $this->seal(PerforationStamp::class, ['name' => '骑缝章']);
@@ -95,6 +99,8 @@ class PdfSigningTest extends TestCase
         $this->assertSame(['CMA'], $record->metadata['function_stamp_names']);
         $this->assertSame('cover_extraction', $record->metadata['report_number_source']);
         Storage::disk('pdf')->assertExists($record->file_path);
+        $this->assertDatabaseHas('pdf_yanzhenjia_syncs', ['pdf_file_id' => $record->id, 'status' => 'pending']);
+        Queue::assertNotPushed(SyncPdfToYanzhenjia::class);
     }
 
     public function test_the_response_carries_a_link_the_browser_can_download_without_a_token(): void
