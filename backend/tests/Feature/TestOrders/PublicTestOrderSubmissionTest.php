@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -45,6 +46,40 @@ class PublicTestOrderSubmissionTest extends TestCase
             ->assertJsonMissingPath('data.contact');
     }
 
+    public function test_verified_miniapp_login_suggests_only_customers_for_its_verified_phone(): void
+    {
+        $this->customer();
+        Http::fake([
+            'https://www.yanzhenjia.cn/api/user' => Http::response([
+                'success' => true,
+                'data' => ['user' => ['phone' => '13800000000']],
+            ]),
+        ]);
+
+        $this->withToken('verified-miniapp-session')
+            ->postJson('/api/public/test-order-submissions/customer-lookup', ['phone' => '13900000000'])
+            ->assertOk()
+            ->assertJsonPath('data.phone', '13800000000')
+            ->assertJsonPath('data.customers.0.company', '中山市星河照明有限公司')
+            ->assertJsonPath('data.customers.0.contact', '唐小姐')
+            ->assertJsonPath('data.customers.0.address', '中山市古镇镇星河路 1 号');
+
+        Http::assertSent(fn ($request): bool => $request->hasHeader('Authorization', 'Bearer verified-miniapp-session'));
+    }
+
+    public function test_invalid_miniapp_token_never_reveals_customer_details(): void
+    {
+        $this->customer();
+        Http::fake([
+            'https://www.yanzhenjia.cn/api/user' => Http::response(['success' => false], 401),
+        ]);
+
+        $this->withToken('invalid-miniapp-session')
+            ->postJson('/api/public/test-order-submissions/customer-lookup', ['phone' => '13800000000'])
+            ->assertOk()
+            ->assertJsonPath('data', null);
+    }
+
     public function test_public_customer_submission_creates_pending_submission_without_official_order(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-25 10:00:00'));
@@ -69,6 +104,64 @@ class PublicTestOrderSubmissionTest extends TestCase
             'action' => 'public_test_order_submissions.create',
             'module' => 'public_test_order_submissions',
         ]);
+    }
+
+    public function test_same_phone_with_a_different_company_does_not_link_the_existing_customer(): void
+    {
+        $existing = $this->customer();
+        $submissionId = $this->postJson('/api/public/test-order-submissions', $this->payload([
+            'client_company' => '中山市新辰光电有限公司',
+        ]))->assertCreated()->json('data.id');
+
+        $this->assertDatabaseHas('public_test_order_submissions', [
+            'id' => $submissionId,
+            'matched_customer_id' => null,
+        ]);
+
+        $reviewer = $this->userWithPermissions(['test_orders.read', 'test_orders.create']);
+        $this->postJsonAs($reviewer, "/api/public-test-order-submissions/{$submissionId}/accept")
+            ->assertCreated();
+
+        $newCustomer = Customer::query()->where('name', '中山市新辰光电有限公司')->sole();
+        $this->assertNotSame($existing->id, $newCustomer->id);
+        $this->assertDatabaseHas('test_orders', ['client_customer_id' => $newCustomer->id]);
+        $this->assertDatabaseCount('customers', 2);
+    }
+
+    public function test_review_acceptance_creates_a_new_customer_and_default_contact_only_after_approval(): void
+    {
+        $payload = $this->payload([
+            'client_company' => '中山市新辰光电有限公司',
+            'client_address' => '中山市古镇镇新辰路 8 号',
+            'client_contact' => '李小姐',
+            'client_phone' => '13900000000',
+        ]);
+        $submissionId = $this->postJson('/api/public/test-order-submissions', $payload)
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertDatabaseCount('customers', 0);
+        $this->assertDatabaseCount('customer_contacts', 0);
+
+        $reviewer = $this->userWithPermissions(['test_orders.read', 'test_orders.create']);
+        $this->postJsonAs($reviewer, "/api/public-test-order-submissions/{$submissionId}/accept")
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'accepted');
+
+        $customer = Customer::query()->where('name', '中山市新辰光电有限公司')->sole();
+        $this->assertSame('13900000000', $customer->phone);
+        $this->assertSame('中山市古镇镇新辰路 8 号', $customer->address);
+        $this->assertDatabaseHas('customer_contacts', [
+            'customer_id' => $customer->id,
+            'name' => '李小姐',
+            'phone' => '13900000000',
+            'is_default' => true,
+        ]);
+        $this->assertDatabaseHas('public_test_order_submissions', [
+            'id' => $submissionId,
+            'matched_customer_id' => $customer->id,
+        ]);
+        $this->assertDatabaseHas('test_orders', ['client_customer_id' => $customer->id]);
     }
 
     public function test_review_acceptance_converts_pending_submission_to_official_test_order(): void

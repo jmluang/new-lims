@@ -331,7 +331,7 @@ export function SubmissionDetailModal({
     <Modal
       open={submission !== null}
       title={submission ? `公开委托提交 - ${submission.submission_no}` : '公开委托提交'}
-      description="核对客户提交资料，通过后将生成正式委托试验单。"
+      description="核对客户提交资料，通过后将生成委托试验单；若无匹配客户，将同时建立客户档案。"
       size="wide"
       onClose={onClose}
     >
