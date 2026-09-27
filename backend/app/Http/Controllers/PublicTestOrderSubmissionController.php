@@ -6,26 +6,40 @@ use App\Models\Customer;
 use App\Models\PublicTestOrderSubmission;
 use App\Services\Audit\AuditLogger;
 use App\Services\TestOrders\TestOrderPayloadNormalizer;
-use Illuminate\Database\Eloquent\Builder;
+use App\Services\TestOrders\VerifiedMiniAppPhone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class PublicTestOrderSubmissionController extends Controller
 {
-    public function lookupCustomer(Request $request): JsonResponse
+    public function lookupCustomer(Request $request, VerifiedMiniAppPhone $miniAppPhone): JsonResponse
     {
-        $payload = $request->validate([
-            'phone' => ['required', 'string', 'max:64'],
-        ]);
+        $phone = $miniAppPhone->fromToken($request->bearerToken());
 
-        $phone = $this->normalizePhone($payload['phone']);
-
-        if ($phone === '') {
+        if ($phone === null) {
             return response()->json(['data' => null]);
         }
 
-        return response()->json(['data' => null]);
+        $customers = Customer::query()
+            ->matchingPhone($phone)
+            ->with(['contacts' => fn ($query) => $query->where('status', 'active')])
+            ->orderBy('id')
+            ->limit(20)
+            ->get()
+            ->map(function (Customer $customer) use ($phone): array {
+                $contact = $customer->contacts->firstWhere('phone', $phone)
+                    ?? $customer->contacts->firstWhere('is_default', true);
+
+                return [
+                    'company' => $customer->name,
+                    'address' => $customer->address,
+                    'contact' => $contact?->name,
+                ];
+            })
+            ->values();
+
+        return response()->json(['data' => ['phone' => $phone, 'customers' => $customers]]);
     }
 
     public function store(
@@ -34,7 +48,11 @@ class PublicTestOrderSubmissionController extends Controller
         AuditLogger $auditLogger,
     ): JsonResponse {
         $payload = $normalizer->normalize($request->validate($this->rules()));
-        $customer = $this->findMatchedCustomer($this->normalizePhone($payload['client_phone'] ?? null));
+        $customer = Customer::query()
+            ->matchingPhone($this->normalizePhone($payload['client_phone'] ?? null))
+            ->where('name', trim($payload['client_company']))
+            ->orderBy('id')
+            ->first();
 
         $submission = PublicTestOrderSubmission::query()->create([
             'submission_no' => $this->generateSubmissionNo(),
@@ -80,24 +98,6 @@ class PublicTestOrderSubmissionController extends Controller
             'samples.*.input_voltage' => ['nullable', 'string', 'max:255'],
             'samples.*.power' => ['nullable', 'string', 'max:255'],
         ];
-    }
-
-    private function findMatchedCustomer(string $phone): ?Customer
-    {
-        if ($phone === '') {
-            return null;
-        }
-
-        return Customer::query()
-            ->where('status', 'active')
-            ->where(function (Builder $query) use ($phone): void {
-                $query->where('phone', $phone)
-                    ->orWhereHas('contacts', fn (Builder $contactQuery): Builder => $contactQuery
-                        ->where('status', 'active')
-                        ->where('phone', $phone));
-            })
-            ->orderBy('id')
-            ->first();
     }
 
     /**

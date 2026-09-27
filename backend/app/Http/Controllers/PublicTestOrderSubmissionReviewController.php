@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Customer;
 use App\Models\PublicTestOrderSubmission;
 use App\Models\TestOrder;
 use App\Services\Audit\AuditLogger;
@@ -45,11 +46,53 @@ class PublicTestOrderSubmissionReviewController extends Controller
     ): JsonResponse {
         $this->authorizePermission($request, 'test_orders.create', 'test_orders');
 
-        $result = DB::transaction(function () use ($request, $publicTestOrderSubmission, $orderNumberService, $syncChildren): array {
+        $result = DB::transaction(function () use ($request, $publicTestOrderSubmission, $orderNumberService, $syncChildren, $auditLogger): array {
             $submission = PublicTestOrderSubmission::query()
                 ->lockForUpdate()
                 ->findOrFail($publicTestOrderSubmission->id);
             $this->ensurePending($submission);
+
+            $phone = trim($submission->client_phone);
+            $company = trim($submission->client_company);
+            $customer = Customer::query()
+                ->matchingPhone($phone)
+                ->where('name', $company)
+                ->orderBy('id')
+                ->first();
+
+            if ($customer === null) {
+                $customer = Customer::query()->create([
+                    'name' => $company,
+                    'phone' => $phone,
+                    'address' => $submission->client_address,
+                    'status' => 'active',
+                ]);
+
+                $auditLogger->record(
+                    actor: $request->user(),
+                    action: 'customers.create',
+                    module: 'customers',
+                    subject: $customer,
+                    after: ['name' => $customer->name, 'phone' => $customer->phone, 'address' => $customer->address],
+                );
+
+                if (filled($submission->client_contact)) {
+                    $contact = $customer->contacts()->create([
+                        'name' => trim($submission->client_contact),
+                        'phone' => $phone,
+                        'is_default' => true,
+                        'status' => 'active',
+                    ]);
+
+                    $auditLogger->record(
+                        actor: $request->user(),
+                        action: 'customer_contacts.create',
+                        module: 'customer_contacts',
+                        subject: $contact,
+                        after: ['name' => $contact->name, 'phone' => $contact->phone, 'customer_id' => $customer->id],
+                    );
+                }
+            }
 
             $orderNo = $orderNumberService->generate();
             $testOrder = TestOrder::query()->create([
@@ -57,7 +100,7 @@ class PublicTestOrderSubmissionReviewController extends Controller
                 'contract_no' => $orderNo,
                 'order_date' => now()->toDateString(),
                 'urgency' => 'normal',
-                'client_customer_id' => $submission->matched_customer_id,
+                'client_customer_id' => $customer->id,
                 'client_company' => $submission->client_company,
                 'client_address' => $submission->client_address,
                 'client_contact' => $submission->client_contact,
@@ -77,6 +120,7 @@ class PublicTestOrderSubmissionReviewController extends Controller
 
             $submission->update([
                 'status' => 'accepted',
+                'matched_customer_id' => $customer->id,
                 'test_order_id' => $testOrder->id,
                 'accepted_by' => $request->user()?->id,
                 'accepted_at' => now(),
