@@ -106,6 +106,22 @@ class PublicTestOrderSubmissionTest extends TestCase
         ]);
     }
 
+    public function test_review_list_includes_matched_customer_details_for_profile_sync_decision(): void
+    {
+        $this->customer();
+        $this->postJson('/api/public/test-order-submissions', $this->payload([
+            'client_address' => '中山市新地址 2 号',
+            'client_contact' => '李小姐',
+        ]))->assertCreated();
+
+        $reviewer = $this->userWithPermissions(['test_orders.read']);
+        Sanctum::actingAs($reviewer);
+        $this->getJson('/api/public-test-order-submissions')
+            ->assertOk()
+            ->assertJsonPath('data.0.matched_customer.address', '中山市古镇镇星河路 1 号')
+            ->assertJsonPath('data.0.matched_customer.contact', '唐小姐');
+    }
+
     public function test_same_phone_with_a_different_company_does_not_link_the_existing_customer(): void
     {
         $existing = $this->customer();
@@ -126,6 +142,95 @@ class PublicTestOrderSubmissionTest extends TestCase
         $this->assertNotSame($existing->id, $newCustomer->id);
         $this->assertDatabaseHas('test_orders', ['client_customer_id' => $newCustomer->id]);
         $this->assertDatabaseCount('customers', 2);
+    }
+
+    public function test_accepting_an_existing_customer_keeps_master_details_without_explicit_sync(): void
+    {
+        $customer = $this->customer();
+        $submissionId = $this->postJson('/api/public/test-order-submissions', $this->payload([
+            'client_address' => '中山市新地址 2 号',
+            'client_contact' => '李小姐',
+        ]))->assertCreated()->json('data.id');
+
+        $reviewer = $this->userWithPermissions(['test_orders.read', 'test_orders.create']);
+        $this->postJsonAs($reviewer, "/api/public-test-order-submissions/{$submissionId}/accept")
+            ->assertCreated()
+            ->assertJsonPath('data.test_order.client_company', '中山市星河照明有限公司');
+
+        $this->assertSame('中山市古镇镇星河路 1 号', $customer->fresh()->address);
+        $this->assertDatabaseHas('customer_contacts', [
+            'customer_id' => $customer->id,
+            'phone' => '13800000000',
+            'name' => '唐小姐',
+        ]);
+        $this->assertDatabaseHas('test_orders', [
+            'client_customer_id' => $customer->id,
+            'client_address' => '中山市新地址 2 号',
+            'client_contact' => '李小姐',
+        ]);
+    }
+
+    public function test_reviewer_can_explicitly_sync_existing_customer_address_and_contact(): void
+    {
+        $customer = $this->customer();
+        $submissionId = $this->postJson('/api/public/test-order-submissions', $this->payload([
+            'client_address' => '中山市新地址 2 号',
+            'client_contact' => '李小姐',
+        ]))->assertCreated()->json('data.id');
+
+        $reviewer = $this->userWithPermissions(['test_orders.read', 'test_orders.create']);
+        $this->postJsonAs($reviewer, "/api/public-test-order-submissions/{$submissionId}/accept", [
+            'sync_customer_profile' => true,
+        ])->assertCreated();
+
+        $this->assertSame('中山市新地址 2 号', $customer->fresh()->address);
+        $this->assertDatabaseHas('customer_contacts', [
+            'customer_id' => $customer->id,
+            'phone' => '13800000000',
+            'name' => '李小姐',
+        ]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'customers.update', 'subject_id' => (string) $customer->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'customer_contacts.update']);
+    }
+
+    public function test_sync_preserves_existing_values_for_blank_fields_and_adds_missing_phone_contact(): void
+    {
+        $customer = Customer::query()->create([
+            'name' => '中山市星河照明有限公司',
+            'phone' => '13800000000',
+            'address' => '中山市古镇镇星河路 1 号',
+            'status' => 'active',
+        ]);
+        $customer->contacts()->create([
+            'name' => '旧联系人',
+            'phone' => '13900000000',
+            'is_default' => true,
+            'status' => 'active',
+        ]);
+
+        $submissionId = $this->postJson('/api/public/test-order-submissions', $this->payload([
+            'client_address' => '',
+            'client_contact' => '李小姐',
+        ]))->assertCreated()->json('data.id');
+
+        $reviewer = $this->userWithPermissions(['test_orders.read', 'test_orders.create']);
+        $this->postJsonAs($reviewer, "/api/public-test-order-submissions/{$submissionId}/accept", [
+            'sync_customer_profile' => true,
+        ])->assertCreated();
+
+        $this->assertSame('中山市古镇镇星河路 1 号', $customer->fresh()->address);
+        $this->assertDatabaseHas('customer_contacts', [
+            'customer_id' => $customer->id,
+            'phone' => '13900000000',
+            'name' => '旧联系人',
+            'is_default' => true,
+        ]);
+        $this->assertDatabaseHas('customer_contacts', [
+            'customer_id' => $customer->id,
+            'phone' => '13800000000',
+            'name' => '李小姐',
+            'is_default' => false,
+        ]);
     }
 
     public function test_review_acceptance_creates_a_new_customer_and_default_contact_only_after_approval(): void

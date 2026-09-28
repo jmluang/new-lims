@@ -115,4 +115,21 @@ describe('PublicTestOrderSubmissionReviewPage review actions', () => {
     expect(html.match(/拒绝/g)).toHaveLength(1)
     expect(html.match(/通过并生成委托单/g)).toHaveLength(1)
   })
+
+  it('offers an explicit customer profile sync choice during review', () => {
+    const html = renderToStaticMarkup(
+      <SubmissionDetailModal
+        isAccepting={false}
+        onAccept={() => {}}
+        onClose={() => {}}
+        onReject={() => {}}
+        submission={{ ...pendingSubmission, matched_customer: { name: 'Guangzhou Client', address: 'Old address', contact: 'Old contact' } }}
+      />,
+    )
+
+    expect(html).toContain('同步本次联系人和地址到客户档案')
+    expect(html).toContain('type="checkbox"')
+    expect(html).toContain('Old address')
+    expect(html).toContain('Old contact')
+  })
 })

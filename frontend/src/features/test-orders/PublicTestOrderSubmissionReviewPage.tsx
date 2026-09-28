@@ -28,6 +28,7 @@ export type PublicSubmission = {
   client_address?: string | null
   client_contact?: string | null
   client_phone: string
+  matched_customer?: { name: string; address?: string | null; contact?: string | null } | null
   samples_count: number
   samples?: PublicSubmissionSample[]
   status: 'pending' | 'accepted' | 'rejected'
@@ -92,8 +93,10 @@ export function PublicTestOrderSubmissionReviewPage() {
   })
 
   const acceptSubmission = useMutation({
-    mutationFn: async (submission: PublicSubmission) => {
-      const response = await api.post<{ data: PublicSubmission }>(`/api/public-test-order-submissions/${submission.id}/accept`)
+    mutationFn: async ({ submission, syncCustomerProfile }: { submission: PublicSubmission; syncCustomerProfile: boolean }) => {
+      const response = await api.post<{ data: PublicSubmission }>(`/api/public-test-order-submissions/${submission.id}/accept`, {
+        sync_customer_profile: syncCustomerProfile,
+      })
 
       return response.data.data
     },
@@ -260,8 +263,9 @@ export function PublicTestOrderSubmissionReviewPage() {
       />
 
       <SubmissionDetailModal
+        key={selectedSubmission?.id ?? 'closed'}
         isAccepting={acceptSubmission.isPending}
-        onAccept={(submission) => acceptSubmission.mutate(submission)}
+        onAccept={(submission, syncCustomerProfile) => acceptSubmission.mutate({ submission, syncCustomerProfile })}
         onClose={() => setSelectedSubmission(null)}
         onReject={(submission) => {
           setRejectTarget(submission)
@@ -322,11 +326,13 @@ export function SubmissionDetailModal({
   submission,
 }: {
   isAccepting: boolean
-  onAccept: (submission: PublicSubmission) => void
+  onAccept: (submission: PublicSubmission, syncCustomerProfile: boolean) => void
   onClose: () => void
   onReject: (submission: PublicSubmission) => void
   submission: PublicSubmission | null
 }) {
+  const [syncCustomerProfile, setSyncCustomerProfile] = useState(false)
+
   return (
     <Modal
       open={submission !== null}
@@ -348,6 +354,17 @@ export function SubmissionDetailModal({
             {submission.review_remark ? <InfoItem label="拒绝备注" value={submission.review_remark} /> : null}
           </section>
 
+          {submission.matched_customer ? (
+            <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+              <h3 className="mb-3 font-semibold text-slate-900">当前客户档案</h3>
+              <dl className="grid gap-3 md:grid-cols-3">
+                <InfoItem label="公司名称" value={submission.matched_customer.name} />
+                <InfoItem label="现有联系人" value={submission.matched_customer.contact || '-'} />
+                <InfoItem label="现有地址" value={submission.matched_customer.address || '-'} />
+              </dl>
+            </section>
+          ) : null}
+
           <section className="rounded-lg border border-emerald-900/10 bg-white">
             <div className="border-b border-emerald-900/10 px-4 py-3 text-sm font-semibold text-slate-900">样品信息</div>
             <div className="divide-y divide-slate-100">
@@ -366,15 +383,30 @@ export function SubmissionDetailModal({
 
           {submission.status === 'pending' ? (
             <PermissionGate resource="test_orders" action="create">
-              <div className="flex justify-end gap-2">
-                <Button variant="danger" onClick={() => onReject(submission)} disabled={isAccepting}>
-                  <XCircle className="size-4" aria-hidden="true" />
-                  拒绝
-                </Button>
-                <Button variant="primary" onClick={() => onAccept(submission)} disabled={isAccepting}>
-                  <CheckCircle2 className="size-4" aria-hidden="true" />
-                  通过并生成委托单
-                </Button>
+              <div className="space-y-4">
+                <label className="flex gap-3 rounded-lg border border-emerald-900/10 bg-slate-50 p-4 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-4 accent-emerald-700"
+                    checked={syncCustomerProfile}
+                    onChange={(event) => setSyncCustomerProfile(event.target.checked)}
+                    disabled={isAccepting}
+                  />
+                  <span>
+                    <span className="block font-medium text-slate-900">同步本次联系人和地址到客户档案</span>
+                    <span className="mt-1 block text-xs text-slate-500">仅在手机号和公司名称匹配已有客户时生效；空白字段不会清空原资料。</span>
+                  </span>
+                </label>
+                <div className="flex justify-end gap-2">
+                  <Button variant="danger" onClick={() => onReject(submission)} disabled={isAccepting}>
+                    <XCircle className="size-4" aria-hidden="true" />
+                    拒绝
+                  </Button>
+                  <Button variant="primary" onClick={() => onAccept(submission, syncCustomerProfile)} disabled={isAccepting}>
+                    <CheckCircle2 className="size-4" aria-hidden="true" />
+                    通过并生成委托单
+                  </Button>
+                </div>
               </div>
             </PermissionGate>
           ) : null}

@@ -20,7 +20,7 @@ class PublicTestOrderSubmissionReviewController extends Controller
         $this->authorizePermission($request, 'test_orders.read', 'test_orders');
 
         $submissions = PublicTestOrderSubmission::query()
-            ->with('testOrder')
+            ->with(['testOrder', 'matchedCustomer.contacts'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')->toString()))
             ->orderByDesc('id')
             ->paginate((int) $request->integer('per_page', 15));
@@ -45,8 +45,11 @@ class PublicTestOrderSubmissionReviewController extends Controller
         AuditLogger $auditLogger,
     ): JsonResponse {
         $this->authorizePermission($request, 'test_orders.create', 'test_orders');
+        $options = $request->validate([
+            'sync_customer_profile' => ['sometimes', 'boolean'],
+        ]);
 
-        $result = DB::transaction(function () use ($request, $publicTestOrderSubmission, $orderNumberService, $syncChildren, $auditLogger): array {
+        $result = DB::transaction(function () use ($request, $publicTestOrderSubmission, $orderNumberService, $syncChildren, $auditLogger, $options): array {
             $submission = PublicTestOrderSubmission::query()
                 ->lockForUpdate()
                 ->findOrFail($publicTestOrderSubmission->id);
@@ -92,6 +95,8 @@ class PublicTestOrderSubmissionReviewController extends Controller
                         after: ['name' => $contact->name, 'phone' => $contact->phone, 'customer_id' => $customer->id],
                     );
                 }
+            } elseif ($options['sync_customer_profile'] ?? false) {
+                $this->syncCustomerProfile($customer, $phone, $submission, $request, $auditLogger);
             }
 
             $orderNo = $orderNumberService->generate();
@@ -152,6 +157,69 @@ class PublicTestOrderSubmissionReviewController extends Controller
         ], 201);
     }
 
+    private function syncCustomerProfile(
+        Customer $customer,
+        string $phone,
+        PublicTestOrderSubmission $submission,
+        Request $request,
+        AuditLogger $auditLogger,
+    ): void {
+        $address = trim((string) $submission->client_address);
+        if ($address !== '' && $address !== $customer->address) {
+            $before = ['address' => $customer->address];
+            $customer->update(['address' => $address]);
+            $auditLogger->record(
+                actor: $request->user(),
+                action: 'customers.update',
+                module: 'customers',
+                subject: $customer,
+                before: $before,
+                after: ['address' => $customer->address],
+            );
+        }
+
+        $contactName = trim((string) $submission->client_contact);
+        if ($contactName === '') {
+            return;
+        }
+
+        $contact = $customer->contacts()
+            ->where('status', 'active')
+            ->where('phone', $phone)
+            ->first();
+
+        if ($contact === null) {
+            $hasDefault = $customer->contacts()
+                ->where('status', 'active')
+                ->where('is_default', true)
+                ->exists();
+            $contact = $customer->contacts()->create([
+                'name' => $contactName,
+                'phone' => $phone,
+                'is_default' => ! $hasDefault,
+                'status' => 'active',
+            ]);
+            $auditLogger->record(
+                actor: $request->user(),
+                action: 'customer_contacts.create',
+                module: 'customer_contacts',
+                subject: $contact,
+                after: ['name' => $contact->name, 'phone' => $contact->phone, 'customer_id' => $customer->id],
+            );
+        } elseif ($contact->name !== $contactName) {
+            $before = ['name' => $contact->name];
+            $contact->update(['name' => $contactName]);
+            $auditLogger->record(
+                actor: $request->user(),
+                action: 'customer_contacts.update',
+                module: 'customer_contacts',
+                subject: $contact,
+                before: $before,
+                after: ['name' => $contact->name],
+            );
+        }
+    }
+
     public function reject(Request $request, PublicTestOrderSubmission $publicTestOrderSubmission, AuditLogger $auditLogger): JsonResponse
     {
         $this->authorizePermission($request, 'test_orders.create', 'test_orders');
@@ -201,6 +269,17 @@ class PublicTestOrderSubmissionReviewController extends Controller
      */
     private function serializeSubmission(PublicTestOrderSubmission $submission): array
     {
+        $customer = $submission->matchedCustomer;
+        $phone = trim($submission->client_phone);
+        $activeContacts = $customer?->contacts->where('status', 'active');
+        $matchesCustomer = $customer !== null
+            && $customer->status === 'active'
+            && $customer->name === trim($submission->client_company)
+            && ($customer->phone === $phone || $activeContacts?->contains('phone', $phone));
+        $contact = $matchesCustomer
+            ? ($activeContacts->firstWhere('phone', $phone) ?? $activeContacts->firstWhere('is_default', true))
+            : null;
+
         return [
             'id' => $submission->id,
             'submission_no' => $submission->submission_no,
@@ -211,6 +290,11 @@ class PublicTestOrderSubmissionReviewController extends Controller
             'samples' => $submission->samples ?? [],
             'samples_count' => count($submission->samples ?? []),
             'status' => $submission->status,
+            'matched_customer' => $submission->status === 'pending' && $matchesCustomer ? [
+                'name' => $customer->name,
+                'address' => $customer->address,
+                'contact' => $contact?->name,
+            ] : null,
             'test_order_id' => $submission->test_order_id,
             'test_order' => $submission->testOrder ? $this->serializeTestOrder($submission->testOrder) : null,
             'review_remark' => $submission->review_remark,
