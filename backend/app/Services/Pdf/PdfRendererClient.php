@@ -430,6 +430,11 @@ class PdfRendererClient
         return $this->renderPdfBytes('api/pdf/contract', $payload);
     }
 
+    public function renderLm79Report(array $payload): string
+    {
+        return $this->renderPdfBytes('api/pdf/lm79-report', $payload);
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      */

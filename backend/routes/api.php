@@ -14,6 +14,7 @@ use App\Http\Controllers\EquipmentSystemController;
 use App\Http\Controllers\EquipmentUsageRecordController;
 use App\Http\Controllers\IntegratingSphereCalibrationRecordController;
 use App\Http\Controllers\IntegratingSphereInspectionRecordController;
+use App\Http\Controllers\Lm79ReportController;
 use App\Http\Controllers\Pdf\CertificateTemplateController;
 use App\Http\Controllers\Pdf\DigitalSignatureController;
 use App\Http\Controllers\Pdf\HomepageFunctionStampController;
@@ -149,6 +150,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         });
 
         Route::get('/test-orders/export', [TestOrderController::class, 'export']);
+        Route::get('/lm79-reports/form-options', [Lm79ReportController::class, 'options']);
+        Route::post('/lm79-reports/report-number', [Lm79ReportController::class, 'reportNumber']);
+        Route::get('/lm79-reports/sample-options', [Lm79ReportController::class, 'samples']);
+        Route::get('/lm79-reports/equipment-lookup', [Lm79ReportController::class, 'equipmentLookup']);
+        Route::post('/lm79-reports/{report}/calculate', [Lm79ReportController::class, 'calculate']);
+        Route::get('/lm79-reports/{report}/pdf', [Lm79ReportController::class, 'pdf']);
+        Route::post('/lm79-reports/{report}/signing-source', [Lm79ReportController::class, 'signingSource']);
+        Route::get('/lm79-reports/{report}/media/{media}', [Lm79ReportController::class, 'media']);
+        Route::get('/lm79-reports/{report}/media/{media}/download', [Lm79ReportController::class, 'media']);
+        Route::apiResource('/lm79-reports', Lm79ReportController::class)->parameters(['lm79-reports' => 'report']);
         Route::get('/test-orders/form-options', [TestOrderController::class, 'formOptions']);
         Route::get('/test-orders/message-recipients', [TestOrderMessageController::class, 'recipients']);
         Route::post('/test-orders/{testOrder}/messages', [TestOrderMessageController::class, 'store']);

@@ -2,6 +2,7 @@
 
 namespace App\Services\Pdf;
 
+use App\Models\Lm79Report;
 use App\Models\PdfDocument;
 use App\Models\PdfFile;
 use App\Models\PdfSigningOperation;
@@ -125,6 +126,11 @@ final class PdfDocumentDraftService
     {
         if ((int) $document->created_by_id !== (int) $actor->id) {
             throw new ConflictHttpException('PDF_DOCUMENT_NOT_OWNED');
+        }
+
+        // The generated PDF and its source measurements already commit to this identity.
+        if (Lm79Report::query()->where('pdf_document_id', $document->id)->exists()) {
+            throw new ConflictHttpException('PDF_DOCUMENT_LINKED_LM79_REPORT');
         }
 
         // A cancelled document is as uncommitted as a fresh one: its workflow was

@@ -17,7 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Order(Ordered.HIGHEST_PRECEDENCE + 20)
 public final class PdfConcurrencyFilter extends OncePerRequestFilter {
     private static final Set<String> PATHS = Set.of(
-            "/api/pdf/process", "/api/pdf/extract-cover", "/api/pdf/contract", "/api/pdf/entrust-order", "/api/pdf/lighting-report",
+            "/api/pdf/process", "/api/pdf/extract-cover", "/api/pdf/contract", "/api/pdf/entrust-order", "/api/pdf/lighting-report", "/api/pdf/lm79-report",
             "/internal/pdf/signatures/inspect", "/internal/pdf/signatures/prepare",
             "/internal/pdf/signatures/finalize-unsigned", "/internal/pdf/signatures/verify");
     private final PdfWorkLimiter limiter;

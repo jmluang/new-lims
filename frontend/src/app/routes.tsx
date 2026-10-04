@@ -46,6 +46,9 @@ import { StandardListPage } from '../features/standards/StandardListPage'
 import { TestOrderDetailPage } from '../features/test-orders/TestOrderDetailPage'
 import { TestOrderFormPage } from '../features/test-orders/TestOrderFormPage'
 import { TestOrderListPage } from '../features/test-orders/TestOrderListPage'
+import { Lm79ReportPage } from '../features/reports/Lm79ReportPage'
+import { Lm79ReportListPage } from '../features/reports/Lm79ReportListPage'
+import { loadReportNumber } from '../features/reports/lm79Api'
 import { PublicTestOrderSubmissionReviewPage } from '../features/test-orders/PublicTestOrderSubmissionReviewPage'
 import { AuditLogListPage } from '../features/system/audit/AuditLogListPage'
 import { BackupListPage } from '../features/system/backups/BackupListPage'
@@ -199,6 +202,15 @@ const testOrderCreateRoute = createRoute({
   beforeLoad: () => requireRoutePermission('test_orders', 'create'),
   component: TestOrderFormPage,
 })
+
+const lm79ReportsRoute = createRoute({ getParentRoute: () => protectedRoute, path: '/reports/lm79', beforeLoad: () => requireRoutePermission('lm79_reports'), component: Lm79ReportListPage })
+const lm79ReportCreateRoute = createRoute({
+  getParentRoute: () => protectedRoute, path: '/reports/lm79/new',
+  beforeLoad: () => requireRoutePermission('lm79_reports', 'create'),
+  loader: loadReportNumber, staleTime: 0, preloadStaleTime: 0, gcTime: 0,
+  component: Lm79ReportPage,
+})
+const lm79ReportDetailRoute = createRoute({ getParentRoute: () => protectedRoute, path: '/reports/lm79/$reportId', beforeLoad: () => requireRoutePermission('lm79_reports'), component: Lm79ReportPage })
 
 const testOrderEditRoute = createRoute({
   getParentRoute: () => protectedRoute,
@@ -490,6 +502,9 @@ export const routeTree = rootRoute.addChildren([
     customerCreateRoute,
     customerEditRoute,
     testOrdersRoute,
+    lm79ReportsRoute,
+    lm79ReportCreateRoute,
+    lm79ReportDetailRoute,
     publicTestOrderSubmissionsRoute,
     testOrderCreateRoute,
     testOrderEditRoute,

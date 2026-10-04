@@ -73,6 +73,12 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: '报告管理',
+    items: [
+      { label: 'LM-79 检测报告', to: '/reports/lm79', icon: FileText, resource: 'lm79_reports', action: 'read' },
+    ],
+  },
+  {
     label: '设备管理',
     items: [
       { label: '设备台账', to: '/equipment', icon: ClipboardList, resource: 'equipment', action: 'read' },

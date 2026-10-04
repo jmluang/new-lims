@@ -241,6 +241,8 @@ export const textMap: Record<string, string> = {
   Unit: '单位',
   Method: '方法',
   'Sample name': '样品名称',
+  lm79_reports: 'LM-79 检测报告',
+  PDF_DOCUMENT_LINKED_LM79_REPORT: '此文档关联已冻结的 LM-79 报告，不能单独改号或删除。',
   Specification: '规格',
   'Rated current': '额定电流',
   'Rated frequency': '额定频率',

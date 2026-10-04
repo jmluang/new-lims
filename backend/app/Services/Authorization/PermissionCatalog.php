@@ -24,6 +24,7 @@ class PermissionCatalog
             'test_order_standards' => ['read', 'create', 'update', 'delete'],
             'test_order_samples' => ['read', 'create', 'update', 'delete'],
             'samples' => ['read', 'receive', 'update', 'export'],
+            'lm79_reports' => ['read', 'create', 'update', 'delete', 'print'],
             'sample_labels' => ['read', 'print'],
             'sample_flows' => ['read', 'create', 'return_room'],
             'equipment' => ['read', 'create', 'update', 'delete', 'export'],

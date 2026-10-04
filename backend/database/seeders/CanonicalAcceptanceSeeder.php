@@ -56,6 +56,11 @@ class CanonicalAcceptanceSeeder extends Seeder
         // The counterpart to pdf_signer: preparing a report for signing is its
         // own job, and it should not require a super admin.
         $pdfPlanner = $this->group('pdf_planner', [
+            'lm79_reports.read',
+            'lm79_reports.create',
+            'lm79_reports.update',
+            'lm79_reports.delete',
+            'lm79_reports.print',
             'pdf.workflow.read',
             'pdf.workflow.create',
             'pdf.workflow.cancel',
@@ -165,6 +170,11 @@ class CanonicalAcceptanceSeeder extends Seeder
             'sample_labels.print',
         ]);
         $sampleManager = $this->group('sample_manager', [
+            'lm79_reports.read',
+            'lm79_reports.create',
+            'lm79_reports.update',
+            'lm79_reports.delete',
+            'lm79_reports.print',
             'samples.read',
             'samples.receive',
             'samples.update',

@@ -17,6 +17,12 @@ const routes = [
 ]
 
 describe('navigation active path matching', () => {
+  it('places LM-79 reports in their own report-management group', () => {
+    const groups = visibleNavGroups({ resources: { lm79_reports: { actions: { read: true } }, customers: { actions: { read: true } } } })
+    expect(groups.find(group => group.label === '报告管理')?.items).toEqual([expect.objectContaining({ to: '/reports/lm79' })])
+    expect(groups.find(group => group.label === '业务管理')?.items.some(item => item.to === '/reports/lm79')).toBe(false)
+    expect(isActivePath('/reports/lm79/new', '/reports/lm79', ['/reports/lm79'])).toBe(true)
+  })
   it('does not keep the first sibling highlighted when a more specific route is active', () => {
     expect(isActivePath('/equipment/labels', '/equipment', routes)).toBe(false)
     expect(isActivePath('/equipment/labels', '/equipment/labels', routes)).toBe(true)

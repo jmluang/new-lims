@@ -123,7 +123,7 @@ export function MediaThumbnail({ baseUrl, recordId, media }: { baseUrl: string; 
   )
 }
 
-export function MediaDownloadButton({ baseUrl, recordId, media }: { baseUrl: string; recordId: number; media: InspectionMedia }) {
+export function MediaDownloadButton({ baseUrl, recordId, media }: { baseUrl: string; recordId: number; media: Pick<InspectionMedia, 'id' | 'file_name'> }) {
   const [downloading, setDownloading] = useState(false)
 
   async function download() {

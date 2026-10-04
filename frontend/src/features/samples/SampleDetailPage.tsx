@@ -114,10 +114,13 @@ export function SampleDetailPage() {
       title="Sample detail"
       description="Inspect physical sample state and append flow records."
       actions={
+        <>
+        {sample ? <PermissionGate resource="lm79_reports" action="create"><a className="inline-flex min-h-10 items-center rounded-md bg-emerald-700 px-3 text-sm text-white" href={`/reports/lm79/new?sample=${sample.id}`}>编制 LM-79 报告</a></PermissionGate> : null}
         <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
           <ArrowLeft className="size-4" aria-hidden="true" />
           {zhText('Back to list')}
         </Link>
+        </>
       }
     >
       {sampleQuery.isError ? <ErrorNotice error={sampleQuery.error} fallback="Unable to load sample" /> : null}

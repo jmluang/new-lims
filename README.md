@@ -131,6 +131,29 @@ PDF_SERVICE_BASE_URL=http://127.0.0.1:8080
 PDF_SERVICE_TIMEOUT=120
 ```
 
+### LM-79 report preparation
+
+`/reports/lm79` prepares reports that each reference one received physical sample.
+Commission parties, product details and standards populate the editable form. The report
+keeps its source snapshot, private instrument files, photos and PDF appendices.
+Entering the creation page reserves an `XPDYYYYMMDD-NNN` number from a daily
+sequence; regeneration reserves another number, while editing retains the stored
+number. Abandoned forms can leave sequence gaps.
+Spectral measurements are stored as ordered rows in `lm79_spectrum_points`;
+scalar fields remain on the report. GOS supplies electrical measurements, and
+HAAS supplies colorimetry and spectral data. Their parsers await instrument-format
+specifications; operators can currently enter results and retain the original files.
+
+The explicit calculation action handles Type-C, TILT=NONE IES photometry and
+uncertainty inputs. Saving never overwrites manual corrections. PDF preview uses
+the Java `/api/pdf/lm79-report` renderer, including spectral charts and merged
+unsigned, unencrypted appendices. Submitting freezes the draft and hands its PDF
+to the existing source inspection, finalization and three-person signing workflow.
+Apply the new migrations and deploy the Laravel, React and Java changes together.
+Access is controlled by `lm79_reports` permissions; signing preparation also needs
+`pdf.workflow.create`. Frozen generated documents cannot be independently renamed
+or deleted in the signing document list.
+
 ### PDF tamper-proof system
 
 The signing desk (`/pdf/signing`) stamps and signs a report through the Java
