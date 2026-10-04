@@ -40,7 +40,8 @@ final class MeasurementImport
         return ['kind' => $kind, 'records' => $options, 'selected_record' => $record, 'values' => $values,
             'spectrum_point_count' => $kind === 'haas' && $record !== null ? count($records[$record - 1]['spectrum']) : 0,
             'notice' => $record === null ? '请选择检测记录。' : ($kind === 'gos'
-                ? (isset($values['voltage']) ? '已回填电压、电流、功率、功率因数及光通量。' : '已回填光通量与环境信息；文件电气数据均为 0，请手填。')
+                ? (isset($values['voltage']) ? '已回填电气参数与光通量。' : '已回填可用参数；基础电气数据均为 0。')
+                    .($file['has_displacement_factor'] ? '' : '位移因数无有效数据。')
                 : '已回填色度与光谱。')];
     }
 
@@ -69,6 +70,10 @@ final class MeasurementImport
                     $values[$field] = $this->number($value);
                 }
             }
+            $values['frequency'] = $this->number($record['frequency_hz']);
+            // An unavailable DF becomes a blank input, clearing any earlier imported value.
+            $values['displacement_factor'] = $record['displacement_factor'] === null
+                ? '' : $this->number($record['displacement_factor']);
 
             return $values;
         }

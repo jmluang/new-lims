@@ -28,7 +28,7 @@ final class MeasurementFixtures
         return $bytes.self::text('OP_O');
     }
 
-    public static function gos(array $electrical = [220, 0.125, 27.5, 1], array $details = []): string
+    public static function gos(array $electrical = [220, 0.125, 27.5, 1], array $details = [], float $frequency = 50, int $hasDisplacement = 0, float $displacement = 0): string
     {
         $bytes = self::text('GODATA 100').self::text('V2.0').pack('V3', 1, 0, 2).self::text('GO_TEST')
             .pack('g2', 9, 9).pack('V2', 10000, 1);
@@ -45,6 +45,8 @@ final class MeasurementFixtures
             .pack('g*', ...array_fill(0, 64, 1));
 
         return $bytes.self::text('OP V102').pack('g3', 50, 2, 12).str_repeat("\0", 12)
-            .pack('g3', 90, 10, .7).str_repeat("\0", 12).pack('g*', 100, 200, 300, ...array_fill(0, 16, 0));
+            .pack('g3', 90, 10, .7).str_repeat("\0", 12).pack('g*', 100, 200, 300, ...array_fill(0, 16, 0))
+            .pack('g', $frequency).pack('V2', 0, 0).self::text('R_V1').pack('V3', 0, 0, 3)
+            .pack('g3', 1, 2, 3).pack('V', 0).pack('g2', 0, 0).pack('V', $hasDisplacement).pack('g', $displacement);
     }
 }

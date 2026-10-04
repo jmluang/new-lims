@@ -65,8 +65,60 @@ class MeasurementImportTest extends TestCase
         $this->assertSame('0.125', $result['values']['current'] ?? null);
         $this->assertSame('27.5', $result['values']['power'] ?? null);
         $this->assertSame('1', $result['values']['power_factor'] ?? null);
-        foreach (['frequency', 'current_thd', 'displacement_factor', 'voltage_regulation', 'waveform_thd', 'candela_data'] as $field) {
+        $this->assertSame('50', $result['values']['frequency'] ?? null);
+        $this->assertSame('', $result['values']['displacement_factor'] ?? null);
+        foreach (['current_thd', 'voltage_regulation', 'waveform_thd', 'candela_data'] as $field) {
             $this->assertArrayNotHasKey($field, $result['values']);
+        }
+    }
+
+    public function test_gos_displacement_uses_its_availability_flag_and_never_power_factor(): void
+    {
+        $parser = new MeasurementImport;
+        $valid = $parser->parse($this->file(MeasurementFixtures::gos(frequency: 60, hasDisplacement: 1, displacement: 0.75)), 'gos');
+        $this->assertSame('60', $valid['values']['frequency'] ?? null);
+        $this->assertSame('0.75', $valid['values']['displacement_factor'] ?? null);
+        $zero = $parser->parse($this->file(MeasurementFixtures::gos(hasDisplacement: 1, displacement: 0)), 'gos');
+        $this->assertSame('0', $zero['values']['displacement_factor'] ?? null);
+        $unavailable = $parser->parse($this->file(MeasurementFixtures::gos(hasDisplacement: 0, displacement: 0.75)), 'gos');
+        $this->assertSame('', $unavailable['values']['displacement_factor'] ?? null);
+        $ignored = $parser->parse($this->file(MeasurementFixtures::gos(hasDisplacement: 0, displacement: NAN)), 'gos');
+        $this->assertSame('', $ignored['values']['displacement_factor']);
+        $raw = \App\Services\Reports\Instrument\parseGos($this->file(MeasurementFixtures::gos()));
+        $this->assertFalse($raw['has_displacement_factor'] ?? null);
+        $this->assertArrayHasKey('displacement_factor', $raw);
+        $this->assertNull($raw['displacement_factor']);
+    }
+
+    public function test_gos_tail_search_ignores_marker_bytes_inside_the_angle_matrix(): void
+    {
+        $bytes = MeasurementFixtures::gos(hasDisplacement: 1, displacement: 0.75);
+        $matrix = strpos($bytes, pack('V2', 16, 4)) + 8 + 4 * (16 + 4);
+        $bytes = substr_replace($bytes, "\x04R_V1", $matrix + 32, 5);
+        $result = (new MeasurementImport)->parse($this->file($bytes), 'gos');
+        $this->assertSame('50', $result['values']['frequency']);
+        $this->assertSame('0.75', $result['values']['displacement_factor']);
+    }
+
+    public function test_gos_malformed_electrical_tails_fail_with_friendly_errors(): void
+    {
+        $bytes = MeasurementFixtures::gos(hasDisplacement: 1, displacement: 0.75);
+        $q = strpos($bytes, "\x04R_V1");
+        foreach ([
+            substr($bytes, 0, $q - 12), substr($bytes, 0, -1), $bytes."\x04R_V1",
+            substr_replace($bytes, pack('V', 0xFFFFFFFF), $q + 13, 4),
+            substr_replace($bytes, pack('V', 100000000), $q + 13, 4),
+            substr_replace($bytes, pack('V', 2), $q + 29 + 4 * 3, 4),
+            substr_replace($bytes, pack('g', NAN), $q - 12, 4),
+            substr_replace($bytes, pack('g', NAN), $q + 33 + 4 * 3, 4),
+        ] as $bad) {
+            try {
+                (new MeasurementImport)->parse($this->file($bad), 'gos');
+                $this->fail('Malformed electrical tails must be rejected.');
+            } catch (InvalidArgumentException $error) {
+                $this->assertStringContainsString('文件无法解析', $error->getMessage());
+                $this->assertNotNull($error->getPrevious());
+            }
         }
     }
 

@@ -375,6 +375,49 @@ function gosLooksLikeCString(string $buf, int $offset, int $maxLength = 64): boo
     return preg_match('/[\p{C}\p{Z}]/u', str_replace(' ', '', $text)) === 0;
 }
 
+/** Read the verified R_V1 boundary beyond the angle matrices. */
+function gosElectricalTail(string $buf, int $dataEnd): array
+{
+    $marker = tagPattern('R_V1');
+    $offset = strpos($buf, $marker, $dataEnd);
+    if ($offset === false || $offset - 12 < $dataEnd) {
+        throw new RuntimeException('R_V1 electrical-field boundary missing');
+    }
+    if (strpos($buf, $marker, $offset + strlen($marker)) !== false) {
+        throw new RuntimeException('ambiguous R_V1 electrical-field boundary');
+    }
+    $r = new Reader($buf);
+    $r->pos = $offset - 12;
+    $frequency = $r->f32();
+    if (! is_finite($frequency)) {
+        throw new RuntimeException('invalid stored frequency');
+    }
+    $r->pos = $offset;
+    $r->expectTag('R_V1');
+    $r->i32(); // Mode.
+    $r->i32(); // Subtype.
+    $points = $r->i32();
+    $remaining = strlen($buf) - $r->pos;
+    if ($remaining < 20 || $points < 0 || $points > intdiv($remaining - 20, 4)) {
+        throw new RuntimeException('invalid R_V1 array length');
+    }
+    $r->pos += $points * 4;
+    $r->i32(); // THD availability; not imported by this reader.
+    $r->f32(); // Voltage THD.
+    $r->f32(); // Current THD.
+    $hasDisplacement = $r->i32();
+    $displacement = $r->f32();
+    if (! in_array($hasDisplacement, [0, 1], true)) {
+        throw new RuntimeException('invalid displacement-factor availability');
+    }
+    if ($hasDisplacement === 1 && ! is_finite($displacement)) {
+        throw new RuntimeException('invalid stored displacement factor');
+    }
+
+    return ['frequency_hz' => $frequency, 'has_displacement_factor' => (bool) $hasDisplacement,
+        'displacement_factor' => $hasDisplacement === 1 ? $displacement : null];
+}
+
 function parseGos(string $path): array
 {
     $buf = file_get_contents($path);
@@ -433,17 +476,21 @@ function parseGos(string $path): array
         }
     }
     $blocks = [];
+    $dataEnd = $first;
     $r->pos = $first;
     while ($r->pos < strlen($buf) - 8) {
         $block = gosBlockAt($buf, $r->pos);
         if ($block !== null) {
             $r->pos += $block['size'];
+            // Matrix values are intentionally omitted from the result, so use their byte span.
+            $dataEnd = $r->pos;
             unset($block['size']);
             $blocks[] = $block;
         } else {
             $r->pos++;
         }
     }
+    $tail = gosElectricalTail($buf, $dataEnd);
 
     $opTag = '';
     $opParams = [];
@@ -507,6 +554,7 @@ function parseGos(string $path): array
         'zonal_flux_lm' => $zonal, 'zones' => $zones,
         'header_ints' => $headInts, 'header_floats' => $headFloats,
         'header_extra' => $extra, 'header_strings' => $strings, 'blocks' => $blocks,
+        ...$tail,
     ];
 }
 

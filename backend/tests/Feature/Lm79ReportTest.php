@@ -120,14 +120,16 @@ class Lm79ReportTest extends TestCase
         $bytes = MeasurementFixtures::gos();
         $result = $this->post('/api/lm79-reports/parse-measurement', ['kind' => 'gos', 'file' => UploadedFile::fake()->createWithContent('reading.GOS', $bytes)], ['Accept' => 'application/json'])
             ->assertOk()->assertJsonPath('data.values.voltage', '220')->assertJsonPath('data.values.current', '0.125')
-            ->assertJsonPath('data.values.power', '27.5')->assertJsonPath('data.values.power_factor', '1')->json('data');
+            ->assertJsonPath('data.values.power', '27.5')->assertJsonPath('data.values.power_factor', '1')
+            ->assertJsonPath('data.values.frequency', '50')->assertJsonPath('data.values.displacement_factor', '')->json('data');
         $payload = $this->payload($this->sample());
         $payload['values'] = array_replace($payload['values'], $result['values'], ['power' => '28']);
         $payload['measurement_records'] = ['gos' => 1];
         $payload['gos'] = UploadedFile::fake()->createWithContent('reading.GOS', $bytes);
         $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()
             ->assertJsonPath('data.data.values.voltage', '220')->assertJsonPath('data.data.values.current', '0.125')
-            ->assertJsonPath('data.data.values.power', '28')->assertJsonPath('data.data.values.power_factor', '1');
+            ->assertJsonPath('data.data.values.power', '28')->assertJsonPath('data.data.values.power_factor', '1')
+            ->assertJsonPath('data.data.values.frequency', '50')->assertJsonPath('data.data.values.displacement_factor', '');
     }
 
     public function test_invalid_measurement_files_use_friendly_errors_and_parse_requires_edit_permission(): void

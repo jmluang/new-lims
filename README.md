@@ -144,7 +144,10 @@ scalar fields remain on the report. Native readers adapted from `haas_read.php`
 import HAAS colorimetry and spectra, with an explicit record choice for multi-record
 files. GODATA 100 imports voltage, current, power and power factor from the four
 float32 values after seven sample-detail CStrings, plus luminous flux and environment.
-An all-zero electrical header preserves manual input. Frequency, THD and other
+An all-zero electrical header preserves manual input. Frequency is read 12 bytes
+before the R_V1 boundary after all angle matrices. Displacement factor uses its
+own availability flag; unavailable values become blank inputs and are never
+replaced by PF. Array bounds and availability flags are checked. THD and other
 electrical fields are not inferred from anonymous OP settings. Angle-matrix
 orientation is not established; distribution fields remain manual or use IES.
 Import requires PHP mbstring, caps HAAS at
