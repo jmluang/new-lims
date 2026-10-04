@@ -1,0 +1,23 @@
+{
+  "header": {"company":"中山市鑫普达检测有限公司","fileNumber":"FO-22-03-2402","version":"V1.0","address":"中山市古镇镇东兴东路33号7栋1楼","website":"http://www.xinpuda.net/","email":"service@xinpuda.net"},
+  "cover": {"reportNumber":"XPD202609300021","receivedDate":"2026-09-09","issuedDate":"2026-09-30"},
+  "form": {
+    "applicantName":"中山市XXXX照明科技有限公司",
+    "applicantAddress":"10th Floor, No. 167 North Chang'an Road, Henglan Town, Zhongshan City, Guangdong Province, China",
+    "manufacturerName":"Zhongshan sunray Lighting Co., Ltd.",
+    "manufacturerAddress":"10th Floor, No. 167 North Chang'an Road, Henglan Town, Zhongshan City, Guangdong Province, China",
+    "productName":"LED投光灯","model":"TDLED-300-50W-6500K","referenceStandard":"Commission test  Reference standard IES LM-79-19",
+    "brand":"/","sampleQuantity":"1 pcs","ratedVoltage":"AC 220V","ratedPower":"12W","nominalLuminousFlux":"14554 lm","nominalCct":"4000K",
+    "laboratoryName":"Zhongshan Xinpuda Testing Co., Ltd.",
+    "laboratoryAddress":"Part of 1st Floor, Building 7, No.33 Dongxing East Road, Guzhen Town, Zhongshan,Guangdong, China",
+    "testItem":"Luminous intensity distribution test","receivedDate":"2026-09-14","testPeriod":"2026-09-14 to 2026-09-16",
+    "sampleDescription":"LED投光灯 300-50W-6500K","serialNumber":"SN-20260101-001",
+    "ambientTemperature":"25 ± 1 °C","relativeHumidity":"50%","airVelocity":"0.2 m/s","testDirection":"Base-Up","stabilizationTime":"30 min",
+    "currentThd":"8.5 %","voltageRegulation":"0.1 %","supplyThd":"1.5 %"
+  },
+  "testSetup": {"cInterval":"15.00°","cRange":"0-360°","gammaInterval":"1.00°","gammaRange":"0-180°","distance":"25 m","angularAccuracy":"0.1°","cPlanes":"25","gammaPoints":"181"},
+  "electrical": {"inputVoltage":"220.1 V","inputCurrent":"0.1832 A","inputPower":"40.15 W","powerFactor":"0.985","frequency":"50 Hz"},
+  "colorimetry": {"cct":"4025 K","duv":"0.0023","ra":"83.2","r9":"12.5","xy":"(0.3821, 0.3795)","uv":"(0.2254, 0.5032)","rf":"82.5","rg":"98.0"},
+  "signatures": {"testedBy":"Dingmin Zhang","reviewedBy":"Xue Li","approvedBy":"Tom Wu","date":"2026-09-16"},
+  "photos": []
+}

@@ -32,7 +32,7 @@ class PdfConcurrencyFilterTest {
             });
             assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
             for (String path : List.of("/api/pdf/process", "/api/pdf/extract-cover", "/api/pdf/contract",
-                    "/api/pdf/entrust-order", "/internal/pdf/signatures/inspect", "/internal/pdf/signatures/prepare",
+                    "/api/pdf/entrust-order", "/api/pdf/lighting-report", "/internal/pdf/signatures/inspect", "/internal/pdf/signatures/prepare",
                     "/internal/pdf/signatures/finalize-unsigned", "/internal/pdf/signatures/verify")) {
                 var response = new MockHttpServletResponse();
                 filter.doFilter(request(path), response, (req, res) -> { throw new AssertionError("Must not enter controller"); });
