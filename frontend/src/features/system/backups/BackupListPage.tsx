@@ -15,7 +15,7 @@ import {
   Panel,
   StatusBadge,
 } from '../shared'
-import { type ApiCollection, formatBytes, formatDateTime, paginationParams } from '../utils'
+import { type ApiCollection, errorMessage, formatBytes, formatDateTime, paginationParams } from '../utils'
 
 type BackupRun = {
   id: number
@@ -96,7 +96,7 @@ export function BackupListPage() {
               </td>
               <td className="px-3 py-3">
                 <StatusBadge status={backup.status} />
-                {backup.error_message ? <div className="mt-1 text-xs text-red-600">{backup.error_message}</div> : null}
+                {backup.error_message ? <div className="mt-1 text-xs text-red-600">{errorMessage(backup.error_message, '备份未完成，请联系管理员检查备份服务。')}</div> : null}
               </td>
               <td className="px-3 py-3 text-xs text-slate-600">
                 <div>{backup.database_path ?? '-'}</div>

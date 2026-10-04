@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { cn } from '../../lib/utils'
 import { Button, ErrorNotice, LoadingState, PageShell, Panel } from '../system/shared'
-import { errorMessage, formatBytes, inputClass } from '../system/utils'
+import { blobErrorMessage, formatBytes, inputClass } from '../system/utils'
 import {
   assetFileUrl,
   decodeHeaderValue,
@@ -302,7 +302,7 @@ export function PdfSigningPage() {
       } satisfies SignResult
     } catch (caught) {
       // A blob responseType turns error bodies into blobs, so read the JSON back.
-      const message = await readBlobError(caught)
+      const message = await blobErrorMessage(caught, '签章失败')
       setTask({ progress: 100, status: message, stage: 'error' })
 
       return { key: item.key, originalName: item.file.name, error: message } satisfies SignResult
@@ -1251,21 +1251,4 @@ function parseFileName(disposition?: string) {
   const match = /filename="?([^";]+)"?/i.exec(disposition)
 
   return match ? match[1] : null
-}
-
-async function readBlobError(caught: unknown) {
-  const blob = (caught as { response?: { data?: unknown } }).response?.data
-
-  if (blob instanceof Blob) {
-    try {
-      const parsed = JSON.parse(await blob.text()) as { message?: string; error?: string; errors?: Record<string, string[]> }
-      const validation = parsed.errors ? Object.values(parsed.errors).flat()[0] : undefined
-
-      return validation ?? parsed.error ?? parsed.message ?? '签章失败'
-    } catch {
-      return '签章失败'
-    }
-  }
-
-  return errorMessage(caught, '签章失败')
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { errorMessage } from '../utils'
+import { blobErrorMessage, errorMessage } from '../utils'
 
 describe('system utils', () => {
   it('uses plain Error messages before falling back to generic copy', () => {
@@ -20,7 +20,7 @@ describe('system utils', () => {
         },
         'Unable to load test orders',
       ),
-    ).toBe('没有权限执行该操作：缺少 test_orders.read')
+    ).toBe('没有权限执行该操作，请联系管理员开通相应权限。')
   })
 
   // Axios rejections are Error instances carrying a response, so the response has
@@ -57,14 +57,44 @@ describe('system utils', () => {
     ).toBe('该文档已有进行中的任务，请先完成或取消')
   })
 
-  it('keeps an untranslated backend code visible instead of the axios message', () => {
-    expect(errorMessage(axiosError(409, { message: 'SOME_UNMAPPED_CODE' }), 'PDF 结构检查失败')).toBe('SOME_UNMAPPED_CODE')
+  it('uses actionable copy instead of untranslated backend codes', () => {
+    expect(errorMessage(axiosError(409, { message: 'SOME_UNMAPPED_CODE' }), 'PDF 结构检查失败')).toBe('PDF 结构检查失败')
+  })
+
+  it('never exposes SQL, model names, stack traces or private paths from any error channel', () => {
+    const messages = ['读取文件失败：Unable to parse 测试.pdf', '读取失败：Vendor\\Reader\\Parser internal failure', 'SQLSTATE[HY000]: connection failed (SQL: select * from users)', 'No query results for model [App\\Models\\Equipment].', 'Unable to read /Users/operator/private/secret.pdf', '读取失败：SQLSTATE[HY000] database failure', 'TypeError: Cannot read properties of undefined', 'at render (/var/www/app/Page.tsx:12:3)']
+    for (const message of messages) {
+      expect(errorMessage(axiosError(500, { message }), '操作失败')).toBe('操作失败')
+      expect(errorMessage(axiosError(422, { errors: { file: [message] } }), '操作失败')).toBe('操作失败')
+      expect(errorMessage(new Error(message), '操作失败')).toBe('操作失败')
+      expect(errorMessage(message, '操作失败')).toBe('操作失败')
+    }
+  })
+
+  it('gives recovery guidance for missing records, sessions, connection failures and rate limits', () => {
+    expect(errorMessage(axiosError(404, { message: 'No query results for model [App\\Models\\Sample].' }))).toBe('未找到所需记录，请刷新后重试。')
+    expect(errorMessage(axiosError(401, { message: 'Unauthenticated.' }))).toBe('登录已失效，请重新登录。')
+    expect(errorMessage(Object.assign(new Error('Network Error'), { code: 'ERR_NETWORK' }))).toBe('无法连接服务器，请检查网络并确认操作结果。')
+    expect(errorMessage(axiosError(429, {}))).toBe('操作过于频繁，请稍后重试。')
+  })
+
+  it('retains readable business messages, including plain strings', () => {
+    const message = '未找到设备「EQ-001」。请核对设备编号。'
+    expect(errorMessage(axiosError(404, { message }))).toBe(message)
+    expect(errorMessage(message)).toBe(message)
+  })
+
+  it('sanitizes JSON and HTML errors returned as PDF download blobs', async () => {
+    const wrap = (body: string) => ({ response: { status: 502, data: new Blob([body]) } })
+    expect(await blobErrorMessage(wrap(JSON.stringify({ message: 'SQLSTATE[HY000] database failure' })), 'PDF 生成失败')).toBe('PDF 生成失败')
+    expect(await blobErrorMessage(wrap('<html>Proxy stack trace</html>'), 'PDF 生成失败')).toBe('PDF 生成失败')
+    expect(await blobErrorMessage(wrap(JSON.stringify({ error: { code: 'PDF_SOURCE_ENCRYPTED' } })), 'PDF 生成失败')).toBe('PDF 已加密，请上传未加密的文件')
   })
 
   it('shows the missing permission when the 403 arrives as an axios rejection', () => {
     expect(
       errorMessage(axiosError(403, { message: 'Forbidden', permission: 'pdf.workflow.create' }), '加载失败'),
-    ).toBe('没有权限执行该操作：缺少 pdf.workflow.create')
+    ).toBe('没有权限执行该操作，请联系管理员开通相应权限。')
   })
 
   it('prefers the first validation error over the response message', () => {

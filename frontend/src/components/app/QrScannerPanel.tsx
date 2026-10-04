@@ -115,9 +115,9 @@ function QrCamera({ readerId, onDetected }: QrCameraProps) {
         )
 
         scannerStarted = true
-      } catch (startError: unknown) {
+      } catch {
         if (!cancelled) {
-          setError(startError instanceof Error ? startError.message : '摄像头不可用，请使用手动输入')
+          setError('无法打开摄像头，请检查浏览器的摄像头权限，或改为输入编号。')
         }
       } finally {
         startSettled = true

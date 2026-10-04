@@ -24,7 +24,7 @@ export type ApiError = {
       permission?: string
       // PDF routes wrap their stable codes in an envelope instead of using the
       // top-level message; see the api/pdf/* renderer in bootstrap/app.php.
-      error?: {
+      error?: string | {
         code?: string
         message?: string
       }
@@ -32,39 +32,58 @@ export type ApiError = {
   }
 }
 
-export function errorMessage(error: unknown, fallback = 'Request failed') {
-  // Axios rejections are Error instances too, so the response has to be read
-  // before the generic Error branch. Otherwise every backend error code is
-  // replaced by axios' own "Request failed with status code NNN".
+const genericError = '本次操作出现异常，请先确认操作结果；持续异常请联系管理员。'
+
+// Only translated or readable business copy belongs in a user-facing notice.
+const internalErrorPattern = /SQLSTATE|No query results for model|(?:Exception|Error):|\b[A-Za-z_]\w*(?:\\[A-Za-z_]\w*)+|stack trace|cURL error|ENOENT|EACCES|ECONNREFUSED|\b(?:unable|cannot|undefined|no such file|permission denied|connection refused|unexpected token)\b|\bat .+\.(?:php|tsx?|jsx?):\d+|(?:^|[\s("'：])\/(?:Users|home|var|private|tmp|www|etc|opt|usr|srv)\/|[A-Za-z]:\\|<\/?(?:html|body)|<!DOCTYPE|(?:password|secret|token)\s*[:=]/i
+
+function readableError(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const translated = zhErrorText(value.trim())
+  if (!translated || internalErrorPattern.test(translated)) return undefined
+  const readable = translated !== value.trim() || /^(?:[\u3400-\u9fff]|(?:PDF|IES|HAAS|GOS|CNAS|CMA|CRI|CCT|TM-30)\s)/.test(value.trim())
+  return readable && translated && /[\u3400-\u9fff]/.test(translated) ? translated : undefined
+}
+
+export function errorMessage(error: unknown, fallback = 'Request failed'): string {
+  const safeFallback = fallback === 'Request failed' ? undefined : readableError(fallback)
   const response = (error as ApiError | null | undefined)?.response
-
   if (response) {
-    const missingPermission = response.status === 403 ? response.data?.permission : undefined
-
-    if (missingPermission) {
-      return `没有权限执行该操作：缺少 ${missingPermission}`
-    }
-
+    if (response.status === 401) return '登录已失效，请重新登录。'
+    if (response.status === 403 && response.data?.permission) return '没有权限执行该操作，请联系管理员开通相应权限。'
     const validationErrors = response.data?.errors
-    const firstValidationError = validationErrors ? Object.values(validationErrors).flat()[0] : undefined
+    const validation = validationErrors && typeof validationErrors === 'object' && !Array.isArray(validationErrors) ? Object.values(validationErrors).flat().map(readableError).find(Boolean) : undefined
     const envelope = response.data?.error
-    const serverMessage = firstValidationError
-      ?? envelope?.code
-      ?? envelope?.message
-      ?? response.data?.message
-
-    if (serverMessage) {
-      return zhErrorText(serverMessage) ?? serverMessage
+    const candidates = typeof envelope === 'string' ? [envelope] : [envelope?.code, envelope?.message]
+    const message = validation ?? [...candidates, response.data?.message].map(readableError).find(Boolean)
+    if (message) return message
+    if (safeFallback) return safeFallback
+    switch (response.status) {
+      case 403: return '没有权限执行该操作，请联系管理员开通相应权限。'
+      case 404: return '未找到所需记录，请刷新后重试。'
+      case 413: return '文件过大，请减小文件大小后重新上传。'
+      case 422: return '填写的信息有误，请检查后重新提交。'
+      case 429: return '操作过于频繁，请稍后重试。'
+      default: return genericError
     }
-
-    return zhErrorText(fallback) ?? fallback
   }
+  const code = (error as { code?: string } | null | undefined)?.code
+  if (code === 'ERR_NETWORK' || (error instanceof Error && error.message === 'Network Error')) return '无法连接服务器，请检查网络并确认操作结果。'
+  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT') return '请求超时，请先确认操作结果；状态不明时请联系管理员。'
+  return readableError(error instanceof Error ? error.message : error) ?? safeFallback ?? genericError
+}
 
-  if (error instanceof Error) {
-    return zhErrorText(error.message) ?? error.message
+export async function blobErrorMessage(error: unknown, fallback: string): Promise<string> {
+  const response = (error as { response?: { status?: number; data?: unknown } } | null | undefined)?.response
+  if (response?.data instanceof Blob) {
+    try {
+      const data: unknown = JSON.parse(await response.data.text())
+      return errorMessage({ response: { status: response.status, data } }, fallback)
+    } catch {
+      return errorMessage({ response: { status: response.status } }, fallback)
+    }
   }
-
-  return zhErrorText(fallback) ?? fallback
+  return errorMessage(error, fallback)
 }
 
 export function formatDateTime(value?: string | null) {
