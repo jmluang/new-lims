@@ -3,7 +3,6 @@ import { reportSections, type ReportSectionId } from './reportSections'
 
 export function ReportSectionTabs({ selected, onChange }: { selected: ReportSectionId; onChange: (id: ReportSectionId) => void }) {
   const buttons = useRef<Array<HTMLButtonElement | null>>([])
-  const current = reportSections.find(section => section.id === selected)!
 
   function move(index: number, key: string) {
     let next: number
@@ -41,6 +40,5 @@ export function ReportSectionTabs({ selected, onChange }: { selected: ReportSect
         </button>
       })}
     </div>
-    <p className="px-1 text-sm leading-6 text-slate-500">{current.description}</p>
   </div>
 }

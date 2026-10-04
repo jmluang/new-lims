@@ -24,6 +24,14 @@ on elsewhere in this checkout. They are different contracts. Do not send an LM79
 payload directly to this endpoint. Choose the intended report layout explicitly
 and map its data to `LightingReportPayload` if using this renderer.
 
+## Backend integration update
+
+The backend now calls `/api/pdf/lm79-report` and its richer report DTO. That path
+shares the reviewed visual primitives and fonts, while keeping its own section,
+spectrum and appendix contract. See [Integrated LM79 layout](lm79-report-layout.md)
+for the current metadata, pagination and field-coverage rules. Do not remap the
+full report into the older five-part DTO and lose its additional fields.
+
 ## Data mapping
 
 All values are supplied by the caller. The Java renderer does not parse uploaded

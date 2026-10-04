@@ -21,6 +21,7 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Tests\Support\MeasurementFixtures;
 use Tests\TestCase;
 
 class Lm79ReportTest extends TestCase
@@ -50,6 +51,92 @@ class Lm79ReportTest extends TestCase
     private function payload(Sample $sample, string $number = 'REPORT-001'): array
     {
         return ['sample_id' => $sample->id, 'report_number' => $number, 'values' => array_replace(Lm79Fields::defaults(), ['lab_name' => 'A&B Laboratory', 'product_name' => 'Test lamp', 'model' => 'L-30', 'power' => '30', 'total_flux' => '300']), 'standards' => ['ANSI/IES LM-79-19'], 'equipment' => [], 'retained_media_ids' => []];
+    }
+
+    public function test_report_editor_excludes_free_text_signers_and_can_resave_legacy_drafts(): void
+    {
+        $options = $this->getJson('/api/lm79-reports/form-options')->assertOk()->json('data');
+        $names = ['test_person', 'review_person', 'approve_person'];
+        foreach ($names as $name) {
+            $this->assertArrayNotHasKey($name, $options['defaults']);
+            $this->assertNotContains($name, collect($options['groups'])->flatMap(fn ($group) => array_column($group['fields'], 'name'))->all());
+        }
+        $payload = $this->payload($this->sample());
+        $id = $this->postJson('/api/lm79-reports', $payload)->assertCreated()->json('data.id');
+        $report = Lm79Report::findOrFail($id);
+        $data = $report->data;
+        foreach ($names as $name) {
+            $data['values'][$name] = 'Legacy signer';
+        }
+        $report->update(['data' => $data]);
+        $draft = $this->getJson('/api/lm79-reports/'.$id)->assertOk()->json('data');
+        foreach ($names as $name) {
+            $this->assertArrayNotHasKey($name, $draft['data']['values']);
+        }
+        $payload['values'] = $draft['data']['values'];
+        $this->putJson('/api/lm79-reports/'.$id, $payload)->assertOk();
+        foreach ($names as $name) {
+            $this->assertArrayNotHasKey($name, $report->fresh()->data['values']);
+        }
+    }
+
+    public function test_measurement_import_then_save_preserves_corrections_and_stores_spectral_rows(): void
+    {
+        $bytes = MeasurementFixtures::haas();
+        $result = $this->post('/api/lm79-reports/parse-measurement', ['kind' => 'haas', 'file' => UploadedFile::fake()->createWithContent('reading.haas', $bytes)], ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('data.selected_record', 1)->assertJsonPath('data.spectrum_point_count', 3)->json('data');
+        $payload = $this->payload($this->sample());
+        $payload['values'] = array_replace($payload['values'], $result['values'], ['cri_ra' => '94', 'cct' => '']);
+        $payload['measurement_records'] = ['haas' => 1];
+        $payload['haas'] = UploadedFile::fake()->createWithContent('reading.haas', $bytes);
+        $response = $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()
+            ->assertJsonPath('data.data.values.cri_ra', '94')->assertJsonPath('data.data.values.cct', '')
+            ->assertJsonPath('data.data.values.total_flux', '300')->assertJsonPath('data.data.measurement_records.haas', 1);
+        $id = $response->json('data.id');
+        $this->assertDatabaseCount('lm79_spectrum_points', 3);
+        $report = Lm79Report::findOrFail($id);
+        $this->assertArrayNotHasKey('spectrum_data', $report->data['values']);
+        $this->postJson('/api/lm79-reports/parse-measurement', ['kind' => 'haas', 'report_id' => $id])->assertOk()->assertJsonPath('data.values.cct', '5585');
+        $document = PdfDocument::create(['document_uuid' => (string) Str::uuid(), 'document_public_id' => 'IMPORT-001', 'organization_scope' => 'default', 'authoritative_report_number' => $report->report_number, 'normalized_report_number' => $report->normalized_report_number, 'created_by_id' => auth()->id()]);
+        $report->update(['pdf_document_id' => $document->id]);
+        $this->postJson('/api/lm79-reports/parse-measurement', ['kind' => 'haas', 'report_id' => $id])->assertConflict();
+    }
+
+    public function test_multiple_measurement_records_cannot_be_silently_combined_on_save(): void
+    {
+        $bytes = MeasurementFixtures::haas([3000, 6000]);
+        $this->post('/api/lm79-reports/parse-measurement', ['kind' => 'haas', 'file' => UploadedFile::fake()->createWithContent('reading.haas', $bytes)], ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('data.selected_record', null)->assertJsonCount(2, 'data.records');
+        $payload = $this->payload($this->sample());
+        $payload['haas'] = UploadedFile::fake()->createWithContent('reading.haas', $bytes);
+        $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertUnprocessable();
+        $payload['measurement_records'] = ['haas' => 2];
+        $payload['haas'] = UploadedFile::fake()->createWithContent('reading.haas', $bytes);
+        $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('data.data.measurement_records.haas', 2);
+    }
+
+    public function test_gos_electrical_import_reaches_inputs_and_preserves_corrections_on_save(): void
+    {
+        $bytes = MeasurementFixtures::gos();
+        $result = $this->post('/api/lm79-reports/parse-measurement', ['kind' => 'gos', 'file' => UploadedFile::fake()->createWithContent('reading.GOS', $bytes)], ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('data.values.voltage', '220')->assertJsonPath('data.values.current', '0.125')
+            ->assertJsonPath('data.values.power', '27.5')->assertJsonPath('data.values.power_factor', '1')->json('data');
+        $payload = $this->payload($this->sample());
+        $payload['values'] = array_replace($payload['values'], $result['values'], ['power' => '28']);
+        $payload['measurement_records'] = ['gos' => 1];
+        $payload['gos'] = UploadedFile::fake()->createWithContent('reading.GOS', $bytes);
+        $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()
+            ->assertJsonPath('data.data.values.voltage', '220')->assertJsonPath('data.data.values.current', '0.125')
+            ->assertJsonPath('data.data.values.power', '28')->assertJsonPath('data.data.values.power_factor', '1');
+    }
+
+    public function test_invalid_measurement_files_use_friendly_errors_and_parse_requires_edit_permission(): void
+    {
+        $this->post('/api/lm79-reports/parse-measurement', ['kind' => 'haas', 'file' => UploadedFile::fake()->createWithContent('broken.haas', 'broken')], ['Accept' => 'application/json'])
+            ->assertUnprocessable()->assertJsonValidationErrors('file');
+        Role::findByName('report_editor', 'web')->revokePermissionTo(['lm79_reports.create', 'lm79_reports.update']);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $this->post('/api/lm79-reports/parse-measurement', ['kind' => 'haas', 'file' => UploadedFile::fake()->createWithContent('reading.haas', MeasurementFixtures::haas())], ['Accept' => 'application/json'])->assertForbidden();
     }
 
     public function test_sample_options_resolve_commission_snapshots_and_keep_rated_power_separate(): void

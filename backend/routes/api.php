@@ -152,6 +152,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/test-orders/export', [TestOrderController::class, 'export']);
         Route::get('/lm79-reports/form-options', [Lm79ReportController::class, 'options']);
         Route::post('/lm79-reports/report-number', [Lm79ReportController::class, 'reportNumber']);
+        Route::post('/lm79-reports/parse-measurement', [Lm79ReportController::class, 'parseMeasurement']);
         Route::get('/lm79-reports/sample-options', [Lm79ReportController::class, 'samples']);
         Route::get('/lm79-reports/equipment-lookup', [Lm79ReportController::class, 'equipmentLookup']);
         Route::post('/lm79-reports/{report}/calculate', [Lm79ReportController::class, 'calculate']);

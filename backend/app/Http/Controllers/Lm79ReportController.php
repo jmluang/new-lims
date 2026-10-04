@@ -18,6 +18,7 @@ use App\Services\Reports\Lm79Equipment;
 use App\Services\Reports\Lm79Fields;
 use App\Services\Reports\Lm79Payload;
 use App\Services\Reports\Lm79ReportNumber;
+use App\Services\Reports\MeasurementImport;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -77,6 +78,31 @@ class Lm79ReportController extends Controller
         $this->authorizePermission($request, self::RESOURCE.'.create', self::RESOURCE);
 
         return response()->json(['data' => ['report_number' => $numbers->generate()]]);
+    }
+
+    public function parseMeasurement(Request $request, MeasurementImport $parser)
+    {
+        $payload = $request->validate([
+            'kind' => ['required', 'in:gos,haas'], 'file' => ['nullable', 'file', 'extensions:gos,haas', 'max:20480'],
+            'record' => ['nullable', 'integer', 'min:1', 'max:100'], 'report_id' => ['nullable', 'integer'],
+        ]);
+        $report = isset($payload['report_id']) ? Lm79Report::findOrFail($payload['report_id']) : null;
+        $this->authorizePermission($request, self::RESOURCE.($report ? '.update' : '.create'), self::RESOURCE, $report);
+        if ($report) {
+            $this->editable($report);
+        }
+        $path = $request->file('file')?->getRealPath() ?? $report?->getFirstMedia($payload['kind'])?->getPath();
+        if (! $path) {
+            throw ValidationException::withMessages(['file' => ['请先选择原始测量文件。']]);
+        }
+        try {
+            $result = $parser->parse($path, $payload['kind'], $payload['record'] ?? null);
+        } catch (\InvalidArgumentException $e) {
+            Log::warning('Measurement import failed.', ['kind' => $payload['kind'], 'reason' => $e->getPrevious()?->getMessage() ?? $e->getMessage()]);
+            throw ValidationException::withMessages(['file' => [$e->getMessage()]]);
+        }
+
+        return response()->json(['data' => $result]);
     }
 
     public function equipmentLookup(Request $request, InspectionSubjectLookup $subjects, Lm79Equipment $equipment)
@@ -142,10 +168,14 @@ class Lm79ReportController extends Controller
 
     private function save(Request $request, ?Lm79Report $report = null)
     {
+        if ($report) {
+            $this->editable($report);
+        }
         $this->decode($request);
         $payload = $request->validate([
             'sample_id' => [$report ? 'nullable' : 'required', 'integer', 'exists:samples,id'],
             'report_number' => ['nullable', 'string', 'max:128'], ...Lm79Fields::rules(),
+            'measurement_records' => ['sometimes', 'array:gos,haas'], 'measurement_records.*' => ['integer', 'min:1', 'max:100'],
             'standards' => ['present', 'array', 'max:30'], 'standards.*' => ['required', 'string', 'max:1000'],
             'equipment' => ['present', 'array', 'max:30'],
             'equipment.*' => ['array:name,model,serial,cal_cert,cal_org,cal_due,equipment_id,equipment_no,manufacturer,next_calibration_date,snapshot_id'],
@@ -170,16 +200,36 @@ class Lm79ReportController extends Controller
         }
         $number = trim($payload['report_number'] ?? '');
         $normalized = $number !== '' ? app(ReportNumberNormalizer::class)->normalize($number) : null;
-        $spectrum = app(Lm79Payload::class)->spectrum($values['spectrum_data'] ?? '');
-        unset($values['spectrum_data']);
         if ($normalized !== null) {
             validator(['number' => $normalized], ['number' => ['required', 'max:128', Rule::unique('lm79_reports', 'normalized_report_number')->ignore($report?->id)]])->validate();
         }
         $sample = isset($payload['sample_id']) ? Sample::query()->with(['testOrder.standards', 'orderSample'])->findOrFail($payload['sample_id']) : null;
+        $parsedRecords = [];
+        foreach (['gos', 'haas'] as $kind) {
+            if ($file = $request->file($kind)) {
+                try {
+                    $parsed = app(MeasurementImport::class)->parse($file->getRealPath(), $kind, $payload['measurement_records'][$kind] ?? null);
+                } catch (\InvalidArgumentException $e) {
+                    throw ValidationException::withMessages([$kind => [$e->getMessage()]]);
+                }
+                if ($parsed['selected_record'] === null) {
+                    throw ValidationException::withMessages([$kind => ['文件包含多条检测记录，请先选择本次报告采用的记录。']]);
+                }
+                $parsedRecords[$kind] = $parsed['selected_record'];
+                foreach ($parsed['values'] as $field => $value) {
+                    // A selected record means the client has already imported and may have corrected the values.
+                    if (! array_key_exists($kind, $payload['measurement_records'] ?? []) && ($values[$field] ?? '') === '') {
+                        $values[$field] = $value;
+                    }
+                }
+            }
+        }
+        $spectrum = app(Lm79Payload::class)->spectrum($values['spectrum_data'] ?? '');
+        unset($values['spectrum_data']);
         $written = [];
         $removed = [];
         try {
-            $saved = DB::transaction(function () use ($request, $payload, $report, $values, $number, $normalized, $sample, $spectrum, &$written, &$removed) {
+            $saved = DB::transaction(function () use ($request, $payload, $report, $values, $number, $normalized, $sample, $spectrum, $parsedRecords, &$written, &$removed) {
                 $row = $report ? Lm79Report::query()->lockForUpdate()->findOrFail($report->id) : new Lm79Report;
                 $this->editable($row);
                 if ($row->exists && (int) $row->sample_id !== (int) $sample?->id) {
@@ -216,8 +266,25 @@ class Lm79ReportController extends Controller
                     throw ValidationException::withMessages(['attachments' => ['照片与 PDF 附录合计最多 16 MB。']]);
                 }
                 $equipment = app(Lm79Equipment::class)->resolve($payload['equipment'], $row->exists ? ($row->data['equipment'] ?? []) : []);
+                $measurementRecords = $parsedRecords;
+                foreach (['gos', 'haas'] as $kind) {
+                    if (! isset($measurementRecords[$kind]) && $retained->where('collection_name', $kind)->isNotEmpty()) {
+                        $record = $payload['measurement_records'][$kind] ?? $row->data['measurement_records'][$kind] ?? null;
+                        if ($record !== null) {
+                            $record = (int) $record;
+                            if ($record !== ($row->data['measurement_records'][$kind] ?? null)) {
+                                try {
+                                    app(MeasurementImport::class)->parse($retained->firstWhere('collection_name', $kind)->getPath(), $kind, $record);
+                                } catch (\InvalidArgumentException $e) {
+                                    throw ValidationException::withMessages([$kind => [$e->getMessage()]]);
+                                }
+                            }
+                            $measurementRecords[$kind] = $record;
+                        }
+                    }
+                }
                 $assignedNumber = $number !== '' ? $number : ($row->exists ? $row->report_number : app(Lm79ReportNumber::class)->generate());
-                $row->fill(['sample_id' => $sample?->id, 'sample_snapshot' => $row->exists ? $row->sample_snapshot : $this->snapshot($sample), 'report_number' => $assignedNumber, 'normalized_report_number' => $normalized ?? app(ReportNumberNormalizer::class)->normalize($assignedNumber), 'data' => ['values' => $values, 'standards' => $payload['standards'], 'equipment' => $equipment]]);
+                $row->fill(['sample_id' => $sample?->id, 'sample_snapshot' => $row->exists ? $row->sample_snapshot : $this->snapshot($sample), 'report_number' => $assignedNumber, 'normalized_report_number' => $normalized ?? app(ReportNumberNormalizer::class)->normalize($assignedNumber), 'data' => ['values' => $values, 'standards' => $payload['standards'], 'equipment' => $equipment, 'measurement_records' => $measurementRecords]]);
                 if (! $row->exists) {
                     $row->created_by = $request->user()->id;
                 }
@@ -249,7 +316,7 @@ class Lm79ReportController extends Controller
 
     private function decode(Request $request): void
     {
-        foreach (['values', 'standards', 'equipment', 'retained_media_ids'] as $key) {
+        foreach (['values', 'standards', 'equipment', 'retained_media_ids', 'measurement_records'] as $key) {
             if (is_string($request->input($key))) {
                 try {
                     $request->merge([$key => json_decode($request->input($key), true, 512, JSON_THROW_ON_ERROR)]);
@@ -375,6 +442,7 @@ class Lm79ReportController extends Controller
     {
         $data = $details ? $report->data : ['values' => [], 'standards' => [], 'equipment' => []];
         if ($details) {
+            unset($data['values']['test_person'], $data['values']['review_person'], $data['values']['approve_person']);
             $data['values']['spectrum_data'] = $report->spectrumText();
             $data['equipment'] = app(Lm79Equipment::class)->withKeys($data['equipment']);
         }

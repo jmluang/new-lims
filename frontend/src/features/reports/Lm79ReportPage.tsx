@@ -7,8 +7,8 @@ import { api } from '../../lib/api'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { confirmAndFinalizeSigningSource } from '../pdf/handwrittenApi'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
-import { inputClass, textareaClass } from '../system/utils'
-import { attachmentTypes, generateReportNumber, previewReportPdf, reportFormData, saveReport, type EquipmentRow, type Report, type ReportData, type ReportNumberAllocation, type ReportOptions, type SampleOption } from './lm79Api'
+import { errorMessage, inputClass, textareaClass } from '../system/utils'
+import { attachmentTypes, generateReportNumber, parseMeasurementFile, previewReportPdf, reportFormData, saveReport, type EquipmentRow, type MeasurementImportResult, type MeasurementKind, type Report, type ReportData, type ReportNumberAllocation, type ReportOptions, type SampleOption } from './lm79Api'
 
 import { ReportSectionTabs } from './ReportSectionTabs'
 import { ReportEquipmentFields } from './ReportEquipmentFields'
@@ -26,7 +26,7 @@ export function Lm79ReportPage() {
   const options = useQuery({ queryKey: ['lm79-options'], queryFn: async () => (await api.get<{ data: ReportOptions }>(`${BASE}/form-options`)).data.data })
   const report = useQuery({ queryKey: ['lm79-report', id], enabled: Boolean(id), queryFn: async () => (await api.get<{ data: Report }>(`${BASE}/${id}`)).data.data })
   const selectedSample = useQuery({ queryKey: ['lm79-selected-sample', selectedSampleId], enabled: !id && Boolean(selectedSampleId), queryFn: async () => (await api.get<{ data: SampleOption[] }>(`${BASE}/sample-options`, { params: { sample_id: selectedSampleId } })).data.data[0] })
-  return <PageShell title={id ? '编制 LM-79 报告' : '新建 LM-79 报告'} description="每份报告对应一个实际样品。录入或计算测量值后，核对完整 PDF 再交接签署。" actions={<Link className="text-sm text-emerald-800 underline" to="/reports/lm79">返回报告列表</Link>}>
+  return <PageShell title={id ? '编制 LM-79 报告' : '新建 LM-79 报告'} description="" actions={<Link className="text-sm text-emerald-800 underline" to="/reports/lm79">返回报告列表</Link>}>
     {options.isPending || (id && report.isPending) || (!id && selectedSampleId && selectedSample.isPending) ? <LoadingState label="正在加载报告表单" /> : null}
     {options.isError || report.isError || selectedSample.isError ? <ErrorNotice error={options.error ?? report.error ?? selectedSample.error} fallback="表单加载失败" /> : null}
     {options.data && (!id || report.data) && (!selectedSampleId || id || !selectedSample.isPending) ? <ReportEditor key={id ?? 'new'} options={options.data} initial={report.data} selectedSample={selectedSample.data} numberAllocation={!id ? numberAllocation : undefined} /> : null}
@@ -55,6 +55,8 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
   const [preview, setPreview] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
   const [equipmentNotice, setEquipmentNotice] = useState('')
+  const [imports, setImports] = useState<Partial<Record<MeasurementKind, MeasurementImportResult>>>({})
+  const [importErrors, setImportErrors] = useState<Partial<Record<MeasurementKind, string>>>({})
   const [selectedSection, setSelectedSection] = useState<ReportSectionId>('basic')
   const locked = Boolean(saved?.locked || initial?.locked)
   const reportNumber = reportNumberOverride ?? numberAllocation?.report_number ?? ''
@@ -81,6 +83,7 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
     }
     if (!sampleId && !saved) throw new Error('请选择一个实际样品')
     if (!saved && !reportNumber.trim()) throw new Error('请重新生成或填写报告编号')
+    if (Object.values(imports).some(result => result && result.selected_record === null)) throw new Error('请先选择原始文件中本次报告采用的检测记录')
     const row = await saveReport(saved?.id, reportFormData(sampleId, reportNumber, data, retained, files))
     setSaved(row); setReportNumber(row.report_number); updateData(row.data); setEquipmentNotice(''); updateRetained(row.media.map(m => m.id)); updateFiles({}); setFileKey(k => k + 1)
     await queryClient.invalidateQueries({ queryKey: ['lm79-reports'] })
@@ -95,7 +98,7 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
     } else if (kind === 'calculate') {
       const response = await api.post<{ data: { values: Record<string, string>; photometry_calculated: boolean } }>(`${BASE}/${row.id}/calculate`)
       updateData(current => ({ ...current, values: response.data.data.values }))
-      setNotice(response.data.data.photometry_calculated ? '配光计算完成，请核对并保存；所有结果均可修正。' : '已按手填光通量和功率计算光效；上传 IES 可计算更多光度参数。')
+      setNotice(response.data.data.photometry_calculated ? '配光计算完成，请核对并保存。' : '光效已计算，请核对并保存。')
     } else if (kind === 'preview') {
       const pdf = await previewReportPdf(row.id)
       setPreview(URL.createObjectURL(pdf))
@@ -118,12 +121,41 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
       setEquipmentNotice(`已添加 ${device.equipment_no} · ${device.name}，保存草稿后生效。`)
     },
   })
-  const busy = action.isPending || equipmentLookup.isPending || generatingNumber
+  const measurementImport = useMutation({
+    mutationFn: ({ kind, file, record }: { kind: MeasurementKind; file?: File; record?: number }) => parseMeasurementFile(kind, file, saved?.id, record),
+    onMutate: ({ kind }) => setImportErrors(current => ({ ...current, [kind]: undefined })),
+    onSuccess: result => {
+      setImports(current => ({ ...current, [result.kind]: result }))
+      updateData(current => {
+        const records = { ...current.measurement_records }
+        if (result.selected_record === null) delete records[result.kind]
+        else records[result.kind] = result.selected_record
+        return { ...current, values: { ...current.values, ...result.values }, measurement_records: records }
+      })
+    },
+    onError: (error, { kind }) => setImportErrors(current => ({ ...current, [kind]: errorMessage(error, '文件解析失败，请核对原始文件') })),
+  })
+  const busy = action.isPending || equipmentLookup.isPending || generatingNumber || measurementImport.isPending
   function uploadField(type: typeof attachmentTypes[number], showLabel = true) {
+    const kind = type.name === 'gos' || type.name === 'haas' ? type.name : undefined
     return <ReportFileField key={type.name} type={type} showLabel={showLabel} fileKey={fileKey} editable={!locked && !busy && canEdit} reportId={saved?.id}
       media={saved?.media.filter(media => media.collection === type.name && retained.includes(media.id)) ?? []} selected={files[type.name] ?? []}
-      onSelect={uploads => { updateFiles(current => ({ ...current, [type.name]: uploads })); if (uploads.length && type.name !== 'photos') updateRetained(current => current.filter(id => !saved?.media.some(media => media.id === id && media.collection === type.name))) }}
-      onRemove={id => updateRetained(current => current.filter(retainedId => retainedId !== id))} />
+      onSelect={uploads => {
+        updateFiles(current => ({ ...current, [type.name]: uploads }))
+        if (uploads.length && type.name !== 'photos') updateRetained(current => current.filter(id => !saved?.media.some(media => media.id === id && media.collection === type.name)))
+        if (kind) {
+          setImports(current => ({ ...current, [kind]: undefined })); setImportErrors(current => ({ ...current, [kind]: undefined }))
+          updateData(current => { const records = { ...current.measurement_records }; delete records[kind]; return { ...current, measurement_records: records } })
+          if (uploads[0]) measurementImport.mutate({ kind, file: uploads[0] })
+        }
+      }}
+      parsing={kind && measurementImport.isPending && measurementImport.variables?.kind === kind}
+      imported={kind ? imports[kind] : undefined} record={kind ? data.measurement_records?.[kind] : undefined} parseError={kind ? importErrors[kind] : undefined}
+      onParse={kind ? record => measurementImport.mutate({ kind, file: files[kind]?.[0], record }) : undefined}
+      onRemove={id => {
+        updateRetained(current => current.filter(retainedId => retainedId !== id))
+        if (kind) { setImports(current => ({ ...current, [kind]: undefined })); setImportErrors(current => ({ ...current, [kind]: undefined })); updateData(current => { const records = { ...current.measurement_records }; delete records[kind]; return { ...current, measurement_records: records } }) }
+      }} />
   }
   function changeEquipment(index: number, field: keyof EquipmentRow, text: string) {
     updateData(current => ({ ...current, equipment: current.equipment.map((e, i) => i === index ? { ...e, [field]: text } : e) }))
@@ -136,16 +168,14 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
     <fieldset disabled={locked || busy || !canEdit} className="space-y-5 disabled:opacity-75">
       <Panel title="关联样品与报告编号"><div className="grid gap-4 md:grid-cols-2">
         <Field label="报告编号"><div className="flex flex-wrap items-center gap-2"><input aria-label="报告编号" className={`${inputClass} flex-1`} value={reportNumber} placeholder={generatingNumber ? '正在生成报告编号…' : '请输入报告编号'} onChange={e => { setPreview(null); setReportNumber(e.target.value) }} maxLength={128} />{!initial && !saved ? <Button variant="secondary" onClick={() => generateNumber()}><RefreshCw aria-hidden="true" className={`size-4 ${generatingNumber ? 'animate-spin' : ''}`} />重新生成</Button> : null}</div>{!saved ? <p className="mt-1 text-xs text-slate-500">格式：XPDYYYYMMDD-001，重新生成会使用新的流水号。</p> : null}</Field>
-        {saved ? <Field label="实际样品"><p className="py-2 text-sm">{saved.sample_snapshot.sample_no} · {saved.sample_snapshot.sample_name}（固定 1 个）</p></Field> : <div className="space-y-2"><Field label="实际样品（已接收）"><ReportSampleSelect selected={chosenSample} options={samples.data ?? []} pending={sampleSearch !== sampleQuery || samples.isFetching} disabled={locked || busy || !canEdit} onSearch={setSampleSearch} onSelect={sample => { setChosenSample(sample); setSampleId(sample?.id ?? 0); if (sample) updateData(sample.data) }} /></Field>{samples.isError ? <ErrorNotice error={samples.error} fallback="样品加载失败" /> : null}</div>}
+        {saved ? <Field label="实际样品"><p className="py-2 text-sm">{saved.sample_snapshot.sample_no} · {saved.sample_snapshot.sample_name}（固定 1 个）</p></Field> : <div className="space-y-2"><Field label="实际样品（已接收）"><ReportSampleSelect selected={chosenSample} options={samples.data ?? []} pending={sampleSearch !== sampleQuery || samples.isFetching} disabled={locked || busy || !canEdit} onSearch={setSampleSearch} onSelect={sample => { setChosenSample(sample); setSampleId(sample?.id ?? 0); if (sample) updateData(current => ({ ...current, standards: sample.data.standards, values: { ...current.values, ...Object.fromEntries(['product_name', 'model', 'rated_voltage', 'rated_power', 'applicant', 'applicant_address', 'manufacturer', 'manufacturer_address', 'test_date'].map(field => [field, sample.data.values[field] ?? ''])) } })) }} /></Field>{samples.isError ? <ErrorNotice error={samples.error} fallback="样品加载失败" /> : null}</div>}
       </div></Panel>
     </fieldset>
     <ReportSectionTabs selected={selectedSection} onChange={setSelectedSection} />
     {reportSections.map(section => <section key={section.id} role="tabpanel" id={`report-panel-${section.id}`} aria-labelledby={`report-tab-${section.id}`} hidden={selectedSection !== section.id} tabIndex={0} className="space-y-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
     <div className="space-y-5">
-      {section.id === 'measurements' ? <p className="text-sm text-slate-600">在对应参数区上传原始测量文件并核对结果。原始文件合计与附件总计最多 20 MB；计算后的结果可手工修正。</p> : null}
       {options.groups.filter(group => sectionForGroup(group.fields[0]?.name) === section.id).map((group, i) => <section key={group.title} id={`report-fields-${section.id}-${i}`} className="scroll-mt-24"><Panel title={group.title}>
         {attachmentTypes.filter(type => type.group === group.fields[0]?.name).map(type => <div key={type.name} className="mb-4 border-b border-slate-200 pb-4">{uploadField(type)}</div>)}
-        {group.fields[0]?.name === 'spectrum_range' ? <p className="mb-4 text-xs leading-5 text-slate-500">光谱数据使用色度参数区的 HAAS 文件，配光数据使用光度参数区的 IES 文件。</p> : null}
         <fieldset disabled={locked || busy || !canEdit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 disabled:opacity-75">
         {group.fields.map(field => <Field key={field.name} label={field.label} className={field.type === 'textarea' ? 'sm:col-span-2 lg:col-span-3' : undefined}>
           {field.type === 'textarea' ? <textarea className={textareaClass} rows={field.name === 'cri_r1_r15' ? 2 : 6} value={data.values[field.name] ?? ''} onChange={e => value(field.name, e.target.value)} /> : <input className={inputClass} type={field.type === 'date' ? 'date' : 'text'} inputMode={field.numeric ? 'decimal' : undefined} value={data.values[field.name] ?? ''} onChange={e => value(field.name, e.target.value)} />}
@@ -165,8 +195,8 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
       </fieldset> : null}
       {section.id === 'files' ? <>
       <section id="report-attachments" className="scroll-mt-24 space-y-4">
-        <p className="text-sm text-slate-600">照片与 PDF 附录合计最多 16 MB，连同原始测量文件总计最多 20 MB。</p>
-        {attachmentTypes.filter(type => type.group === null).map(type => <Panel key={type.name} title={type.label} description={type.name === 'photos' ? '支持 JPG、JPEG、PNG，可一次选择多张照片。' : '每个附录上传一份 PDF，须未加密、未签名；保存后会合入最终报告。'}>{uploadField(type, false)}</Panel>)}
+        <p className="text-xs text-slate-500">照片与附录合计 ≤16 MB，全部文件合计 ≤20 MB。</p>
+        {attachmentTypes.filter(type => type.group === null).map(type => <Panel key={type.name} title={type.label}>{uploadField(type, false)}</Panel>)}
       </section>
       </> : null}
     </div>

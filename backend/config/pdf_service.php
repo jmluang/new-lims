@@ -4,6 +4,13 @@ return [
     'base_url' => env('PDF_SERVICE_BASE_URL', 'http://127.0.0.1:8080'),
     'timeout' => (float) env('PDF_SERVICE_TIMEOUT', 120),
     'enabled' => (bool) env('PDF_SERVICE_ENABLED', false),
+    // Template identity and actual laboratory contact information are configurable.
+    'report_layout' => [
+        'fileNumber' => env('PDF_REPORT_FILE_NUMBER', 'FO-22-03-2402'),
+        'version' => env('PDF_REPORT_VERSION', 'V1.0'),
+        'website' => env('PDF_REPORT_WEBSITE', ''),
+        'email' => env('PDF_REPORT_EMAIL', ''),
+    ],
     'organization_scope' => env('PDF_SIGNING_ORGANIZATION_SCOPE', 'default'),
     'hmac' => [
         'enabled' => (bool) env('PDF_SERVICE_HMAC_ENABLED', true),

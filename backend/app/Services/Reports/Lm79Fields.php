@@ -12,9 +12,6 @@ final class Lm79Fields
             ['name' => 'accreditation', 'label' => 'CNAS 认可号', 'default' => 'CNAS L12345', 'numeric' => false, 'type' => 'text'],
             ['name' => 'test_date', 'label' => '样品接收日期', 'default' => '', 'numeric' => false, 'type' => 'date'],
             ['name' => 'issue_date', 'label' => '签发日期', 'default' => '', 'numeric' => false, 'type' => 'date'],
-            ['name' => 'test_person', 'label' => '测试人员', 'default' => '', 'numeric' => false, 'type' => 'text'],
-            ['name' => 'review_person', 'label' => '审核人员', 'default' => '', 'numeric' => false, 'type' => 'text'],
-            ['name' => 'approve_person', 'label' => '批准人员', 'default' => '', 'numeric' => false, 'type' => 'text'],
         ]],
         ['title' => '样品资料', 'fields' => [
             ['name' => 'product_name', 'label' => '产品名称', 'default' => '', 'numeric' => false, 'type' => 'text'],

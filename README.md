@@ -140,9 +140,18 @@ Entering the creation page reserves an `XPDYYYYMMDD-NNN` number from a daily
 sequence; regeneration reserves another number, while editing retains the stored
 number. Abandoned forms can leave sequence gaps.
 Spectral measurements are stored as ordered rows in `lm79_spectrum_points`;
-scalar fields remain on the report. GOS supplies electrical measurements, and
-HAAS supplies colorimetry and spectral data. Their parsers await instrument-format
-specifications; operators can currently enter results and retain the original files.
+scalar fields remain on the report. Native readers adapted from `haas_read.php`
+import HAAS colorimetry and spectra, with an explicit record choice for multi-record
+files. GODATA 100 imports voltage, current, power and power factor from the four
+float32 values after seven sample-detail CStrings, plus luminous flux and environment.
+An all-zero electrical header preserves manual input. Frequency, THD and other
+electrical fields are not inferred from anonymous OP settings. Angle-matrix
+orientation is not established; distribution fields remain manual or use IES.
+Import requires PHP mbstring, caps HAAS at
+100 records and 10,000 spectral points per record, and keeps the original files.
+Saving preserves corrections, including cleared values, after a record is selected.
+Signer names are not entered in the report form. Inspector, reviewer and issuer
+identities are assigned in the signing workflow; unsigned PDFs leave their names blank.
 
 The explicit calculation action handles Type-C, TILT=NONE IES photometry and
 uncertainty inputs. Saving never overwrites manual corrections. PDF preview uses

@@ -74,7 +74,7 @@ public final class LightingReportRenderer {
         }
     }
 
-    private static PDFont loadFont(PDDocument document) throws IOException {
+    static PDFont loadFont(PDDocument document) throws IOException {
         String configured = System.getProperty("lighting.report.font");
         if (configured == null || configured.isBlank()) {
             configured = System.getenv("LIGHTING_REPORT_FONT_PATH");
@@ -87,7 +87,7 @@ public final class LightingReportRenderer {
         return ContractPdfAssets.loadPrimaryFont(document);
     }
 
-    private static PDFont loadHeadingFont(PDDocument document, PDFont fallback) throws IOException {
+    static PDFont loadHeadingFont(PDDocument document, PDFont fallback) throws IOException {
         String configured = System.getProperty("lighting.report.heading.font");
         if (configured == null || configured.isBlank()) configured = System.getenv("LIGHTING_REPORT_HEADING_FONT_PATH");
         if (configured == null || configured.isBlank()) return fallback;
@@ -104,6 +104,10 @@ public final class LightingReportRenderer {
                 {"型号：", f.model()}, {"接收日期：", p.cover().receivedDate()},
                 {"签发日期：", p.cover().issuedDate()}
         };
+        drawCover(doc, font, p.header().company(), fields);
+    }
+
+    static void drawCover(PDDocument doc, PDFont font, String company, String[][] fields) throws IOException {
         try (var c = new Canvas(doc, font)) {
             c.spacedCenter("检测报告", 36, 14.113f, WIDTH / 2, 236.02f);
             float[] valueTops = {319.77f, 345.87f, 365.38f, 399.57f, 425.67f, 451.77f, 477.87f};
@@ -121,7 +125,8 @@ public final class LightingReportRenderer {
                 top = valueTops[index] + extra;
                 float labelTop = index == 2 ? top + 7.99f : top;
                 c.text(field[0], 11, 132.75f, labelTop);
-                c.lines(lines, valueSize, 211.25f, top, 13.8f, false, 263);
+                float valueTop = index == 2 && lines.size() == 1 ? labelTop - 0.5f : top;
+                c.lines(lines, valueSize, 211.25f, valueTop, 13.8f, false, 263);
                 int expectedLines = index == 2 ? 2 : 1;
                 extra += Math.max(0, lines.size() - expectedLines) * 13.8f;
                 top += lines.size() * 13.8f;
@@ -130,7 +135,7 @@ public final class LightingReportRenderer {
             if (companyTop + 28 > BODY_BOTTOM) {
                 throw new IllegalArgumentException("Cover values exceed the report cover capacity");
             }
-            c.center(safe(p.header().company()), 15, WIDTH / 2, companyTop);
+            c.center(safe(company), 15, WIDTH / 2, companyTop);
         }
     }
 
@@ -330,16 +335,19 @@ public final class LightingReportRenderer {
         }
     }
 
-    private static void drawHeaderFooter(Canvas c, LightingReportPayload.Header h, int page, int total) throws IOException {
+    static void drawHeaderFooter(Canvas c, LightingReportPayload.Header h, int page, int total) throws IOException {
         c.coloredCenter(h.company(), 18, WIDTH / 2, 43.6f, BLUE);
         c.text("文件编号:" + safe(h.fileNumber()), 9, 435, 43.6f);
         c.text("文件版本:" + safe(h.version()), 9, 435, 53.95f);
         c.rule(34, 561.25f, 71.75f, 1.125f, new Color(26, 57, 107));
         c.coloredCenter(h.company(), 12, 246.85f, 739.69f, BLUE);
         c.center("第 " + page + " 页  共 " + total + " 页", 9, 490, 740.78f);
-        c.text(h.address(), 9, 70.2f, 752.45f);
-        c.text("URL：" + safe(h.website()), 9, 251.65f, 752.45f);
-        c.text("E-mail：" + safe(h.email()), 9, 408.2f, 752.45f);
+        boolean contacts = !safe(h.website()).isBlank() || !safe(h.email()).isBlank();
+        var addressLines = c.wrap(h.address(), 9, contacts ? 172 : 464);
+        if (addressLines.size() > 4) throw new IllegalArgumentException("Footer address exceeds page capacity");
+        c.lines(addressLines, 9, 70.2f, 752.45f, 11, false, 0);
+        if (!safe(h.website()).isBlank()) c.text("URL：" + h.website(), 9, 251.65f, 752.45f);
+        if (!safe(h.email()).isBlank()) c.text("E-mail：" + h.email(), 9, 408.2f, 752.45f);
     }
 
     private static String safe(String value) { return value == null ? "" : value; }
@@ -348,7 +356,7 @@ public final class LightingReportRenderer {
         return safe(value).replaceFirst("\\s*" + suffix + "$", " " + suffix);
     }
 
-    private static final class Canvas implements AutoCloseable {
+    static final class Canvas implements AutoCloseable {
         private final PDDocument document;
         private final PDFont font;
         private final PDPageContentStream stream;
@@ -485,6 +493,8 @@ public final class LightingReportRenderer {
             stream.drawImage(image, x + (width - drawnWidth) / 2,
                     HEIGHT - top - (height + drawnHeight) / 2, drawnWidth, drawnHeight);
         }
+
+        PDPageContentStream stream() { return stream; }
 
         @Override public void close() throws IOException { stream.close(); }
     }

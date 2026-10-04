@@ -68,4 +68,9 @@ describe('LM-79 editor submission contract', () => {
     expect(body.get('sample_id')).toBe('')
     expect(body.get('standards')).toBe('[]')
   })
+
+  it('retains the selected measurement record in multipart submissions', () => {
+    const body = reportFormData(5, 'REPORT-001', { values: {}, standards: [], equipment: [], measurement_records: { haas: 2 } }, [], {})
+    expect(JSON.parse(String(body.get('measurement_records')))).toEqual({ haas: 2 })
+  })
 })

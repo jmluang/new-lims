@@ -17,11 +17,26 @@ final class Lm79Payload
         $sections = [];
         foreach (Lm79Fields::GROUPS as $group) {
             $rows = [];
-            foreach ($group['fields'] as $field) {
-                if ($field['type'] === 'textarea' || in_array($field['name'], ['test_person', 'review_person', 'approve_person'])) {
+            $distributionRows = [];
+            $fields = $group['fields'];
+            if ($fields[0]['name'] === 'product_name') {
+                $order = array_flip(['applicant', 'applicant_address', 'manufacturer', 'manufacturer_address',
+                    'product_name', 'model', 'brand', 'serial_no', 'rated_voltage', 'rated_power',
+                    'rated_flux', 'rated_cct', 'rated_cri', 'led_driver', 'led_module']);
+                usort($fields, fn ($a, $b) => ($order[$a['name']] ?? 100) <=> ($order[$b['name']] ?? 100));
+            }
+            foreach ($fields as $field) {
+                if ($field['type'] === 'textarea') {
                     continue;
                 }
-                $rows[] = [$field['label'], (string) (($v[$field['name']] ?? '') !== '' ? $v[$field['name']] : '—')];
+                $label = preg_replace('/\s*\[[^]]*\]/u', '', $field['label']);
+                $row = [$label, (string) (($v[$field['name']] ?? '') !== '' ? $v[$field['name']] : '—')];
+                if ($group['fields'][0]['name'] === 'total_flux'
+                    && ! in_array($field['name'], ['total_flux', 'efficacy', 'lor'])) {
+                    $distributionRows[] = $row;
+                } else {
+                    $rows[] = $row;
+                }
             }
             if ($group['title'] === '样品资料') {
                 $rows[] = ['系统样品编号', $report->sample_snapshot['sample_no']];
@@ -30,10 +45,19 @@ final class Lm79Payload
             if ($group['title'] === '色度参数' && trim($v['cri_r1_r15'] ?? '') !== '') {
                 $rows[] = ['CRI R1–R15', $v['cri_r1_r15']];
             }
-            $sections[] = ['title' => $group['title'], 'headers' => ['项目', '结果 / 信息'], 'rows' => $rows];
+            $layout = match ($group['fields'][0]['name']) {
+                'lab_name' => 'information', 'product_name' => 'sample', 'c_step' => 'setup',
+                'ambient_temp' => 'conditions', 'voltage' => 'electrical',
+                'cct' => 'color', 'total_flux' => 'photometric',
+                'u_std_lamp' => 'uncertainty', 'spectrum_range' => 'spectrum', default => 'parameters',
+            };
+            $sections[] = ['title' => $group['title'], 'layout' => $layout, 'headers' => ['项目', '结果 / 信息'], 'rows' => $rows];
+            if ($distributionRows !== []) {
+                $sections[] = ['title' => '光强分布测试数据', 'layout' => 'distribution', 'headers' => ['项目', '结果 / 信息'], 'rows' => $distributionRows];
+            }
         }
-        $sections[] = ['title' => '引用标准', 'headers' => ['序号', '标准'], 'rows' => array_map(fn ($s, $i) => [(string) ($i + 1), $s], $data['standards'], array_keys($data['standards']))];
-        $sections[] = ['title' => '测试设备及校准溯源', 'headers' => ['名称 / 型号', '序列号', '校准证书编号', '校准机构', '校准有效期'], 'rows' => array_map(fn ($e) => [trim($e['name'].' / '.$e['model']), $e['serial'], $e['cal_cert'], $e['cal_org'], $e['cal_due']], $data['equipment'])];
+        $sections[] = ['title' => '引用标准', 'layout' => 'standards', 'headers' => ['序号', '标准'], 'rows' => array_map(fn ($s, $i) => [(string) ($i + 1), $s], $data['standards'], array_keys($data['standards']))];
+        $sections[] = ['title' => '测试设备及校准溯源', 'layout' => 'equipment', 'headers' => ['名称 / 型号', '序列号', '校准证书编号', '校准机构', '校准有效期'], 'rows' => array_map(fn ($e) => [trim($e['name'].' / '.$e['model']), $e['serial'], $e['cal_cert'], $e['cal_org'], $e['cal_due']], $data['equipment'])];
         $uncertainty = (new Lm79Calculations)->uncertainty($v);
         if ($uncertainty !== []) {
             $rows = [];
@@ -46,15 +70,10 @@ final class Lm79Payload
             if (isset($uncertainty['U_efficacy_percent'])) {
                 $rows[] = ['光效扩展不确定度 U (%)', number_format($uncertainty['U_efficacy_percent'], 4, '.', '')];
             }
-            $sections[] = ['title' => '不确定度计算结果', 'headers' => ['分量 / 测量量', '相对标准或扩展不确定度 (%)'], 'rows' => $rows];
+            $sections[] = ['title' => '不确定度计算结果', 'layout' => 'uncertainty', 'headers' => ['分量 / 测量量', '相对标准或扩展不确定度 (%)'], 'rows' => $rows];
         }
-        $sections[] = ['title' => '签署人员', 'headers' => ['角色', '姓名'], 'rows' => [['测试人', $v['test_person']], ['审核人', $v['review_person']], ['批准人', $v['approve_person']]]];
-        $sections[] = ['title' => '声明', 'headers' => ['序号', '内容'], 'rows' => [
-            ['1', '本报告未加盖检测专用章无效。'], ['2', '本报告部分复制无效。'],
-            ['3', '本报告涂改或缺页无效。'], ['4', '如对测试结果有异议，请于收到报告后 5 个工作日内与实验室联系。'],
-            ['5', '委托测试结果仅对被测样品负责。'], ['6', '如本报告未加盖资质认定标志章，则仅用于科研、教学、内部质量控制等目的。'],
-            ['7', '光通量数据以本报告所选用的分布光度计结果为准，积分球数据仅作辅助参考。'],
-        ]];
+        // Signer identity and handwritten appearances belong to the signing workflow.
+        $sections[] = ['title' => '签署人员', 'layout' => 'signatures', 'headers' => ['角色', '姓名'], 'rows' => [['测试人', ''], ['审核人', ''], ['批准人', '']]];
         $appendices = [];
         foreach (['pdf_gonio' => '附录 A. 光强分布测试报告', 'pdf_sphere' => '附录 B. 积分球测试报告'] as $collection => $title) {
             if ($media = $report->getFirstMedia($collection)) {
@@ -63,6 +82,7 @@ final class Lm79Payload
         }
 
         return [
+            'documentInfo' => config('pdf_service.report_layout'),
             'reportNumber' => $report->report_number, 'labName' => $v['lab_name'], 'labAddress' => $v['lab_address'],
             'productName' => $v['product_name'], 'model' => $v['model'], 'applicant' => $v['applicant'],
             'receivedDate' => $v['test_date'], 'issuedDate' => $v['issue_date'], 'sections' => $sections,
