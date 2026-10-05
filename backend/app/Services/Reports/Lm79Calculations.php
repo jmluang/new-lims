@@ -35,10 +35,13 @@ final class Lm79Calculations
         return $result;
     }
 
-    public function calculate(array $values, ?string $ies): array
+    public function calculate(array $values, ?string $ies, ?string $gosPath = null): array
     {
         $photometry = new Photometry;
-        $data = $ies !== null ? $photometry->parseIes($ies) : (trim($values['candela_data'] ?? '') !== '' ? $photometry->parseText($values['candela_data']) : null);
+        // Native GOS coordinates match its report; an IES export may rotate the C axis.
+        $source = $gosPath !== null ? 'gos' : ($ies !== null ? 'ies' : 'manual');
+        $data = $gosPath !== null ? $photometry->parseGos($gosPath)
+            : ($ies !== null ? $photometry->parseIes($ies) : (trim($values['candela_data'] ?? '') !== '' ? $photometry->parseText($values['candela_data']) : null));
         $computed = $data ? $photometry->calculate($data, (float) ($values['power'] ?? 0)) : [];
         if (! $data && is_numeric($values['total_flux'] ?? '') && (float) ($values['power'] ?? 0) > 0) {
             $computed['efficacy'] = (float) $values['total_flux'] / (float) $values['power'];
@@ -52,6 +55,6 @@ final class Lm79Calculations
             $values['u_flux'] = number_format($uncertainty['U_percent'], 4, '.', '');
         }
 
-        return ['values' => $values, 'uncertainty' => $uncertainty, 'photometry_calculated' => $data !== null];
+        return ['values' => $values, 'uncertainty' => $uncertainty, 'photometry_calculated' => $data !== null, 'photometry_source' => $source];
     }
 }

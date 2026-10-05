@@ -153,11 +153,23 @@ orientation is not established; distribution fields remain manual or use IES.
 Import requires PHP mbstring, caps HAAS at
 100 records and 10,000 spectral points per record, and keeps the original files.
 Saving preserves corrections, including cleared values, after a record is selected.
+HAAS Duv is derived from the saved x/y/CCT with the instrument's CIE 1931 5 nm
+matching table and Planckian-locus calculation. SDCM uses the legacy F-series
+ellipse parameters shown in the reference PDFs, choosing the closest nominal
+CCT by default. The F target and centre coordinates are filled into the existing
+editable target input; they are not labelled as the separate ANSI377 table.
+Invalid colorimetry leaves derived inputs blank. No external DLL or local
+installation path is required at runtime.
 Signer names are not entered in the report form. Inspector, reviewer and issuer
 identities are assigned in the signing workflow; unsigned PDFs leave their names blank.
 
-The explicit calculation action handles Type-C, TILT=NONE IES photometry and
-uncertainty inputs. Saving never overwrites manual corrections. PDF preview uses
+The explicit calculation action uses the native GOS C-gamma grid when available,
+or Type-C, TILT=NONE IES photometry otherwise. GOS coordinates preserve the C0/180
+direction in its instrument PDF; standalone IES retains its own coordinates.
+Ring flux uses mean endpoint intensity weighted by solid angle. A repeated C360
+closure does not add a measurement plane. Stored precision is preserved, while
+PDF values follow the reference instrument's display precision. Saving never
+overwrites manual corrections. PDF preview uses
 the Java `/api/pdf/lm79-report` renderer, including spectral charts and merged
 unsigned, unencrypted appendices. Submitting freezes the draft and hands its PDF
 to the existing source inspection, finalization and three-person signing workflow.

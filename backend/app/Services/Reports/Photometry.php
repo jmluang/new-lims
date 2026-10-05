@@ -7,6 +7,40 @@ use InvalidArgumentException;
 /** Type-C measurements use indexed coordinates, never floating-point array keys. */
 final class Photometry
 {
+    public function parseGos(string $path): array
+    {
+        require_once __DIR__.'/Instrument/EverfineFormats.php';
+        try {
+            $record = Instrument\parseGos($path);
+            $bytes = file_get_contents($path);
+        } catch (\Throwable $error) {
+            throw new InvalidArgumentException('GOS 配光数据无法读取，请核对原始文件。', previous: $error);
+        }
+        $grids = array_values(array_filter($record['blocks'], fn ($block) => $block['angles_a'][0] == 0
+            && end($block['angles_a']) <= 180 && $block['angles_b'][0] == 0 && end($block['angles_b']) <= 360));
+        if (count($grids) !== 1) {
+            throw new InvalidArgumentException('GOS 文件没有唯一可识别的 C-γ 配光矩阵。');
+        }
+        $grid = $grids[0];
+        $count = $grid['dim_a'] * $grid['dim_b'];
+        $offset = $grid['offset'] + 8 + 4 * ($grid['dim_a'] + $grid['dim_b']);
+        if ($count > 500000 || $bytes === false || $offset + 4 * $count > strlen($bytes)) {
+            throw new InvalidArgumentException('GOS 配光矩阵不完整或超过 500000 个测量点。');
+        }
+        // GODATA 100 stores each gamma row across all C planes.
+        $flat = array_values(unpack('g'.$count, $bytes, $offset));
+        $matrix = [];
+        for ($c = 0; $c < $grid['dim_b']; $c++) {
+            $row = [];
+            for ($g = 0; $g < $grid['dim_a']; $g++) {
+                $row[] = $flat[$g * $grid['dim_b'] + $c];
+            }
+            $matrix[] = $row;
+        }
+
+        return $this->validated($grid['angles_b'], $grid['angles_a'], $matrix);
+    }
+
     public function parseIes(string $text): array
     {
         if (! preg_match('/^TILT\s*=\s*(\S+)\s*$/mi', $text, $match, PREG_OFFSET_CAPTURE)) {
@@ -121,11 +155,14 @@ final class Photometry
                 $center += deg2rad($p[0] - $planes[$i - 1][0]) * ($this->atGamma($data['gamma'], $p[1], 0) + $this->atGamma($data['gamma'], $planes[$i - 1][1], 0)) / (4 * M_PI);
             }
         }
+        $sourceEnd = end($data['planes']);
+        $step = $this->step($data['planes']);
+        $periodic = $step !== null && abs($sourceEnd + $step - 360) < 1e-6;
         $result = ['total_flux' => $total, 'efficacy' => $power > 0 ? $total / $power : null,
             'peak_intensity' => max(array_map('max', $data['intensity'])), 'center_intensity' => $center,
             'beam_angle' => $this->beam($data, $planes),
-            'c_range' => $data['planes'][0].'-'.end($data['planes']), 'g_range' => $data['gamma'][0].'-'.end($data['gamma']),
-            'c_plane_count' => count($data['planes']), 'g_point_count' => count($data['gamma']),
+            'c_range' => $data['planes'][0].'-'.($periodic ? 360 : $sourceEnd), 'g_range' => $data['gamma'][0].'-'.end($data['gamma']),
+            'c_plane_count' => count($data['planes']) - ($sourceEnd == 360 ? 1 : 0), 'g_point_count' => count($data['gamma']),
             'c_step' => $this->step($data['planes']), 'g_step' => $this->step($data['gamma'])];
         foreach ([30, 60, 90, 120, 180] as $limit) {
             $result['zonal_0_'.$limit] = $flux($limit);
@@ -191,10 +228,12 @@ final class Photometry
             if ($hi <= $lo) {
                 continue;
             }
-            $slope = ($row[$i] - $row[$i - 1]) / deg2rad($gamma[$i] - $gamma[$i - 1]);
-            $intercept = $row[$i - 1] - $slope * $lo;
-            $primitive = fn ($x) => -$intercept * cos($x) + $slope * (sin($x) - $x * cos($x));
-            $sum += $primitive($hi) - $primitive($lo);
+            // Trapezoidal intensity in solid angle reproduces the native ring-flux table.
+            $end = deg2rad($gamma[$i]);
+            $weight = 2 * sin(($lo + $hi) / 2) * sin(($hi - $lo) / 2);
+            $fullWeight = 2 * sin(($lo + $end) / 2) * sin(($end - $lo) / 2);
+            $endIntensity = $row[$i - 1] + ($row[$i] - $row[$i - 1]) * $weight / $fullWeight;
+            $sum += ($row[$i - 1] + $endIntensity) / 2 * $weight;
         }
 
         return $sum;

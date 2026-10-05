@@ -87,6 +87,13 @@ original instrument evidence. Existing unsigned/unencrypted requirements remain.
 
 ## Validation and sample reproduction
 
+Numeric presentation follows the instrument reference precision while the stored
+measurements retain their original precision: flux/efficacy use two decimals,
+power uses up to five significant digits, Duv uses two-decimal scientific
+notation, C0/180 beam angle uses one decimal, and peak/zonal flux use four
+significant digits. Calculations use the native GOS coordinate frame when present
+and endpoint-mean intensity weighted by solid angle for ring flux.
+
 The initial minimal regression failed with a 30 pt title versus the reviewed
 36 pt title. It now passes and also checks the 9 pt page label. The PHP payload test
 checks the current form projection, scalar coverage, section layouts, standards

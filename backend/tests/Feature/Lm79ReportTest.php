@@ -92,6 +92,9 @@ class Lm79ReportTest extends TestCase
         $response = $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()
             ->assertJsonPath('data.data.values.cri_ra', '94')->assertJsonPath('data.data.values.cct', '')
             ->assertJsonPath('data.data.values.total_flux', '300')->assertJsonPath('data.data.measurement_records.haas', 1);
+        foreach (['duv', 'sdcm', 'sdcm_target'] as $field) {
+            $response->assertJsonPath('data.data.values.'.$field, $result['values'][$field]);
+        }
         $id = $response->json('data.id');
         $this->assertDatabaseCount('lm79_spectrum_points', 3);
         $report = Lm79Report::findOrFail($id);
@@ -115,6 +118,21 @@ class Lm79ReportTest extends TestCase
         $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('data.data.measurement_records.haas', 2);
     }
 
+    public function test_manual_derived_color_corrections_are_preserved_after_import(): void
+    {
+        $bytes = MeasurementFixtures::haas();
+        $import = $this->post('/api/lm79-reports/parse-measurement', ['kind' => 'haas', 'file' => UploadedFile::fake()->createWithContent('reading.haas', $bytes)], ['Accept' => 'application/json'])
+            ->assertOk()->json('data');
+        $payload = $this->payload($this->sample());
+        $payload['values'] = array_replace($payload['values'], $import['values'],
+            ['duv' => '0.0015', 'sdcm' => '3.5', 'sdcm_target' => 'Manual reference']);
+        $payload['measurement_records'] = ['haas' => 1];
+        $payload['haas'] = UploadedFile::fake()->createWithContent('reading.haas', $bytes);
+        $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()
+            ->assertJsonPath('data.data.values.duv', '0.0015')->assertJsonPath('data.data.values.sdcm', '3.5')
+            ->assertJsonPath('data.data.values.sdcm_target', 'Manual reference');
+    }
+
     public function test_gos_electrical_import_reaches_inputs_and_preserves_corrections_on_save(): void
     {
         $bytes = MeasurementFixtures::gos();
@@ -130,6 +148,18 @@ class Lm79ReportTest extends TestCase
             ->assertJsonPath('data.data.values.voltage', '220')->assertJsonPath('data.data.values.current', '0.125')
             ->assertJsonPath('data.data.values.power', '28')->assertJsonPath('data.data.values.power_factor', '1')
             ->assertJsonPath('data.data.values.frequency', '50')->assertJsonPath('data.data.values.displacement_factor', '');
+    }
+
+    public function test_calculation_uses_the_attached_gos_grid_and_preserves_draft_values_until_save(): void
+    {
+        $payload = $this->payload($this->sample());
+        $payload['gos'] = UploadedFile::fake()->createWithContent('reading.GOS', MeasurementFixtures::gos());
+        $id = $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()->json('data.id');
+        $response = $this->postJson('/api/lm79-reports/'.$id.'/calculate')->assertOk()
+            ->assertJsonPath('data.photometry_calculated', true)->assertJsonPath('data.photometry_source', 'gos')
+            ->assertJsonPath('data.values.c_plane_count', '4')->assertJsonPath('data.values.c_range', '0-360');
+        $this->assertEqualsWithDelta(2 * M_PI * (1 - cos(deg2rad(15))), (float) $response->json('data.values.total_flux'), 0.0001);
+        $this->assertSame('300', Lm79Report::findOrFail($id)->data['values']['total_flux']);
     }
 
     public function test_invalid_measurement_files_use_friendly_errors_and_parse_requires_edit_permission(): void
@@ -272,7 +302,7 @@ class Lm79ReportTest extends TestCase
         $this->mock(PdfRendererClient::class, function ($mock) {
             $mock->shouldReceive('renderLm79Report')->once()->withArgs(function ($payload) {
                 $this->assertSame('A&B Laboratory', $payload['labName']);
-                $this->assertSame('300', collect($payload['sections'])->firstWhere('title', '光度参数')['rows'][0][1]);
+                $this->assertSame('300.00', collect($payload['sections'])->firstWhere('title', '光度参数')['rows'][0][1]);
                 $this->assertStringNotContainsString('L12345', json_encode($payload['sections'][0]['rows'][0]));
 
                 return true;
@@ -280,6 +310,7 @@ class Lm79ReportTest extends TestCase
         });
         $id = $this->postJson('/api/lm79-reports', $this->payload($this->sample()))->assertCreated()->json('data.id');
         $this->get('/api/lm79-reports/'.$id.'/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertSame('300', Lm79Report::findOrFail($id)->data['values']['total_flux']);
     }
 
     public function test_attachments_are_private_and_cannot_be_grafted_between_reports(): void

@@ -30,7 +30,7 @@ final class Lm79Payload
                     continue;
                 }
                 $label = preg_replace('/\s*\[[^]]*\]/u', '', $field['label']);
-                $row = [$label, (string) (($v[$field['name']] ?? '') !== '' ? $v[$field['name']] : '—')];
+                $row = [$label, $this->displayValue($field['name'], $v[$field['name']] ?? '')];
                 if ($group['fields'][0]['name'] === 'total_flux'
                     && ! in_array($field['name'], ['total_flux', 'efficacy', 'lor'])) {
                     $distributionRows[] = $row;
@@ -43,7 +43,7 @@ final class Lm79Payload
                 $rows[] = ['本次检测样品数量', '1'];
             }
             if ($group['title'] === '色度参数' && trim($v['cri_r1_r15'] ?? '') !== '') {
-                $rows[] = ['CRI R1–R15', $v['cri_r1_r15']];
+                $rows[] = ['CRI R1–R15', $this->displayValue('cri_r1_r15', $v['cri_r1_r15'])];
             }
             $layout = match ($group['fields'][0]['name']) {
                 'lab_name' => 'information', 'product_name' => 'sample', 'c_step' => 'setup',
@@ -89,6 +89,46 @@ final class Lm79Payload
             'photos' => $report->getMedia('photos')->map(fn ($m) => base64_encode(file_get_contents($m->getPath())))->all(),
             'spectrum' => $report->spectrumPoints->map(fn ($p) => [$p->wavelength, $p->relative_power])->all(), 'appendices' => $appendices,
         ];
+    }
+
+    private function displayValue(string $field, string $value): string
+    {
+        if (trim($value) === '') {
+            return '—';
+        }
+        if ($field === 'cri_r1_r15') {
+            $parts = array_map('trim', explode(',', $value));
+            if (count(array_filter($parts, fn ($part) => is_numeric($part) && is_finite((float) $part))) === count($parts)) {
+                return implode(', ', array_map(fn ($part) => number_format((float) $part, 0, '.', ''), $parts));
+            }
+        }
+        if (in_array($field, ['peak_wl', 'fwhm'], true) && preg_match('/^([\d.]+)\s*nm$/i', trim($value), $match) && is_numeric($match[1])) {
+            return number_format((float) $match[1], $field === 'peak_wl' ? 0 : 1, '.', '').' nm';
+        }
+        if (! is_numeric($value) || ! is_finite((float) $value)) {
+            return $value;
+        }
+        if ($field === 'power') {
+            return sprintf('%.5g', (float) $value);
+        }
+        if ($field === 'duv') {
+            return preg_replace('/e([+-])(\d)$/', 'e${1}0${2}', sprintf('%.2e', (float) $value));
+        }
+        $decimals = match ($field) {
+            'voltage', 'frequency', 'total_flux', 'efficacy' => 2,
+            'current', 'power_factor', 'cx', 'cy', 'cu', 'cv' => 4,
+            'cct', 'cri_r9', 'tm30_rf', 'tm30_rg' => 0,
+            'cri_ra', 'sdcm', 'beam_angle' => 1,
+            default => null,
+        };
+        if ($decimals !== null) {
+            return number_format((float) $value, $decimals, '.', '');
+        }
+        if ($field === 'peak_intensity' || str_starts_with($field, 'zonal_')) {
+            return sprintf('%.4g', (float) $value);
+        }
+
+        return $value;
     }
 
     public function spectrum(string $text): array

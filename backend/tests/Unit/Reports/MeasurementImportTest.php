@@ -38,9 +38,12 @@ class MeasurementImportTest extends TestCase
         $this->assertSame('1', $result['values']['spectrum_interval']);
         $this->assertSame(3, $result['spectrum_point_count']);
         $this->assertCount(3, explode("\n", $result['values']['spectrum_data']));
-        foreach (['model', 'product_name', 'lab_name', 'test_date', 'total_flux', 'power', 'duv', 'tm30_rf', 'sdcm'] as $field) {
+        foreach (['model', 'product_name', 'lab_name', 'test_date', 'total_flux', 'power', 'tm30_rf'] as $field) {
             $this->assertArrayNotHasKey($field, $result['values']);
         }
+        $this->assertNotSame('', $result['values']['duv'] ?? '');
+        $this->assertNotSame('', $result['values']['sdcm'] ?? '');
+        $this->assertStringStartsWith('F5000,', $result['values']['sdcm_target'] ?? '');
     }
 
     public function test_multiple_haas_records_require_an_explicit_choice(): void

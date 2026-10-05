@@ -96,9 +96,9 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
       setNotice('草稿已保存')
       if (!initial) await navigate({ to: '/reports/lm79/$reportId', params: { reportId: String(row.id) }, replace: true })
     } else if (kind === 'calculate') {
-      const response = await api.post<{ data: { values: Record<string, string>; photometry_calculated: boolean } }>(`${BASE}/${row.id}/calculate`)
+      const response = await api.post<{ data: { values: Record<string, string>; photometry_calculated: boolean; photometry_source: 'gos' | 'ies' | 'manual' } }>(`${BASE}/${row.id}/calculate`)
       updateData(current => ({ ...current, values: response.data.data.values }))
-      setNotice(response.data.data.photometry_calculated ? '配光计算完成，请核对并保存。' : '光效已计算，请核对并保存。')
+      setNotice(response.data.data.photometry_calculated ? `已按${response.data.data.photometry_source === 'gos' ? ' GOS 原始角度' : response.data.data.photometry_source === 'ies' ? ' IES ' : '手填配光数据'}计算，请核对并保存。` : '光效已计算，请核对并保存。')
     } else if (kind === 'preview') {
       const pdf = await previewReportPdf(row.id)
       setPreview(URL.createObjectURL(pdf))

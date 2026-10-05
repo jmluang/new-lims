@@ -64,7 +64,7 @@ final class Lm79Fields
             ['name' => 'tm30_rf', 'label' => 'TM-30 Rf', 'default' => '', 'numeric' => true, 'type' => 'text'],
             ['name' => 'tm30_rg', 'label' => 'TM-30 Rg', 'default' => '', 'numeric' => true, 'type' => 'text'],
             ['name' => 'sdcm', 'label' => '色容差 SDCM', 'default' => '', 'numeric' => true, 'type' => 'text'],
-            ['name' => 'sdcm_target', 'label' => 'SDCM 目标色点', 'default' => 'ANSI F3000 (3000K)', 'numeric' => false, 'type' => 'text'],
+            ['name' => 'sdcm_target', 'label' => 'SDCM 目标色点', 'default' => '', 'numeric' => false, 'type' => 'text'],
             ['name' => 'peak_wl', 'label' => '峰值波长', 'default' => '', 'numeric' => false, 'type' => 'text'],
             ['name' => 'fwhm', 'label' => 'FWHM', 'default' => '', 'numeric' => false, 'type' => 'text'],
         ]],

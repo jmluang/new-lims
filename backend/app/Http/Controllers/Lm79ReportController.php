@@ -338,11 +338,12 @@ class Lm79ReportController extends Controller
     {
         $this->authorizePermission($request, self::RESOURCE.'.update', self::RESOURCE, $report);
         $this->editable($report);
+        $gos = $report->getFirstMedia('gos');
         try {
             $ies = $report->getFirstMedia('ies');
-            $calculated = (new Lm79Calculations)->calculate($this->serialize($report)['data']['values'], $ies ? file_get_contents($ies->getPath()) : null);
+            $calculated = (new Lm79Calculations)->calculate($this->serialize($report)['data']['values'], $ies ? file_get_contents($ies->getPath()) : null, $gos?->getPath());
         } catch (\InvalidArgumentException $e) {
-            throw ValidationException::withMessages(['ies' => [$e->getMessage()]]);
+            throw ValidationException::withMessages([$gos ? 'gos' : 'ies' => [$e->getMessage()]]);
         }
 
         return response()->json(['data' => $calculated]);

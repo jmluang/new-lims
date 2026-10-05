@@ -30,6 +30,23 @@ class PhotometryTest extends TestCase
         $this->assertEqualsWithDelta($values['total_flux'], $values['zonal_0_90'], 0.00001);
     }
 
+    public function test_ring_flux_uses_mean_endpoint_intensity_and_solid_angle_weight(): void
+    {
+        $data = (new Photometry)->parseIes("TILT=NONE\n1 1000 1 3 1 1 2 0 0 0 1 1 10 0 45 90 0 100 50 0");
+        $values = (new Photometry)->calculate($data, 10);
+        $expected = 2 * M_PI * (75 * (1 - cos(M_PI / 4)) + 25 * cos(M_PI / 4));
+        $this->assertEqualsWithDelta($expected, $values['total_flux'], 0.000001);
+        $this->assertEqualsWithDelta($expected / 10, $values['efficacy'], 0.000001);
+    }
+
+    public function test_closing_c_plane_does_not_count_as_a_second_measurement_plane(): void
+    {
+        $data = (new Photometry)->parseIes("TILT=NONE\n1 1000 1 2 5 1 2 0 0 0 1 1 10 0 90 0 90 180 270 360 100 0 100 0 100 0 100 0 100 0");
+        $values = (new Photometry)->calculate($data, 10);
+        $this->assertSame(4, $values['c_plane_count']);
+        $this->assertSame('0-360', $values['c_range']);
+    }
+
     public function test_truncated_ies_is_rejected_instead_of_returning_partial_measurements(): void
     {
         $this->expectException(\InvalidArgumentException::class);

@@ -28,7 +28,7 @@ final class MeasurementFixtures
         return $bytes.self::text('OP_O');
     }
 
-    public static function gos(array $electrical = [220, 0.125, 27.5, 1], array $details = [], float $frequency = 50, int $hasDisplacement = 0, float $displacement = 0): string
+    public static function gos(array $electrical = [220, 0.125, 27.5, 1], array $details = [], float $frequency = 50, int $hasDisplacement = 0, float $displacement = 0, ?array $photometry = null): string
     {
         $bytes = self::text('GODATA 100').self::text('V2.0').pack('V3', 1, 0, 2).self::text('GO_TEST')
             .pack('g2', 9, 9).pack('V2', 10000, 1);
@@ -41,8 +41,14 @@ final class MeasurementFixtures
         }
         $bytes .= pack('g4', ...$electrical).pack('V', 1)
             .self::text('Example Lab').self::text('2026-10-04').self::text('EVERFINE SYSTEM');
-        $bytes .= pack('V2', 16, 4).pack('g*', ...range(0, 15)).pack('g4', 0, 90, 180, 270)
-            .pack('g*', ...array_fill(0, 64, 1));
+        $photometry ??= ['gamma' => range(0, 15), 'planes' => [0, 90, 180, 270], 'intensity' => array_fill(0, 4, array_fill(0, 16, 1))];
+        $bytes .= pack('V2', count($photometry['gamma']), count($photometry['planes']))
+            .pack('g*', ...$photometry['gamma']).pack('g*', ...$photometry['planes']);
+        foreach ($photometry['gamma'] as $g => $_) {
+            foreach ($photometry['planes'] as $c => $_) {
+                $bytes .= pack('g', $photometry['intensity'][$c][$g]);
+            }
+        }
 
         return $bytes.self::text('OP V102').pack('g3', 50, 2, 12).str_repeat("\0", 12)
             .pack('g3', 90, 10, .7).str_repeat("\0", 12).pack('g*', 100, 200, 300, ...array_fill(0, 16, 0))

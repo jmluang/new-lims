@@ -20,6 +20,48 @@ class Lm79PayloadTest extends TestCase
         $this->assertSame([['测试人', ''], ['审核人', ''], ['批准人', '']], $signatures['rows']);
     }
 
+    public function test_report_values_use_reference_precision_without_mutating_measurements(): void
+    {
+        $report = $this->report();
+        $data = $report->data;
+        $data['values'] = array_replace($data['values'], ['voltage' => '220.10699463', 'current' => '0.140646',
+            'power' => '30.15740013', 'power_factor' => '0.974163', 'frequency' => '50',
+            'total_flux' => '2463.12884', 'efficacy' => '81.675769', 'peak_intensity' => '5958.3', 'beam_angle' => '36.19569075']);
+        $report->data = $data;
+        $rows = collect((new Lm79Payload)->build($report)['sections'])->flatMap(fn ($s) => $s['rows'])->mapWithKeys(fn ($row) => [$row[0] => $row[1]]);
+        foreach (['输入电压 (V)' => '220.11', '输入电流 (A)' => '0.1406', '输入功率 (W)' => '30.157',
+            '功率因数 (PF)' => '0.9742', '频率 (Hz)' => '50.00', '总光通量 (lm)' => '2463.13',
+            '光效 (lm/W)' => '81.68', '峰值光强 (cd)' => '5958', '光束角 C0/180 (50%) (°)' => '36.2'] as $label => $value) {
+            $this->assertSame($value, $rows[$label], $label);
+        }
+        $this->assertSame('30.15740013', $report->data['values']['power']);
+    }
+
+    public function test_power_presentation_uses_five_significant_digits_for_both_reference_ranges(): void
+    {
+        foreach (['30.15740013' => '30.157', '100.7559967' => '100.76', '6.18601942' => '6.186'] as $raw => $expected) {
+            $report = $this->report();
+            $data = $report->data;
+            $data['values']['power'] = $raw;
+            $report->data = $data;
+            $rows = collect((new Lm79Payload)->build($report)['sections'])->flatMap(fn ($s) => $s['rows']);
+            $this->assertSame($expected, $rows->first(fn ($row) => $row[0] === '输入功率 (W)')[1]);
+            $this->assertSame($raw, $report->data['values']['power']);
+        }
+    }
+
+    public function test_duv_presentation_matches_the_instrument_scientific_notation(): void
+    {
+        foreach (['-0.00124459' => '-1.24e-03', '0.00762676' => '7.63e-03'] as $raw => $expected) {
+            $report = $this->report();
+            $data = $report->data;
+            $data['values']['duv'] = $raw;
+            $report->data = $data;
+            $rows = collect((new Lm79Payload)->build($report)['sections'])->flatMap(fn ($s) => $s['rows']);
+            $this->assertSame($expected, $rows->first(fn ($row) => $row[0] === 'Duv')[1]);
+        }
+    }
+
     public function test_layout_metadata_preserves_scalar_fields_and_separates_spectrum_input(): void
     {
         $this->assertSame('testing', app()->environment());

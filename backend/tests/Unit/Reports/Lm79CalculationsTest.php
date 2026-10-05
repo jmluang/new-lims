@@ -3,10 +3,33 @@
 namespace Tests\Unit\Reports;
 
 use App\Services\Reports\Lm79Calculations;
+use App\Services\Reports\Photometry;
 use PHPUnit\Framework\TestCase;
+use Tests\Support\MeasurementFixtures;
 
 class Lm79CalculationsTest extends TestCase
 {
+    public function test_native_gos_coordinate_frame_is_used_when_an_ies_export_is_also_attached(): void
+    {
+        $gamma = range(0, 90);
+        $wide = array_map(fn ($g) => max(0, 100 * (1 - $g / 60)), $gamma);
+        $narrow = array_map(fn ($g) => max(0, 100 * (1 - $g / 20)), $gamma);
+        $grid = ['gamma' => $gamma, 'planes' => [0, 90, 180, 270], 'intensity' => [$wide, $narrow, $wide, $narrow]];
+        $path = tempnam(sys_get_temp_dir(), 'measurement-');
+        file_put_contents($path, MeasurementFixtures::gos(photometry: $grid));
+        $ies = "TILT=NONE\n1 1000 1 91 5 1 2 0 0 0 1 1 10\n".implode(' ', $gamma)."\n0 90 180 270 360\n"
+            .implode(' ', array_merge($narrow, $wide, $narrow, $wide, $narrow));
+        try {
+            $this->assertEqualsWithDelta(20, (new Photometry)->calculate((new Photometry)->parseIes($ies), 10)['beam_angle'], 0.0001);
+            $result = (new Lm79Calculations)->calculate(['power' => '10'], $ies, $path);
+            $this->assertSame('60', $result['values']['beam_angle']);
+            $this->assertSame('4', $result['values']['c_plane_count']);
+            $this->assertSame('gos', $result['photometry_source']);
+        } finally {
+            unlink($path);
+        }
+    }
+
     public function test_expanded_inputs_and_rectangular_half_width_are_converted_before_combination(): void
     {
         $v = array_fill_keys(['u_power_meter', 'u_spec_mismatch', 'u_repeatability', 'u_gonio_dist', 'u_angular'], '0');

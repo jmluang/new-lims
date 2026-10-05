@@ -85,6 +85,11 @@ final class MeasurementImport
         $values['cri_r1_r15'] = implode(', ', array_map($this->number(...), $c['r']));
         $values['peak_wl'] = $this->number($c['peak_wl_nm']).' nm';
         $values['fwhm'] = $this->number($c['fwhm_nm']).' nm';
+        $derived = (new HaasColorimetry)->calculate((float) $c['x'], (float) $c['y'], (float) $c['cct_k']);
+        foreach (['duv', 'sdcm'] as $field) {
+            $values[$field] = $derived[$field] === null ? '' : $this->number($derived[$field]);
+        }
+        $values['sdcm_target'] = $derived['sdcm_target'];
         $start = (float) $this->number($record['wl_start_nm']);
         $step = (float) $this->number($record['wl_step_nm']);
         $values['spectrum_range'] = $this->number($start).'-'.$this->number($record['wl_end_nm']).' nm';
