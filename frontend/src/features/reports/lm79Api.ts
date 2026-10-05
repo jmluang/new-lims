@@ -3,8 +3,8 @@ import type { InspectionMedia } from '../equipment/inspectionShared'
 import { blobErrorMessage } from '../system/utils'
 
 export type EquipmentRow = { snapshot_id?: string; equipment_id?: number | null; equipment_no?: string; manufacturer?: string; next_calibration_date?: string; name: string; model: string; serial: string; cal_cert: string; cal_org: string; cal_due: string }
-export type ReportData = { values: Record<string, string>; standards: string[]; equipment: EquipmentRow[]; measurement_records?: Partial<Record<MeasurementKind, number>> }
-export type MeasurementKind = 'gos' | 'haas'
+export type ReportData = { values: Record<string, string>; standards: string[]; equipment: EquipmentRow[]; measurement_records?: Partial<Record<Exclude<MeasurementKind, 'ies'>, number>> }
+export type MeasurementKind = 'gos' | 'haas' | 'ies'
 export type MeasurementImportResult = { kind: MeasurementKind; records: { index: number; model: string; sample: string; date: string }[]; selected_record: number | null; values: Record<string, string>; spectrum_point_count: number; notice: string }
 export type ReportMedia = Omit<InspectionMedia, 'collection'> & { collection: string }
 export type Report = { id: number; sample_id: number | null; sample_snapshot: { sample_no: string; sample_name: string; model: string; order_no: string }; report_number: string; data: ReportData; locked: boolean; document_uuid: string | null; media: ReportMedia[]; updated_at: string }
@@ -27,7 +27,7 @@ export type ReportField = { name: string; label: string; default: string; numeri
 export type ReportOptions = { groups: { title: string; fields: ReportField[] }[]; defaults: Record<string, string> }
 export type SampleOption = { id: number; snapshot: Report['sample_snapshot']; data: ReportData }
 export const attachmentTypes = [
-  { name: 'ies', label: 'IES 文件', accept: '.ies,.txt', group: 'total_flux', description: '可选 · 上传后点击“计算配光与光效”' },
+  { name: 'ies', label: 'IES 文件', accept: '.ies,.txt', group: 'total_flux', description: '选择后自动解析 · 同时有 GOS 时采用 GOS 配光参数' },
   { name: 'gos', label: 'GOS 文件', accept: '.gos', group: 'voltage', description: '选择后自动回填' },
   { name: 'haas', label: 'HAAS 文件', accept: '.haas', group: 'cct', description: '选择后自动回填色度与光谱' },
   { name: 'photos', label: '样品照片', accept: '.jpg,.jpeg,.png', group: null, description: 'JPG / PNG · 最多 10 张 · 每张 5 MB' },
@@ -57,12 +57,23 @@ export async function saveReport(id: number | undefined, body: FormData): Promis
   return response.data.data
 }
 
-export async function parseMeasurementFile(kind: MeasurementKind, file?: File, reportId?: number, record?: number): Promise<MeasurementImportResult> {
+export function applyMeasurementImport(current: ReportData, result: MeasurementImportResult, hasGos: boolean): ReportData {
+  if (result.kind === 'ies' && hasGos) return current
+  const records = { ...current.measurement_records }
+  if (result.kind !== 'ies') {
+    if (result.selected_record === null) delete records[result.kind]
+    else records[result.kind] = result.selected_record
+  }
+  return { ...current, values: { ...current.values, ...result.values }, measurement_records: records }
+}
+
+export async function parseMeasurementFile(kind: MeasurementKind, file?: File, reportId?: number, record?: number, power?: string): Promise<MeasurementImportResult> {
   const body = new FormData()
   body.append('kind', kind)
   if (file) body.append('file', file)
   if (reportId) body.append('report_id', String(reportId))
   if (record) body.append('record', String(record))
+  if (power !== undefined) body.append('power', Number.isFinite(Number(power)) && Number(power) >= 0 ? String(Number(power)) : '0')
   return (await api.post<{ data: MeasurementImportResult }>('/api/lm79-reports/parse-measurement', body)).data.data
 }
 

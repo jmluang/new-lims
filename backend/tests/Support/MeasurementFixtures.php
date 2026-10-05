@@ -4,6 +4,11 @@ namespace Tests\Support;
 
 final class MeasurementFixtures
 {
+    public static function ies(): string
+    {
+        return "IESNA:LM-63-2002\nTILT=NONE\n1 -1 1 3 1 1 2 0 0 0\n1 1 10\n0 45 90\n0\n100 100 100";
+    }
+
     private static function text(string $value): string
     {
         $bytes = mb_convert_encoding($value, 'GB18030', 'UTF-8');

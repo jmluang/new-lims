@@ -7,8 +7,18 @@ use Throwable;
 
 final class MeasurementImport
 {
-    public function parse(string $path, string $expected, ?int $record = null): array
+    public function parse(string $path, string $expected, ?int $record = null, float $power = 0): array
     {
+        if ($expected === 'ies') {
+            if (! is_file($path) || filesize($path) > 10 * 1024 * 1024) {
+                throw new InvalidArgumentException('IES 文件无法读取或超过 10 MB，请重新选择。');
+            }
+            $photometry = new Photometry;
+
+            return ['kind' => 'ies', 'records' => [], 'selected_record' => 1,
+                'values' => $this->photometryValues($photometry->calculate($photometry->parseIes(file_get_contents($path)), $power)),
+                'spectrum_point_count' => 0, 'notice' => '已解析并回填配光参数。'];
+        }
         require_once __DIR__.'/Instrument/EverfineFormats.php';
         try {
             if (! is_file($path) || filesize($path) > 20 * 1024 * 1024) {
@@ -36,13 +46,28 @@ final class MeasurementImport
             throw new InvalidArgumentException('所选检测记录不存在，请重新选择。');
         }
         $values = $record !== null ? $this->values($kind, $records[$record - 1]) : [];
+        if ($kind === 'gos') {
+            $photometry = new Photometry;
+            // Native GOS photometry must replace earlier IES values regardless of upload order.
+            $computed = $photometry->calculate($photometry->parseGos($path), (float) ($values['power'] ?? $power));
+            unset($computed['total_flux'], $computed['efficacy']);
+            $values = array_replace($this->photometryValues($computed), $values);
+            if ((float) ($values['power'] ?? $power) > 0) {
+                $values['efficacy'] = $this->number((float) $values['total_flux'] / (float) ($values['power'] ?? $power));
+            }
+        }
 
         return ['kind' => $kind, 'records' => $options, 'selected_record' => $record, 'values' => $values,
             'spectrum_point_count' => $kind === 'haas' && $record !== null ? count($records[$record - 1]['spectrum']) : 0,
             'notice' => $record === null ? '请选择检测记录。' : ($kind === 'gos'
-                ? (isset($values['voltage']) ? '已回填电气参数与光通量。' : '已回填可用参数；基础电气数据均为 0。')
+                ? (isset($values['voltage']) ? '已回填电气与原始配光参数。' : '已回填可用参数；基础电气数据均为 0。')
                     .($file['has_displacement_factor'] ? '' : '位移因数无有效数据。')
                 : '已回填色度与光谱。')];
+    }
+
+    private function photometryValues(array $computed): array
+    {
+        return array_map(fn ($value) => $value === null ? '' : (is_numeric($value) ? $this->number($value) : (string) $value), $computed);
     }
 
     private function number(mixed $value): string

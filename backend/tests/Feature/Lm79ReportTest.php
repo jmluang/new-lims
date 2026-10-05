@@ -80,6 +80,44 @@ class Lm79ReportTest extends TestCase
         }
     }
 
+    public function test_ies_upload_is_parsed_before_saving_and_manual_corrections_are_preserved(): void
+    {
+        $import = $this->post('/api/lm79-reports/parse-measurement', [
+            'kind' => 'ies', 'power' => '20',
+            'file' => UploadedFile::fake()->createWithContent('reading.IES', MeasurementFixtures::ies()),
+        ], ['Accept' => 'application/json'])->assertOk()->assertJsonPath('data.kind', 'ies')
+            ->assertJsonPath('data.values.c_range', '0-0')->assertJsonPath('data.values.g_range', '0-90')
+            ->assertJsonPath('data.values.peak_intensity', '100')->json('data');
+        $this->assertEqualsWithDelta(200 * M_PI, (float) $import['values']['total_flux'], .0001);
+        $this->assertEqualsWithDelta(10 * M_PI, (float) $import['values']['efficacy'], .0001);
+        $payload = $this->payload($this->sample());
+        $payload['values'] = array_replace($payload['values'], $import['values'], ['beam_angle' => '42']);
+        $payload['ies'] = UploadedFile::fake()->createWithContent('reading.IES', MeasurementFixtures::ies());
+        $id = $this->post('/api/lm79-reports', $payload, ['Accept' => 'application/json'])->assertCreated()
+            ->assertJsonPath('data.data.values.beam_angle', '42')->json('data.id');
+        $this->postJson('/api/lm79-reports/parse-measurement', ['kind' => 'ies', 'report_id' => $id])
+            ->assertOk()->assertJsonPath('data.values.peak_intensity', '100');
+    }
+
+    public function test_invalid_ies_fails_at_upload_with_a_readable_error(): void
+    {
+        $this->post('/api/lm79-reports/parse-measurement', [
+            'kind' => 'ies', 'file' => UploadedFile::fake()->createWithContent('broken.ies', 'broken'),
+        ], ['Accept' => 'application/json'])->assertUnprocessable()
+            ->assertJsonPath('errors.file.0', 'IES 文件缺少 TILT 声明。');
+    }
+
+    public function test_gos_upload_also_returns_its_native_photometry_without_replacing_header_flux(): void
+    {
+        $gamma = range(0, 90);
+        $grid = ['gamma' => $gamma, 'planes' => [0, 90, 180, 270],
+            'intensity' => array_fill(0, 4, array_map(fn ($g) => max(0, 100 * (1 - $g / 60)), $gamma))];
+        $this->post('/api/lm79-reports/parse-measurement', [
+            'kind' => 'gos', 'file' => UploadedFile::fake()->createWithContent('reading.GOS', MeasurementFixtures::gos(photometry: $grid)),
+        ], ['Accept' => 'application/json'])->assertOk()->assertJsonPath('data.values.beam_angle', '60')
+            ->assertJsonPath('data.values.peak_intensity', '100')->assertJsonPath('data.values.total_flux', '600');
+    }
+
     public function test_measurement_import_then_save_preserves_corrections_and_stores_spectral_rows(): void
     {
         $bytes = MeasurementFixtures::haas();

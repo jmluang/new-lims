@@ -83,8 +83,9 @@ class Lm79ReportController extends Controller
     public function parseMeasurement(Request $request, MeasurementImport $parser)
     {
         $payload = $request->validate([
-            'kind' => ['required', 'in:gos,haas'], 'file' => ['nullable', 'file', 'extensions:gos,haas', 'max:20480'],
+            'kind' => ['required', 'in:gos,haas,ies'], 'file' => ['nullable', 'file', 'extensions:gos,haas,ies,txt', 'max:20480'],
             'record' => ['nullable', 'integer', 'min:1', 'max:100'], 'report_id' => ['nullable', 'integer'],
+            'power' => ['nullable', 'numeric', 'min:0', 'max:1000000000000'],
         ]);
         $report = isset($payload['report_id']) ? Lm79Report::findOrFail($payload['report_id']) : null;
         $this->authorizePermission($request, self::RESOURCE.($report ? '.update' : '.create'), self::RESOURCE, $report);
@@ -96,7 +97,8 @@ class Lm79ReportController extends Controller
             throw ValidationException::withMessages(['file' => ['请先选择原始测量文件。']]);
         }
         try {
-            $result = $parser->parse($path, $payload['kind'], $payload['record'] ?? null);
+            $result = $parser->parse($path, $payload['kind'], $payload['record'] ?? null,
+                (float) ($payload['power'] ?? $report?->data['values']['power'] ?? 0));
         } catch (\InvalidArgumentException $e) {
             Log::warning('Measurement import failed.', ['kind' => $payload['kind'], 'reason' => $e->getPrevious()?->getMessage() ?? $e->getMessage()]);
             throw ValidationException::withMessages(['file' => [$e->getMessage()]]);

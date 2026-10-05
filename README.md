@@ -148,8 +148,8 @@ An all-zero electrical header preserves manual input. Frequency is read 12 bytes
 before the R_V1 boundary after all angle matrices. Displacement factor uses its
 own availability flag; unavailable values become blank inputs and are never
 replaced by PF. Array bounds and availability flags are checked. THD and other
-electrical fields are not inferred from anonymous OP settings. Angle-matrix
-orientation is not established; distribution fields remain manual or use IES.
+electrical fields are not inferred from anonymous OP settings. Uploading GOS also
+imports its native C-gamma photometry, retaining the header's measured flux.
 Import requires PHP mbstring, caps HAAS at
 100 records and 10,000 spectral points per record, and keeps the original files.
 Saving preserves corrections, including cleared values, after a record is selected.
@@ -163,6 +163,10 @@ installation path is required at runtime.
 Signer names are not entered in the report form. Inspector, reviewer and issuer
 identities are assigned in the signing workflow; unsigned PDFs leave their names blank.
 
+IES uploads immediately parse Type-C, TILT=NONE photometry and fill distribution
+parameters, calculated flux and efficacy using the current power input. When GOS
+is also attached, its native photometry takes precedence regardless of upload
+order; IES is still validated and retained. IES does not need a record selection.
 The explicit calculation action uses the native GOS C-gamma grid when available,
 or Type-C, TILT=NONE IES photometry otherwise. GOS coordinates preserve the C0/180
 direction in its instrument PDF; standalone IES retains its own coordinates.

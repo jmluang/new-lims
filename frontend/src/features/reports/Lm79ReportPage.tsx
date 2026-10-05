@@ -8,7 +8,7 @@ import { useEffectivePermissions } from '../auth/useCurrentUser'
 import { confirmAndFinalizeSigningSource } from '../pdf/handwrittenApi'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { errorMessage, inputClass, textareaClass } from '../system/utils'
-import { attachmentTypes, generateReportNumber, parseMeasurementFile, previewReportPdf, reportFormData, saveReport, type EquipmentRow, type MeasurementImportResult, type MeasurementKind, type Report, type ReportData, type ReportNumberAllocation, type ReportOptions, type SampleOption } from './lm79Api'
+import { applyMeasurementImport, attachmentTypes, generateReportNumber, parseMeasurementFile, previewReportPdf, reportFormData, saveReport, type EquipmentRow, type MeasurementImportResult, type MeasurementKind, type Report, type ReportData, type ReportNumberAllocation, type ReportOptions, type SampleOption } from './lm79Api'
 
 import { ReportSectionTabs } from './ReportSectionTabs'
 import { ReportEquipmentFields } from './ReportEquipmentFields'
@@ -121,23 +121,20 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
       setEquipmentNotice(`已添加 ${device.equipment_no} · ${device.name}，保存草稿后生效。`)
     },
   })
+  const hasGos = !!files.gos?.length || !!saved?.media.some(media => media.collection === 'gos' && retained.includes(media.id))
   const measurementImport = useMutation({
-    mutationFn: ({ kind, file, record }: { kind: MeasurementKind; file?: File; record?: number }) => parseMeasurementFile(kind, file, saved?.id, record),
+    mutationFn: ({ kind, file, record }: { kind: MeasurementKind; file?: File; record?: number }) => parseMeasurementFile(kind, file, saved?.id, record, data.values.power ?? ''),
     onMutate: ({ kind }) => setImportErrors(current => ({ ...current, [kind]: undefined })),
     onSuccess: result => {
       setImports(current => ({ ...current, [result.kind]: result }))
-      updateData(current => {
-        const records = { ...current.measurement_records }
-        if (result.selected_record === null) delete records[result.kind]
-        else records[result.kind] = result.selected_record
-        return { ...current, values: { ...current.values, ...result.values }, measurement_records: records }
-      })
+      updateData(current => applyMeasurementImport(current, result, hasGos))
     },
     onError: (error, { kind }) => setImportErrors(current => ({ ...current, [kind]: errorMessage(error, '文件解析失败，请核对原始文件') })),
   })
   const busy = action.isPending || equipmentLookup.isPending || generatingNumber || measurementImport.isPending
   function uploadField(type: typeof attachmentTypes[number], showLabel = true) {
-    const kind = type.name === 'gos' || type.name === 'haas' ? type.name : undefined
+    const kind = type.name === 'gos' || type.name === 'haas' || type.name === 'ies' ? type.name : undefined
+    const imported = kind ? imports[kind] : undefined
     return <ReportFileField key={type.name} type={type} showLabel={showLabel} fileKey={fileKey} editable={!locked && !busy && canEdit} reportId={saved?.id}
       media={saved?.media.filter(media => media.collection === type.name && retained.includes(media.id)) ?? []} selected={files[type.name] ?? []}
       onSelect={uploads => {
@@ -145,16 +142,16 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
         if (uploads.length && type.name !== 'photos') updateRetained(current => current.filter(id => !saved?.media.some(media => media.id === id && media.collection === type.name)))
         if (kind) {
           setImports(current => ({ ...current, [kind]: undefined })); setImportErrors(current => ({ ...current, [kind]: undefined }))
-          updateData(current => { const records = { ...current.measurement_records }; delete records[kind]; return { ...current, measurement_records: records } })
+          if (kind !== 'ies') updateData(current => { const records = { ...current.measurement_records }; delete records[kind]; return { ...current, measurement_records: records } })
           if (uploads[0]) measurementImport.mutate({ kind, file: uploads[0] })
         }
       }}
       parsing={kind && measurementImport.isPending && measurementImport.variables?.kind === kind}
-      imported={kind ? imports[kind] : undefined} record={kind ? data.measurement_records?.[kind] : undefined} parseError={kind ? importErrors[kind] : undefined}
+      imported={kind === 'ies' && imported && hasGos ? { ...imported, notice: 'IES 已解析，配光参数采用 GOS 原始数据。' } : imported} record={kind && kind !== 'ies' ? data.measurement_records?.[kind] : undefined} parseError={kind ? importErrors[kind] : undefined}
       onParse={kind ? record => measurementImport.mutate({ kind, file: files[kind]?.[0], record }) : undefined}
       onRemove={id => {
         updateRetained(current => current.filter(retainedId => retainedId !== id))
-        if (kind) { setImports(current => ({ ...current, [kind]: undefined })); setImportErrors(current => ({ ...current, [kind]: undefined })); updateData(current => { const records = { ...current.measurement_records }; delete records[kind]; return { ...current, measurement_records: records } }) }
+        if (kind) { setImports(current => ({ ...current, [kind]: undefined })); setImportErrors(current => ({ ...current, [kind]: undefined })); if (kind !== 'ies') updateData(current => { const records = { ...current.measurement_records }; delete records[kind]; return { ...current, measurement_records: records } }) }
       }} />
   }
   function changeEquipment(index: number, field: keyof EquipmentRow, text: string) {

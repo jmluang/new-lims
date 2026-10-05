@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateReportNumber, loadReportNumber, reportFormData, saveReport } from '../lm79Api'
+import { applyMeasurementImport, generateReportNumber, loadReportNumber, parseMeasurementFile, reportFormData, saveReport, type MeasurementImportResult } from '../lm79Api'
 
 const postNumber = vi.hoisted(() => vi.fn())
 vi.mock('../../../lib/api', () => ({ api: { post: postNumber } }))
@@ -7,6 +7,29 @@ beforeEach(() => { postNumber.mockReset() })
 const navigation = (key: string) => ({ preload: false, location: { href: '/reports/lm79/new', state: { __TSR_key: key } } })
 
 describe('LM-79 editor submission contract', () => {
+  it('uploads IES for immediate parsing using current input power without creating a binary record choice', async () => {
+    const result: MeasurementImportResult = { kind: 'ies', records: [], selected_record: 1, values: { total_flux: '628.3185', efficacy: '31.4159' }, spectrum_point_count: 0, notice: '已解析并回填配光参数。' }
+    postNumber.mockResolvedValue({ data: { data: result } })
+    const file = new File(['TILT=NONE'], 'reading.IES')
+    expect(await parseMeasurementFile('ies', file, undefined, undefined, '20')).toEqual(result)
+    const body = postNumber.mock.calls[0][1] as FormData
+    expect(body.get('kind')).toBe('ies')
+    expect(body.get('file')).toBe(file)
+    expect(body.get('power')).toBe('20')
+    const current = { values: { power: '20' }, standards: [], equipment: [], measurement_records: { haas: 2 } }
+    const applied = applyMeasurementImport(current, result, false)
+    expect(applied.values).toEqual({ power: '20', ...result.values })
+    expect(applied.measurement_records).toEqual({ haas: 2 })
+  })
+
+  it('preserves native GOS values for either upload order', () => {
+    const current = { values: { beam_angle: '42', total_flux: '600' }, standards: [], equipment: [] }
+    const ies: MeasurementImportResult = { kind: 'ies', records: [], selected_record: 1, values: { beam_angle: '20', total_flux: '620' }, spectrum_point_count: 0, notice: '' }
+    const gos: MeasurementImportResult = { ...ies, kind: 'gos', values: { beam_angle: '60', total_flux: '600' } }
+    expect(applyMeasurementImport(current, ies, true)).toBe(current)
+    expect(applyMeasurementImport(applyMeasurementImport(current, ies, false), gos, true).values).toEqual(gos.values)
+  })
+
   it('does not allocate numbers during route preloading', async () => {
     expect(await loadReportNumber({ preload: true })).toEqual({})
     expect(postNumber).not.toHaveBeenCalled()
