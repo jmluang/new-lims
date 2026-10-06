@@ -36,10 +36,13 @@ return [
     ],
 
     'yanzhenjia' => [
+        // `enabled`, `base_url`, `username`, and `secret` remain the legacy
+        // HMAC sender. The v1 Basic credentials are stored encrypted in the DB.
         'enabled' => env('YANZHENJIA_SYNC_ENABLED', false),
         'base_url' => env('YANZHENJIA_BASE_URL', 'https://www.yanzhenjia.cn'),
         'secret' => env('YANZHENJIA_SYNC_SECRET'),
         'username' => env('YANZHENJIA_USERNAME', 'zdlmmm'),
+        'api_url' => env('YANZHENJIA_API_URL', 'https://www.yanzhenjia.cn/api/v1/files'),
     ],
 
 ];

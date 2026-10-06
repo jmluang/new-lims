@@ -7,11 +7,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 final class PdfYanzhenjiaSync extends Model
 {
-    protected $fillable = ['pdf_file_id', 'status', 'remote_file_id', 'attempts', 'last_error', 'synced_at'];
+    protected $fillable = [
+        'pdf_file_id',
+        'api_version',
+        'target_appid',
+        'request_payload',
+        'status',
+        'remote_file_id',
+        'attempts',
+        'last_error',
+        'synced_at',
+    ];
 
     protected function casts(): array
     {
-        return ['synced_at' => 'datetime'];
+        return [
+            'request_payload' => 'array',
+            'attempts' => 'integer',
+            'synced_at' => 'datetime',
+        ];
     }
 
     public function pdfFile(): BelongsTo

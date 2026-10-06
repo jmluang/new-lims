@@ -25,6 +25,7 @@ use App\Http\Controllers\Pdf\PdfPublicRevisionController;
 use App\Http\Controllers\Pdf\PdfSigningController;
 use App\Http\Controllers\Pdf\PdfVerificationController;
 use App\Http\Controllers\Pdf\PdfVerificationLogController;
+use App\Http\Controllers\Pdf\PdfYanzhenjiaSettingsController;
 use App\Http\Controllers\Pdf\PerforationStampController;
 use App\Http\Controllers\PhotometricCurveCalibrationRecordController;
 use App\Http\Controllers\PhotometricCurveInspectionRecordController;
@@ -239,6 +240,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
         // PDF 防篡改系统
         Route::prefix('pdf')->group(function (): void {
+            Route::get('/yanzhenjia-settings', [PdfYanzhenjiaSettingsController::class, 'show']);
+            Route::put('/yanzhenjia-settings', [PdfYanzhenjiaSettingsController::class, 'update']);
             Route::get('/handwritten-signing/options', [PdfHandwrittenSigningController::class, 'planningOptions']);
             Route::get('/documents', [PdfDocumentController::class, 'index']);
             Route::get('/documents/{document:document_uuid}', [PdfDocumentController::class, 'show']);

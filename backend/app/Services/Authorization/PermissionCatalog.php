@@ -48,6 +48,7 @@ class PermissionCatalog
             'pdf_perforation_stamps' => ['read', 'create', 'update', 'delete'],
             'pdf_function_stamps' => ['read', 'create', 'update', 'delete'],
             'pdf_certificate_templates' => ['read', 'create', 'update', 'delete'],
+            'pdf_yanzhenjia_settings' => ['read', 'update'],
             'pdf.document' => ['read', 'update', 'delete'],
             'pdf.workflow' => ['read', 'create', 'cancel'],
             'pdf.request' => ['read', 'sign_assigned', 'reject'],

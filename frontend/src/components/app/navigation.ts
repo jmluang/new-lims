@@ -119,6 +119,7 @@ export const navGroups: NavGroup[] = [
       { label: '骑缝章', to: '/pdf/perforation-stamps', icon: Stamp, resource: 'pdf_perforation_stamps', action: 'read' },
       { label: '首页功能章', to: '/pdf/function-stamps', icon: Shapes, resource: 'pdf_function_stamps', action: 'read' },
       { label: '声明页模板', to: '/pdf/certificate-templates', icon: FileStack, resource: 'pdf_certificate_templates', action: 'read' },
+      { label: '验真家同步', to: '/pdf/yanzhenjia-settings', icon: Settings, resource: 'pdf_yanzhenjia_settings', action: 'read' },
     ],
   },
   {

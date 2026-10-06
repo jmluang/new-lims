@@ -34,6 +34,7 @@ import { PdfSigningPage } from '../features/pdf/PdfSigningPage'
 import { PdfHandwrittenSigningPage } from '../features/pdf/PdfHandwrittenSigningPage'
 import { PdfVerificationLogPage } from '../features/pdf/PdfVerificationLogPage'
 import { PdfVerifyPage } from '../features/pdf/PdfVerifyPage'
+import { YanzhenjiaSettingsPage } from '../features/pdf/YanzhenjiaSettingsPage'
 import {
   CertificateTemplateSettingsPage,
   DigitalSignatureSettingsPage,
@@ -481,6 +482,13 @@ const pdfCertificateTemplatesRoute = createRoute({
   component: CertificateTemplateSettingsPage,
 })
 
+const pdfYanzhenjiaSettingsRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/pdf/yanzhenjia-settings',
+  beforeLoad: () => requireRoutePermission('pdf_yanzhenjia_settings'),
+  component: YanzhenjiaSettingsPage,
+})
+
 
 export const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -544,5 +552,6 @@ export const routeTree = rootRoute.addChildren([
     pdfPerforationStampsRoute,
     pdfFunctionStampsRoute,
     pdfCertificateTemplatesRoute,
+    pdfYanzhenjiaSettingsRoute,
   ]),
 ])
