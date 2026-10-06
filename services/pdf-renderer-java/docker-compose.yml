@@ -80,7 +80,7 @@ services:
       QR_CODE_WIDTH_PX: ${QR_CODE_WIDTH_PX:-360}
       QR_CODE_HEIGHT_PX: ${QR_CODE_HEIGHT_PX:-360}
 
-      CERTIFICATE_QUERY_BASE_URL: ${CERTIFICATE_QUERY_BASE_URL:-https://www.verify-pdf.com/certificate-query}
+      CERTIFICATE_QUERY_BASE_URL: ${CERTIFICATE_QUERY_BASE_URL:-https://www.yanzhenjia.cn/}
       
     volumes:
       - ./keys:/keys:ro

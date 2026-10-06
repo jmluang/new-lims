@@ -127,6 +127,27 @@ public class SignerService {
             MultipartFile qrCodeImg,
             String qrCodeUrl
     ) throws Exception {
+        return processToFile(pdf, perforation, sigImg, functionStamps, mode, signingKeyId,
+                contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, qrCodeImg, qrCodeUrl, null);
+    }
+
+    public FileProcessResult processToFile(
+            MultipartFile pdf,
+            MultipartFile perforation,
+            MultipartFile sigImg,
+            List<MultipartFile> functionStamps,
+            String mode,
+            String signingKeyId,
+            String contact,
+            String location,
+            String reason,
+            String hashAlgo,
+            boolean tsaEnabled,
+            String tsaUrl,
+            MultipartFile qrCodeImg,
+            String qrCodeUrl,
+            String confirmedReportNumber
+    ) throws Exception {
         PdfFiles files = new PdfFiles();
         try {
             File input = files.create();
@@ -142,8 +163,11 @@ public class SignerService {
                 }
             }
             CoverExtractionResponse coverFields = extractCoverFields(input);
+            String reportNumber = confirmedReportNumber == null || confirmedReportNumber.isBlank()
+                    ? (coverFields == null ? null : coverFields.reportNumber())
+                    : confirmedReportNumber.trim();
             File output = processPdf(files, input, perforation, sigImg, functionStamps, mode,
-                    signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, coverFields);
+                    signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, reportNumber);
             return new FileProcessResult(output, coverFields, files);
         } catch (Exception | Error failure) {
             try {
@@ -169,27 +193,24 @@ public class SignerService {
             String hashAlgo,
             boolean tsaEnabled,
             String tsaUrl,
-            CoverExtractionResponse coverFields
+            String reportNumber
     ) throws Exception {
         log.info("SignerService.processPdf: mode={}, pdfTemp={}, perfPresent={}, sigImgPresent={}",
                 mode, tempPdf.getAbsolutePath(), perforation != null && !perforation.isEmpty(), sigImg != null && !sigImg.isEmpty());
         try (PDDocument doc = Loader.loadPDF(tempPdf, PdfFiles.streamCache())) {
 
             // 清理上传PDF的元信息，避免使用原始文件的元信息
-            cleanPdfMetadata(doc, coverFields);
+            cleanPdfMetadata(doc, reportNumber);
 
-            String extractedReportNumber = (coverFields != null) ? coverFields.reportNumber() : null;
+            if (reportNumber != null && !reportNumber.isBlank()) {
+                log.info("Report number used for certificate query: {}", reportNumber);
 
-            if (extractedReportNumber != null && !extractedReportNumber.isBlank()) {
-                log.info("Extracted report number: {}", extractedReportNumber);
-
-                // 生成证书查询二维码
+                // Use web lookup until the Mini Program is released; retain the configurable gateway.
                 String baseUrl = getCfg("CERTIFICATE_QUERY_BASE_URL");
                 if (baseUrl == null || baseUrl.isBlank()) {
-                    // 默认使用本地URL
-                    baseUrl = "http://localhost:8080/certificate-query";
+                    baseUrl = "https://www.yanzhenjia.cn/";
                 }
-                String queryUrl = baseUrl + "?query=" + java.net.URLEncoder.encode(extractedReportNumber, java.nio.charset.StandardCharsets.UTF_8);
+                String queryUrl = baseUrl + "?query=" + java.net.URLEncoder.encode(reportNumber, java.nio.charset.StandardCharsets.UTF_8);
 
                 log.info("Generating QR code for URL: {}", queryUrl);
 
@@ -1699,12 +1720,11 @@ public class SignerService {
     }
 
     /**
-     * 清理PDF文档元信息
-     * 删除或替换原始PDF中的元信息，避免使用上传文件的标题、作者等信息
-     * @param doc PDF文档
-     * @param coverFields 封面信息，用于生成合适的元信息
+     * Replaces uploaded metadata with the effective report identity.
+     * @param doc the PDF document
+     * @param reportNumber the confirmed number, falling back to extraction
      */
-    private void cleanPdfMetadata(PDDocument doc, CoverExtractionResponse coverFields) {
+    private void cleanPdfMetadata(PDDocument doc, String reportNumber) {
         try {
             var docInfo = doc.getDocumentInformation();
 
@@ -1715,9 +1735,9 @@ public class SignerService {
             String originalProducer = docInfo.getProducer();
 
             // 清理或设置新的元信息
-            if (coverFields != null && coverFields.reportNumber() != null && !coverFields.reportNumber().isBlank()) {
+            if (reportNumber != null && !reportNumber.isBlank()) {
                 // 如果有报告编号，使用它作为标题
-                docInfo.setTitle(coverFields.reportNumber());
+                docInfo.setTitle(reportNumber);
             } else {
                 // 否则使用通用标题
                 docInfo.setTitle("检测报告");

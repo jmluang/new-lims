@@ -9,7 +9,6 @@ import {
   assetFileUrl,
   decodeHeaderValue,
   digestLabels,
-  reportNumberFromFileName,
   useAuthedObjectUrl,
   useSigningOptions,
   type CertificateTemplate,
@@ -162,7 +161,7 @@ export function PdfSigningPage() {
         key: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
         file,
         removePhotometric,
-        reportNumber: reportNumberFromFileName(file.name),
+        reportNumber: '',
       })
     })
 
@@ -529,17 +528,15 @@ export function PdfSigningPage() {
                     </div>
 
                     {/*
-                      Pre-filled from the file name and editable: the cover-page
-                      extractor has returned a whole labelled line as the report
-                      number, and a wrong number is worse than none — the ledger
-                      is searched by it and recipients are shown it.
+                      Only explicit input overrides cover extraction. A file-name
+                      guess must not silently become an operator-confirmed ID.
                     */}
                     <label className="mt-2 flex flex-wrap items-center gap-2 pl-7">
                       <span className="text-xs text-slate-600">报告编号</span>
                       <input
                         className={cn(inputClass, 'h-8 max-w-56 font-mono text-xs')}
                         value={item.reportNumber}
-                        placeholder="如 XDP2025120133"
+                        placeholder="选填，优先于封面识别"
                         disabled={signing}
                         onChange={(event) =>
                           setQueue((current) =>
@@ -548,7 +545,7 @@ export function PdfSigningPage() {
                         }
                       />
                       {item.reportNumber.trim() ? null : (
-                        <span className="text-xs text-amber-700">未能从文件名识别，留空则该报告不登记编号</span>
+                        <span className="text-xs text-slate-500">留空时识别封面；无法识别则不生成二维码</span>
                       )}
                     </label>
                   </li>

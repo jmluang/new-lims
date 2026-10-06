@@ -26,6 +26,8 @@ class PdfSigningTest extends TestCase
 {
     use RefreshDatabase;
 
+    private array $rendererFields = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -152,6 +154,7 @@ class PdfSigningTest extends TestCase
 
         $response->assertOk();
         $this->assertSame('XDP2025120133', rawurldecode((string) $response->headers->get('X-Cover-Report-Number')));
+        $this->assertSame('XDP2025120133', $this->rendererFields['report_number'] ?? null);
 
         $record = PdfFile::query()->sole();
         $this->assertSame('XDP2025120133', $record->cover_report_number);
@@ -180,6 +183,7 @@ class PdfSigningTest extends TestCase
         $record = PdfFile::query()->sole();
         $this->assertNull($record->cover_report_number);
         $this->assertSame('none', $record->metadata['report_number_source']);
+        $this->assertArrayNotHasKey('report_number', $this->rendererFields);
     }
 
     public function test_signing_without_any_seal_selected_still_records_the_file_unsigned(): void
@@ -377,6 +381,7 @@ class PdfSigningTest extends TestCase
         $client->shouldReceive('processPdf')
             ->once()
             ->andReturnUsing(function (string $pdfPath, array $fields, array $files) use ($signedBytes, $coverFields, $expectedFiles): array {
+                $this->rendererFields = $fields;
                 // Assert the contract the Java service expects.
                 $this->assertSame('custom', $fields['mode']);
                 $this->assertArrayNotHasKey('hash_algo', $fields);

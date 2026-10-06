@@ -94,6 +94,58 @@ class PdfHmacControllerIntegrationTest {
         assertThat(body).contains("\"success\":true", "\"pdf_base64\"");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void usesTheConfirmedReportNumberInTheEmbeddedQrCode(boolean missingExtraction) throws Exception {
+        byte[] pdf = samplePdf();
+        if (!missingExtraction) {
+            var source = java.nio.file.Files.createTempFile("report-number-", ".pdf");
+            try {
+                PdfMemoryRegressionTest.createPdf(source, 1, 0);
+                pdf = java.nio.file.Files.readAllBytes(source);
+            } finally {
+                java.nio.file.Files.deleteIfExists(source);
+            }
+        }
+        String reportNumber = " XPD20261005-003 ";
+        String digest = multipartManifestDigest(List.of(
+                part("pdf", "application/pdf", pdf),
+                part("mode", "text/plain;charset=utf-8", "stamp".getBytes(StandardCharsets.UTF_8)),
+                part("report_number", "text/plain;charset=utf-8", reportNumber.getBytes(StandardCharsets.UTF_8))
+        ));
+        var request = multipart("/api/pdf/process")
+                .file(new MockMultipartFile("pdf", "report.pdf", "application/pdf", pdf));
+        request.param("mode", "stamp");
+        request.param("report_number", reportNumber);
+        addAuthentication(request, digest, "nonce-confirmed-report-" + UUID.randomUUID());
+
+        String body = mockMvc.perform(request)
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var payload = new ObjectMapper().readTree(body);
+        if (!missingExtraction) {
+            assertThat(payload.get("cover_fields").get("report_number").asText()).isEqualTo("MEMORY-001");
+        }
+        byte[] result = java.util.Base64.getDecoder().decode(payload.get("pdf_base64").asText());
+        try (var document = org.apache.pdfbox.Loader.loadPDF(result)) {
+            assertThat(document.getDocumentInformation().getTitle()).isEqualTo(reportNumber.trim());
+            var resources = document.getPage(0).getResources();
+            List<String> qrContents = new ArrayList<>();
+            for (var name : resources.getXObjectNames()) {
+                if (resources.getXObject(name) instanceof org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject image) {
+                    try {
+                        var bitmap = new com.google.zxing.BinaryBitmap(new com.google.zxing.common.HybridBinarizer(
+                                new com.google.zxing.client.j2se.BufferedImageLuminanceSource(image.getImage())));
+                        qrContents.add(new com.google.zxing.MultiFormatReader().decode(bitmap).getText());
+                    } catch (com.google.zxing.NotFoundException ignored) {
+                        // Other embedded images are not QR codes.
+                    }
+                }
+            }
+            assertThat(qrContents).contains("https://www.yanzhenjia.cn/?query=" + reportNumber.trim());
+        }
+    }
+
     @Test
     void acceptsSignedRetirementEvidenceProbeWithoutOpeningTheExecutionDatabase() throws Exception {
         UUID operationUuid = UUID.randomUUID();

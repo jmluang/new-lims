@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,21 +29,39 @@ public class PdfCoverExtractor {
 
     private static final Logger log = LoggerFactory.getLogger(PdfCoverExtractor.class);
 
+    private static final Pattern REPORT_NUMBER = Pattern.compile(
+            "(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*");
+
     private static final Map<String, List<String>> FIELD_ALIASES = Map.ofEntries(
             Map.entry("reportNumber", List.of("报告编号", "Report No", "Report No.", "Report Number", "Reference No", "Reference No.", "Reference Number")),
             Map.entry("productName", List.of("产品名称", "Product", "Product Name", "Test item description")),
-            Map.entry("modelSpecification", List.of("型号规格", "Model", "Model Specification", "Model No", "Model No.", "Model/Type reference")),
-            Map.entry("entrustCompany", List.of("委托单位", "Applicant", "Entrust Company", "Applicant's name")),
+            Map.entry("modelSpecification", List.of("型号规格", "规格型号", "型号", "Model", "Model Specification", "Model No", "Model No.", "Model/Type reference")),
+            Map.entry("entrustCompany", List.of("委托单位", "申请人", "Applicant", "Entrust Company", "Applicant's name")),
             Map.entry("testItems", List.of("检测项目", "Test Items", "Test Item", "Test specification", "Test Specification", "Standard")),
-            Map.entry("reportDate", List.of("报告日期", "Report Date", "Date of Test", "Date of issue"))
+            Map.entry("reportDate", List.of("报告日期", "签发日期", "Report Date", "Date of Test", "Date of issue"))
     );
 
+    // These labels bound values without assigning them to unrelated output fields.
+    private static final List<String> BOUNDARY_ONLY_LABELS = List.of(
+            "参考标准", "接收日期", "地址", "制造商名称", "测试人员", "审核人员", "检测机构", "文件编号", "文件版本",
+            "Reference Standard", "Received Date", "Address", "Manufacturer", "Manufacturer's name", "Tested by", "Approved by");
+    private static final Pattern LABEL_PREFIX = Pattern.compile("^([\\p{L}][\\p{L}\\p{N}\\s/'’()._-]*)[:：]\\s*");
     private static final Set<String> NORMALIZED_FIELD_ALIASES;
+    private static final Map<String, Pattern> LABEL_PATTERNS;
 
     static {
         Set<String> aliasSet = new HashSet<>();
-        FIELD_ALIASES.values().forEach(list -> list.forEach(alias -> aliasSet.add(normalizeAlias(alias))));
+        Map<String, Pattern> patterns = new HashMap<>();
+        FIELD_ALIASES.values().forEach(list -> list.forEach(alias -> {
+            aliasSet.add(normalizeAlias(alias));
+            patterns.put(alias, buildLabelPattern(alias));
+        }));
+        BOUNDARY_ONLY_LABELS.forEach(alias -> {
+            aliasSet.add(normalizeAlias(alias));
+            patterns.put(alias, buildLabelPattern(alias));
+        });
         NORMALIZED_FIELD_ALIASES = Set.copyOf(aliasSet);
+        LABEL_PATTERNS = Map.copyOf(patterns);
     }
 
     /**
@@ -70,6 +89,7 @@ public class PdfCoverExtractor {
             PDFTextStripper stripper = new PDFTextStripper();
             stripper.setStartPage(1);
             stripper.setEndPage(1);
+            stripper.setSortByPosition(true);
             String rawText = stripper.getText(document);
             String normalized = normalize(rawText);
             List<String> lines = normalized.lines()
@@ -79,7 +99,9 @@ public class PdfCoverExtractor {
 
             Map<String, String> results = new HashMap<>();
             for (Map.Entry<String, List<String>> entry : FIELD_ALIASES.entrySet()) {
-                String value = findValue(lines, entry.getValue());
+                String value = entry.getKey().equals("reportNumber")
+                        ? findReportNumber(lines)
+                        : findValue(lines, entry.getValue());
                 results.put(entry.getKey(), value);
             }
 
@@ -109,54 +131,78 @@ public class PdfCoverExtractor {
     private String findValue(List<String> lines, List<String> aliases) {
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
-            if (!aliasMatches(line, aliases)) {
-                continue;
-            }
+            List<String> inlineValues = extractInlineValues(line, aliases);
+            if (!inlineValues.isEmpty()) return inlineValues.get(0);
 
-            String inlineValue = extractInlineValue(line, aliases);
-            if (inlineValue != null) {
-                return inlineValue;
-            }
-
-            String nextLineValue = extractFromNextLine(lines, i);
-            if (nextLineValue != null) {
-                return nextLineValue;
+            if (isBareLabel(line, aliases)) {
+                String nextLineValue = extractFromNextLine(lines, i);
+                if (nextLineValue != null) return nextLineValue;
             }
         }
 
         return null;
     }
 
-    private boolean aliasMatches(String line, List<String> aliases) {
-        String normalizedLine = normalizeAlias(line);
-        for (String alias : aliases) {
-            if (normalizedLine.startsWith(normalizeAlias(alias))) {
-                return true;
+    private String findReportNumber(List<String> lines) {
+        List<String> aliases = FIELD_ALIASES.get("reportNumber");
+        Set<String> candidates = new HashSet<>();
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i);
+            for (String candidate : extractInlineValues(line, aliases)) {
+                if (REPORT_NUMBER.matcher(candidate).matches()) candidates.add(candidate);
+            }
+            if (isBareLabel(line, aliases)) {
+                String candidate = extractFromNextLine(lines, i);
+                if (candidate != null && REPORT_NUMBER.matcher(candidate).matches()) candidates.add(candidate);
             }
         }
-        return false;
+        // Conflicting Chinese and English labels do not establish one identity.
+        return candidates.size() == 1 ? candidates.iterator().next() : null;
     }
 
-    private String extractInlineValue(String line, List<String> aliases) {
+    private boolean isBareLabel(String line, List<String> aliases) {
+        return aliases.stream().anyMatch(alias -> normalizeAlias(line).equals(normalizeAlias(alias)));
+    }
+
+    private List<String> extractInlineValues(String line, List<String> aliases) {
+        Map<Integer, String> values = new TreeMap<>();
         for (String alias : aliases) {
-            Pattern pattern = buildInlinePattern(alias);
-            Matcher matcher = pattern.matcher(line);
-            if (matcher.find()) {
-                return sanitize(matcher.group(1));
+            Matcher matcher = LABEL_PATTERNS.get(alias).matcher(line);
+            while (matcher.find()) {
+                if (isNestedLabel(line, alias, matcher.start(), matcher.end())) continue;
+                String remaining = line.substring(matcher.end());
+                int end = remaining.length();
+                for (Pattern boundary : LABEL_PATTERNS.values()) {
+                    Matcher next = boundary.matcher(remaining);
+                    if (next.find()) end = Math.min(end, next.start());
+                }
+                String value = sanitize(remaining.substring(0, end));
+                if (value != null) values.putIfAbsent(matcher.start(), value);
             }
         }
-        return null;
+        return List.copyOf(values.values());
     }
 
-    private Pattern buildInlinePattern(String alias) {
+    private boolean isNestedLabel(String line, String alias, int start, int end) {
+        for (Pattern pattern : LABEL_PATTERNS.values()) {
+            Matcher outer = pattern.matcher(line);
+            while (outer.find()) {
+                if (outer.start() < start && outer.end() >= end) return true;
+            }
+        }
+        // A known word inside an unknown heading is not a standalone label.
+        Matcher heading = LABEL_PREFIX.matcher(line);
+        return start > 0 && heading.find() && end <= heading.end()
+                && !normalizeAlias(heading.group(1)).equals(normalizeAlias(alias));
+    }
+
+    private static Pattern buildLabelPattern(String alias) {
         String aliasPattern = aliasToPattern(alias);
-        // 改进：要求冒号前有任意字符（非冒号），冒号后捕获值
-        // 这样可以正确处理 "Product Name.................. : Value" 格式
-        String regex = "(?i)^" + aliasPattern + "[^:]+[:：]\\s*(.+)$";
+        String regex = "(?i)(?:^|\\s+)" + aliasPattern + "[\\s.·•…‧°．_—-]*[:：]\\s*";
         return Pattern.compile(regex);
     }
 
-    private String aliasToPattern(String alias) {
+    private static String aliasToPattern(String alias) {
         String trimmed = alias.trim();
         if (trimmed.isEmpty()) {
             return "";
@@ -175,7 +221,7 @@ public class PdfCoverExtractor {
     private String extractFromNextLine(List<String> lines, int index) {
         for (int i = index + 1; i < lines.size(); i++) {
             String candidate = lines.get(i);
-            if (isAliasLine(candidate)) {
+            if (isFieldBoundary(candidate)) {
                 break;
             }
             String sanitized = sanitize(candidate);
@@ -187,8 +233,8 @@ public class PdfCoverExtractor {
         return null;
     }
 
-    private boolean isAliasLine(String line) {
-        return NORMALIZED_FIELD_ALIASES.contains(normalizeAlias(line));
+    private boolean isFieldBoundary(String line) {
+        return NORMALIZED_FIELD_ALIASES.contains(normalizeAlias(line)) || LABEL_PREFIX.matcher(line).find();
     }
 
     private static String normalizeAlias(String value) {

@@ -58,7 +58,7 @@ class PdfHttpResourceTest {
         var file = files.create();
         Files.writeString(file.toPath(), "%PDF-test");
         var signer = mock(SignerService.class);
-        when(signer.processToFile(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any(), any()))
+        when(signer.processToFile(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any(), any(), any()))
                 .thenReturn(new SignerService.FileProcessResult(file, null, files));
         var controller = controller(signer);
         var response = new MockHttpServletResponse() {
@@ -72,7 +72,7 @@ class PdfHttpResourceTest {
         };
         var upload = new MockMultipartFile("pdf", new byte[]{1});
         assertThatThrownBy(() -> controller.process(upload, null, null, null, "custom", null,
-                null, null, null, null, new MockHttpServletRequest(), response))
+                null, null, null, null, null, new MockHttpServletRequest(), response))
                 .isInstanceOf(IOException.class);
         assertThat(file.toPath().getParent()).doesNotExist();
     }
@@ -92,7 +92,7 @@ class PdfHttpResourceTest {
             }
         };
         controller(new SignerService()).process(upload, null, null, null, "custom", null, null,
-                null, null, null, new MockHttpServletRequest(), new MockHttpServletResponse());
+                null, null, null, null, new MockHttpServletRequest(), new MockHttpServletResponse());
         assertThat(calls).containsExactly(1, 1);
     }
 

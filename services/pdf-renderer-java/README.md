@@ -20,8 +20,27 @@ Endpoints
     - `signature_appearance_image` (image/png|jpeg) - optional
     - `mode`: stamp | sign | stamp_and_sign
     - `signature_contact` / `signature_location` / `signature_reason`
+    - `report_number` - optional operator-confirmed number; takes priority over cover extraction for the QR code and PDF title
+
+Certificate query links
+- New PDF QR codes default to `https://www.yanzhenjia.cn/?query=<URL-encoded report number>`.
+- This temporarily changes the URL embedded in the first-page PDF QR code while
+  the WeChat Mini Program is unreleased. Keep the existing Mini Program query
+  page and scheme integration; its previous gateway
+  `https://www.verify-pdf.com/certificate-query` can be selected later through
+  the existing `CERTIFICATE_QUERY_BASE_URL` setting.
+- Set `CERTIFICATE_QUERY_BASE_URL=https://www.yanzhenjia.cn/` in the renderer runtime environment.
+  Existing deployments use `shared/pdf-renderer-java/.env`; update any old explicit
+  value there when deploying, because it overrides the Compose default.
+- The Yanzhenjia homepage must include URL query lookup support before activating
+  the new destination. Existing signed PDFs retain their original QR code and
+  must be regenerated from unsigned source files to change it.
 
 Notes
+- Cover report numbers are read from the first page in visual reading order.
+  Extraction must find one unambiguous ID containing both ASCII letters and
+  digits, with optional hyphen-separated segments. Without a reliable extracted
+  number or an operator-entered number, the signer omits the query QR code.
 - SHA-256, the PKCS#12 identity and all signing policy are server-controlled.
 - Caller-provided `signing_key_id`, `hash_algo`, `tsa_enabled` and `tsa_url`
   are rejected. RFC 3161 remains disabled until a real timestamp token is
@@ -82,6 +101,45 @@ Key Resolution
   - Fallback default path: `/keys/signer.pfx`.
 
 Local usage examples
+Recommended cover format (Chinese or English):
+```text
+报告编号: XPD20261005-003
+Report Number: XPD20261005-003
+```
+Use either line, or both with the exact same ID, on the first page. Keep the
+label, colon and full ID on one line in one text box or paragraph; do not wrap
+or insert spaces inside the ID. Use ASCII letters, digits and the ordinary
+hyphen `-`, preserving suffixes such as `-003`. Export native selectable PDF
+text with embedded fonts and valid text mappings. Scanned images or text
+converted to outlines require manual entry because this extractor does not
+perform OCR. Confirm the line can be copied from the exported PDF as shown
+above before adopting a report template.
+
+Cover regression batch
+- `PdfCoverCorpusTest` asserts all six cover fields across sanitized Chinese and
+  English formats, empty fields, adjacent columns, aliases and conflicting IDs.
+- The private real-file batch reuses one extractor across all reviewed samples.
+  Keep business PDFs outside Git. Its directory must contain at least six PDFs
+  and `expected.json`, with each entry containing `file`, `sha256` and an
+  `expected` object with the six `CoverExtractionResponse` fields (use `null`
+  for absent fields). Review expectations against the original cover rather than
+  deriving them from the extractor under test.
+- `参考标准` / `Reference Standard` stop an adjacent value but do not populate
+  test items. The existing standalone `Standard` alias retains its previous
+  mapping. `申请人`, `型号` and `签发日期` mirror the already-supported English
+  applicant, model and issue-date labels.
+
+Run from this service directory to validate the corpus together with QR,
+HMAC, HTTP-resource and existing behavior regressions:
+```bash
+mvn -o \
+  -Dtest=PdfCoverCorpusTest,PdfReportNumberExtractionTest,PdfHmacControllerIntegrationTest,MultipartRequestDigestVerifierTest,PdfControllerTest,PdfHttpResourceTest,PdfBehaviorCompatibilityTest \
+  -Dpdf.cover.corpus.directory=/absolute/path/to/private-cover-corpus \
+  test
+```
+Without the private directory property, the sanitized cases still run; only the
+private real-file batch is skipped.
+
 ```bash
 # Auto-detect ./keys/signer.pfx, but never a password.
 DEFAULT_PFX_PASS='<strong-random-pfx-password>' \

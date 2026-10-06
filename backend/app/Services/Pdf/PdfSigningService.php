@@ -39,6 +39,7 @@ class PdfSigningService
      *     operator_name: string,
      *     operator_id?: int|null,
      *     original_name?: string|null,
+     *     report_number?: string|null,
      *     certificate_id?: int|null,
      *     digital_signature_id?: int|null,
      *     perforation_stamp_id?: int|null,
@@ -84,7 +85,8 @@ class PdfSigningService
             $functionStamps = $this->resolveFunctionStamps($config['function_stamp_ids'] ?? []);
 
             $signed = $timer->measure('sign', fn (): array => $this->applySeals(
-                $currentPath, $digitalSignature, $perforationStamp, $functionStamps, $workingDir, [
+                $currentPath, $digitalSignature, $perforationStamp, $functionStamps, $workingDir,
+                trim((string) ($config['report_number'] ?? '')), [
                     'file_number' => $config['file_number'] ?? null,
                     'input_bytes' => $inputBytes,
                     'page_count' => $pageCount,
@@ -141,6 +143,7 @@ class PdfSigningService
         ?PerforationStamp $perforationStamp,
         Collection $functionStamps,
         string $workingDir,
+        string $confirmedReportNumber,
         array $context = [],
     ): array {
         // Nothing to stamp and nothing to sign: the Java round trip would only
@@ -161,6 +164,10 @@ class PdfSigningService
             'options[signature_size_mm]' => $signing['signature_size_mm'],
             'options[signature_margin_mm]' => $signing['signature_margin_mm'],
         ];
+
+        if ($confirmedReportNumber !== '') {
+            $fields['report_number'] = $confirmedReportNumber;
+        }
 
         $files = [];
 
