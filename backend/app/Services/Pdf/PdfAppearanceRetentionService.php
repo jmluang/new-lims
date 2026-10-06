@@ -416,9 +416,7 @@ final class PdfAppearanceRetentionService
     private function atomicMove(string $source, string $target): void
     {
         $directory = dirname($target);
-        if (! is_dir($directory) && ! mkdir($directory, 0770, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Unable to create appearance retirement directory.');
-        }
+        app(PdfStorageDirectory::class)->ensure($directory);
         if (! rename($source, $target)) {
             throw new RuntimeException('Unable to atomically move appearance retirement bytes.');
         }

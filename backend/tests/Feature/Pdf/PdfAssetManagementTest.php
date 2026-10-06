@@ -24,7 +24,7 @@ class PdfAssetManagementTest extends TestCase
         parent::setUp();
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
-        Storage::fake('pdf');
+        Storage::fake('pdf', ['permissions' => config('filesystems.disks.pdf.permissions', [])]);
     }
 
     public function test_seal_can_be_created_replaced_downloaded_and_deleted(): void
@@ -45,6 +45,9 @@ class PdfAssetManagementTest extends TestCase
 
         $originalPath = DigitalSignature::query()->findOrFail($id)->appearance_image_path;
         Storage::disk('pdf')->assertExists($originalPath);
+        $absolutePath = Storage::disk('pdf')->path($originalPath);
+        $this->assertSame(02770, fileperms(dirname($absolutePath)) & 07777);
+        $this->assertSame(0640, fileperms($absolutePath) & 0777);
 
         $this->get("/api/pdf/digital-signatures/{$id}/file")->assertOk();
 

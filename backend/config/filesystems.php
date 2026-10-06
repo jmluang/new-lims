@@ -50,6 +50,12 @@ return [
         'pdf' => [
             'driver' => 'local',
             'root' => storage_path('app/private/pdf'),
+            // Both PHP-FPM and queue workers must use the private www group.
+            // Directories also inherit that group across future subdirectories.
+            'permissions' => [
+                'file' => ['private' => 0640],
+                'dir' => ['private' => 02770],
+            ],
             'throw' => false,
             'report' => false,
         ],

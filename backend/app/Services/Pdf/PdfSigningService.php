@@ -258,7 +258,12 @@ class PdfSigningService
         }
 
         try {
-            $disk->put($relativePath, $stream);
+            // Flysystem only applies configured file permissions when visibility
+            // is passed explicitly; a plain put leaves the process umask in charge.
+            $this->ensureDirectory(dirname($disk->path($relativePath)));
+            if (! $disk->put($relativePath, $stream, 'private')) {
+                throw new RuntimeException('无法保存签章结果文件');
+            }
         } finally {
             fclose($stream);
         }
@@ -562,9 +567,8 @@ class PdfSigningService
 
     private function ensureDirectory(string $directory): void
     {
-        if (! is_dir($directory) && ! mkdir($directory, 0775, true) && ! is_dir($directory)) {
-            throw new RuntimeException("无法创建工作目录: {$directory}");
-        }
+        $root = storage_path('app/private/pdf');
+        app(PdfStorageDirectory::class)->ensure($directory, str_starts_with($directory, $root.'/') ? $root : null);
     }
 
     private function deleteDirectory(string $directory): void

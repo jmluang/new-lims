@@ -3,12 +3,35 @@
 namespace Tests\Unit\Services\Pdf;
 
 use App\Services\Pdf\PdfImmutableFileStore;
+use App\Services\Pdf\PdfStorageDirectory;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Tests\TestCase;
 
 final class PdfImmutableFileStoreTest extends TestCase
 {
+    public function test_pdf_disk_and_immutable_candidates_are_private_but_group_accessible(): void
+    {
+        Storage::fake('pdf', ['permissions' => config('filesystems.disks.pdf.permissions', [])]);
+        $disk = Storage::disk('pdf');
+        $oldUmask = umask(0027);
+        try {
+            app(PdfStorageDirectory::class)->ensure(dirname($disk->path('signed/2026/10/report.pdf')));
+            $disk->put('signed/2026/10/report.pdf', '%PDF-1.7 signed', 'private');
+            $signed = $disk->path('signed/2026/10/report.pdf');
+            $this->assertSame(02770, fileperms(dirname($signed)) & 07777);
+            $this->assertSame(02770, fileperms(dirname(dirname($signed))) & 07777);
+            $this->assertSame(0640, fileperms($signed) & 0777);
+
+            $candidate = app(PdfImmutableFileStore::class)->putBytes('candidate', 'workflow/staging/operation/7/candidate.pdf');
+            $this->assertSame(02770, fileperms(dirname($candidate['absolute_path'])) & 07777);
+            $this->assertSame(02770, fileperms(dirname(dirname($candidate['absolute_path']))) & 07777);
+            $this->assertSame(0440, fileperms($candidate['absolute_path']) & 0777);
+        } finally {
+            umask($oldUmask);
+        }
+    }
+
     public function test_it_durably_promotes_and_verifies_exact_immutable_bytes(): void
     {
         Storage::fake('pdf');

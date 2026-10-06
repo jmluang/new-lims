@@ -547,6 +547,8 @@ final class PdfImmutableFileStore
     private function ensureDirectory(string $directory): void
     {
         if (is_dir($directory)) {
+            app(PdfStorageDirectory::class)->ensure($directory);
+
             return;
         }
         $missing = [];
@@ -559,9 +561,7 @@ final class PdfImmutableFileStore
             }
             $cursor = $parent;
         }
-        if (! mkdir($directory, 0770, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Unable to create immutable PDF directory.');
-        }
+        app(PdfStorageDirectory::class)->ensure($directory);
         foreach (array_reverse($missing) as $created) {
             $this->syncDirectory(dirname($created));
             $this->syncDirectory($created);
