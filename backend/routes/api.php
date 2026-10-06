@@ -270,6 +270,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
             Route::get('/files', [PdfFileController::class, 'index']);
             Route::get('/files/{pdfFile}', [PdfFileController::class, 'show']);
+            Route::delete('/files/{pdfFile}', [PdfFileController::class, 'destroy']);
             Route::get('/files/{pdfFile}/download', [PdfFileController::class, 'download']);
 
             Route::get('/verification-logs', [PdfVerificationLogController::class, 'index']);

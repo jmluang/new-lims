@@ -94,6 +94,73 @@ class PdfLedgerTest extends TestCase
         $this->getJson("/api/pdf/files/{$record->id}/download")->assertNotFound();
     }
 
+    public function test_a_standalone_file_can_be_deleted_with_an_audit_record(): void
+    {
+        Storage::disk('pdf')->put('signed/delete.pdf', '%PDF signed');
+        $record = $this->ledgerRecord('LEDGER-DELETE', 'delete.pdf', 'signed/delete.pdf');
+        $other = $this->ledgerRecord('LEDGER-KEEP', 'keep.pdf');
+        Sanctum::actingAs($this->userWithPermissions(['pdf_files.read', 'pdf_files.delete']));
+
+        $this->getJson('/api/permissions/effective')->assertOk()->assertJsonPath('data.resources.pdf_files.actions.delete', true);
+
+        $this->deleteJson("/api/pdf/files/{$record->id}")->assertOk();
+
+        $this->assertDatabaseMissing('pdf_files', ['id' => $record->id]);
+        $this->assertDatabaseHas('pdf_files', ['id' => $other->id]);
+        Storage::disk('pdf')->assertMissing('signed/delete.pdf');
+        $this->assertDatabaseHas('audit_logs', ['action' => 'pdf_files.deleted', 'subject_id' => (string) $record->id]);
+        $this->getJson('/api/pdf/files')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson("/api/pdf/files/{$record->id}")->assertNotFound();
+    }
+
+    public function test_read_permission_does_not_allow_deleting_a_file(): void
+    {
+        Storage::disk('pdf')->put('signed/keep.pdf', '%PDF signed');
+        $record = $this->ledgerRecord('LEDGER-DENIED', 'keep.pdf', 'signed/keep.pdf');
+        Sanctum::actingAs($this->userWithPermissions(['pdf_files.read']));
+
+        $this->deleteJson("/api/pdf/files/{$record->id}")->assertForbidden();
+
+        $this->assertDatabaseHas('pdf_files', ['id' => $record->id]);
+        Storage::disk('pdf')->assertExists('signed/keep.pdf');
+    }
+
+    public function test_workflow_revisions_cannot_be_deleted_from_the_ledger(): void
+    {
+        $record = $this->ledgerRecord('LEDGER-REVISION', 'revision.pdf');
+        $record->update(['revision_uuid' => (string) str()->uuid()]);
+        Sanctum::actingAs($this->userWithPermissions(['pdf_files.read', 'pdf_files.delete']));
+
+        $this->getJson("/api/pdf/files/{$record->id}")->assertJsonPath('data.can_delete', false);
+        $this->deleteJson("/api/pdf/files/{$record->id}")->assertConflict();
+
+        $this->assertDatabaseHas('pdf_files', ['id' => $record->id]);
+    }
+
+    public function test_deleting_a_record_without_stored_bytes_succeeds(): void
+    {
+        $record = $this->ledgerRecord('LEDGER-MISSING-BYTES', 'missing.pdf', 'signed/missing.pdf');
+        Sanctum::actingAs($this->userWithPermissions(['pdf_files.delete']));
+
+        $this->deleteJson("/api/pdf/files/{$record->id}")->assertOk();
+
+        $this->assertDatabaseMissing('pdf_files', ['id' => $record->id]);
+    }
+
+    public function test_deleting_a_record_preserves_bytes_used_by_another_record(): void
+    {
+        Storage::disk('pdf')->put('signed/shared.pdf', '%PDF signed');
+        $record = $this->ledgerRecord('LEDGER-SHARED-DELETE', 'delete.pdf', 'signed/shared.pdf');
+        $other = $this->ledgerRecord('LEDGER-SHARED-KEEP', 'keep.pdf', 'signed/shared.pdf');
+        Sanctum::actingAs($this->userWithPermissions(['pdf_files.delete']));
+
+        $this->deleteJson("/api/pdf/files/{$record->id}")->assertOk();
+
+        $this->assertDatabaseMissing('pdf_files', ['id' => $record->id]);
+        $this->assertDatabaseHas('pdf_files', ['id' => $other->id]);
+        Storage::disk('pdf')->assertExists('signed/shared.pdf');
+    }
+
     public function test_verification_logs_can_be_filtered_by_outcome(): void
     {
         PdfVerificationLog::query()->create($this->logAttributes(true, PdfVerificationLog::SOURCE_ADMIN));

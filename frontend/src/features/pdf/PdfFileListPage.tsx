@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
-import { Eye, Search } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Eye, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, Modal, PageShell, PaginationControls, Panel } from '../system/shared'
 import { formatBytes, formatDateTime, inputClass, type ApiCollection, type ApiResource } from '../system/utils'
@@ -30,6 +31,7 @@ type PdfFileRow = {
   created_by?: string | null
   signed_at?: string | null
   has_file: boolean
+  can_delete: boolean
 }
 
 type Filters = {
@@ -46,11 +48,31 @@ const emptyFilters: Filters = { search: '', created_by: '', signed_from: '', sig
  * or MD5 into the search box looks the digest up directly.
  */
 export function PdfFileListPage() {
+  const queryClient = useQueryClient()
   const [filters, setFilters] = useState<Filters>(emptyFilters)
   const [applied, setApplied] = useState<Filters>(emptyFilters)
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(15)
   const [detailId, setDetailId] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState<PdfFileRow | null>(null)
+
+  const remove = useMutation({
+    mutationFn: async (file: PdfFileRow) => {
+      await api.delete(`/api/pdf/files/${file.id}`)
+    },
+    onSuccess: async (_data, file) => {
+      setDeleting(null)
+      if (detailId === file.id) setDetailId(null)
+      queryClient.removeQueries({ queryKey: ['pdf', 'files', 'detail', file.id], exact: true })
+      if (rows.length === 1 && page > 1) setPage((current) => current - 1)
+      await queryClient.invalidateQueries({ queryKey: ['pdf', 'files'] })
+    },
+  })
+
+  function openDelete(file: PdfFileRow) {
+    remove.reset()
+    setDeleting(file)
+  }
 
   const detailQuery = useQuery({
     queryKey: ['pdf', 'files', 'detail', detailId],
@@ -175,6 +197,12 @@ export function PdfFileListPage() {
                         <Eye className="size-4" aria-hidden="true" />
                         详情
                       </Button>
+                      <PermissionGate resource="pdf_files" action="delete">
+                        <Button variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700 disabled:text-slate-400" disabled={!row.can_delete || remove.isPending} title={row.can_delete ? undefined : '关联签署流程的版本不可单独删除'} onClick={() => openDelete(row)}>
+                          <Trash2 className="size-4" aria-hidden="true" />
+                          删除
+                        </Button>
+                      </PermissionGate>
                     </div>
                   </td>
                 </tr>
@@ -192,10 +220,16 @@ export function PdfFileListPage() {
                 </p>
                 <p className="mt-1 break-all font-mono text-[11px] text-slate-400">{row.sha256_hash}</p>
                 <div className="mt-2 flex gap-2">
-                  <Button variant="secondary" onClick={() => setDetailId(row.id)}>
+                  <Button variant="ghost" onClick={() => setDetailId(row.id)}>
                     <Eye className="size-4" aria-hidden="true" />
                     详情
                   </Button>
+                  <PermissionGate resource="pdf_files" action="delete">
+                    <Button variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700 disabled:text-slate-400" disabled={!row.can_delete || remove.isPending} title={row.can_delete ? undefined : '关联签署流程的版本不可单独删除'} onClick={() => openDelete(row)}>
+                      <Trash2 className="size-4" aria-hidden="true" />
+                      删除
+                    </Button>
+                  </PermissionGate>
                 </div>
               </article>
             ))}
@@ -226,6 +260,19 @@ export function PdfFileListPage() {
         ) : detailQuery.data ? (
           <PdfFileDetail file={detailQuery.data} />
         ) : null}
+      </Modal>
+      <Modal title="删除签章记录" open={deleting !== null} onClose={() => { if (!remove.isPending) setDeleting(null) }}>
+        <div className="space-y-4">
+          <p className="break-all text-sm text-slate-700">确认删除“{deleting?.file_name}”？</p>
+          <p className="text-sm text-slate-500">删除后将移除台账记录和存储的 PDF，无法恢复，也无法再通过本系统台账核验该文件。</p>
+          {remove.isError ? <ErrorNotice error={remove.error} fallback="删除签章记录失败" /> : null}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={remove.isPending} onClick={() => setDeleting(null)}>取消</Button>
+            <Button variant="danger" disabled={remove.isPending} onClick={() => { if (deleting) remove.mutate(deleting) }}>
+              {remove.isPending ? '删除中…' : '确认删除'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </PageShell>
   )

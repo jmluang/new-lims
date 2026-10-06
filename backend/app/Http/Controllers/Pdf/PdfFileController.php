@@ -8,6 +8,7 @@ use App\Services\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -42,6 +43,34 @@ class PdfFileController extends Controller
         $this->authorizePermission($request, 'pdf_files.read', self::RESOURCE, $pdfFile);
 
         return response()->json(['data' => $this->serialize($pdfFile, includeMetadata: true)]);
+    }
+
+    public function destroy(Request $request, PdfFile $pdfFile, AuditLogger $auditLogger): JsonResponse
+    {
+        $this->authorizePermission($request, 'pdf_files.delete', self::RESOURCE, $pdfFile);
+
+        $path = DB::transaction(function () use ($request, $pdfFile, $auditLogger): ?string {
+            $file = PdfFile::query()->lockForUpdate()->findOrFail($pdfFile->id);
+            // Workflow revisions are referenced by signing and publication state.
+            abort_if($file->document_id !== null || $file->revision_uuid !== null, 409, '关联签署流程的版本不可单独删除。');
+
+            $auditLogger->record(
+                actor: $request->user(),
+                action: 'pdf_files.deleted',
+                module: self::RESOURCE,
+                subject: $file,
+                before: $this->serialize($file, includeMetadata: true),
+            );
+            $file->delete();
+
+            return $file->file_path;
+        });
+
+        if (filled($path) && ! PdfFile::query()->where('file_path', $path)->exists()) {
+            Storage::disk('pdf')->delete($path);
+        }
+
+        return response()->json(['message' => '签章记录已删除。']);
     }
 
     public function download(Request $request, PdfFile $pdfFile, AuditLogger $auditLogger): StreamedResponse
@@ -159,6 +188,7 @@ class PdfFileController extends Controller
             'created_by' => $file->created_by,
             'signed_at' => $file->signed_at?->toIso8601String(),
             'has_file' => filled($file->file_path),
+            'can_delete' => $file->document_id === null && $file->revision_uuid === null,
         ];
 
         if ($includeMetadata) {
