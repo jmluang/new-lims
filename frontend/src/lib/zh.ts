@@ -62,6 +62,8 @@ export const textMap: Record<string, string> = {
   Group: '角色组',
   Account: '账号',
   Security: '安全',
+  AppID: '应用 ID',
+  Secret: '密钥',
   Actions: '操作',
   Action: '动作',
   Name: '名称',

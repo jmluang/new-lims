@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Tests\TestCase;
@@ -30,6 +31,22 @@ final class PdfYanzhenjiaSyncTest extends TestCase
             'services.yanzhenjia.secret' => str_repeat('s', 32),
         ]);
         Http::preventStrayRequests();
+    }
+
+    public function test_sync_migration_leaves_a_non_unique_foreign_key_support_index(): void
+    {
+        $indexes = collect(Schema::getIndexes('pdf_yanzhenjia_syncs'));
+        $supportIndex = $indexes->firstWhere('name', 'pdf_yanzhenjia_syncs_pdf_file_id_support_index');
+
+        $this->assertNotNull($supportIndex);
+        $this->assertSame(['pdf_file_id'], $supportIndex['columns']);
+        $this->assertFalse($supportIndex['unique']);
+        $this->assertTrue(Schema::hasIndex(
+            'pdf_yanzhenjia_syncs',
+            'pdf_yanzhenjia_sync_file_version_unique',
+            'unique',
+        ));
+        $this->assertFalse(Schema::hasIndex('pdf_yanzhenjia_syncs', 'pdf_yanzhenjia_syncs_pdf_file_id_unique'));
     }
 
     public function test_completed_pdf_is_queued_and_uploaded_to_the_expected_account(): void
