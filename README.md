@@ -196,11 +196,12 @@ for how to turn it on and why it ships off.
 
 ## Production Deployment
 
-### Signed PDF copy to Yanzhenjia
+### Yanzhenjia synchronization
 
-The signing desk and the three-person signing workflow enqueue their completed
-PDFs for a one-way copy. `pdf:dispatch-yanzhenjia-syncs` runs every minute and
-the database queue worker transfers the exact signed bytes, SHA-256, MD5 and
+The legacy sender enqueues completed PDFs from the signing desk and the
+three-person signing workflow for a one-way copy.
+`pdf:dispatch-yanzhenjia-syncs` runs every minute and the database queue worker
+transfers the exact signed bytes, SHA-256, MD5 and
 size to `POST /api/integrations/new-lims/reports`. The target maps each request
 to the configured `zdlmmm` account and treats repeated source file IDs as the
 same upload. It also keeps the original report number for public report lookup.
@@ -214,6 +215,16 @@ Both hosts need clocks within five minutes. Keep the scheduler and database
 queue worker running. The target account must be active and have enough file
 and storage quota. This copies new completed reports; existing reports and
 deletions are not synchronized retroactively.
+
+The company API v1 sender is configured separately on the PDF Yanzhenjia
+settings page. It registers new signed reports at `POST /api/v1/files` using
+company AppID/Secret Basic authentication and a JSON body containing stable
+`source_file_id`, report metadata, local SHA-256, optional MD5, and byte size.
+It never uploads the PDF original. A successful registration has
+`hash_verified: false`; the original remains on this server for local download
+and later visitor-side hash comparison. Frozen request metadata is reused on
+retries. Existing legacy sync rows continue using the HMAC upload endpoint and
+are not replayed through v1.
 
 Deploy the three runtime parts independently:
 

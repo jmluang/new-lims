@@ -73,7 +73,7 @@ export function YanzhenjiaSettingsPage() {
   return (
     <PageShell
       title="验真家同步"
-      description="配置验真家公司 API。启用后，新完成签章的 PDF 会自动登记并上传，报告编号可用于验真家查询。"
+      description="启用后自动登记新签章报告的摘要和元数据；PDF 原件保留在本系统。"
     >
       {settingsQuery.isError ? <ErrorNotice error={settingsQuery.error} fallback="无法读取验真家同步配置" /> : null}
       {save.isError ? <ErrorNotice error={save.error} fallback="无法保存验真家同步配置" /> : null}
@@ -108,7 +108,7 @@ export function YanzhenjiaSettingsPage() {
                     onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))}
                     type="checkbox"
                   />
-                  <span className="text-sm font-medium text-slate-800">自动同步签章完成的 PDF</span>
+                  <span className="text-sm font-medium text-slate-800">自动登记新签章报告</span>
                 </label>
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -141,7 +141,7 @@ export function YanzhenjiaSettingsPage() {
                 </div>
 
                 <p className="text-xs leading-5 text-slate-500">
-                  Secret 会在服务器端加密保存，保存后不会回显。相同 AppID 下，重试会复用冻结的请求编号和文件摘要；启用前已完成的历史文件不会自动导入。
+                  Secret 加密保存，不回显；仅发送启用后新报告的摘要和元数据，PDF 原件不会上传。
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3">

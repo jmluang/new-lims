@@ -171,7 +171,7 @@ class PdfSigningService
         }
 
         $yanzhenjia = PdfYanzhenjiaSetting::query()->find(PdfYanzhenjiaSetting::SINGLETON_ID);
-        if ($yanzhenjia?->enabled && $yanzhenjia->hasCredentials()) {
+        if ($yanzhenjia !== null && preg_match('/\A[a-f0-9]{32}\z/i', (string) $yanzhenjia->appid) === 1) {
             $fields['report_appid'] = strtolower((string) $yanzhenjia->appid);
         }
 

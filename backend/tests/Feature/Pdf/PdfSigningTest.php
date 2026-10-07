@@ -177,6 +177,27 @@ class PdfSigningTest extends TestCase
         $this->assertSame('产品名称:LED 面板灯', $record->metadata['cover_fields']['report_number']);
     }
 
+    public function test_disabled_registration_keeps_the_company_scope_for_public_report_qr_codes(): void
+    {
+        Storage::fake('pdf');
+        PdfYanzhenjiaSetting::query()->create([
+            'id' => PdfYanzhenjiaSetting::SINGLETON_ID,
+            'enabled' => false,
+            'appid' => '0123456789abcdef0123456789abcdef',
+        ]);
+        $this->fakeRendererReturning('%PDF-1.7 signed output', null, ['signature_appearance_image']);
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.7 source'),
+            'report_number' => 'REPORT-1',
+            'digital_signature_id' => $this->seal(DigitalSignature::class, ['name' => 'Test seal'])->id,
+        ])->assertOk();
+
+        $this->assertSame('0123456789abcdef0123456789abcdef', $this->rendererFields['report_appid'] ?? null);
+        $this->assertDatabaseCount('pdf_yanzhenjia_syncs', 0);
+    }
+
     public function test_a_report_number_left_blank_is_recorded_as_absent_rather_than_empty(): void
     {
         Storage::fake('pdf');

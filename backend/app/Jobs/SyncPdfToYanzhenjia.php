@@ -3,8 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\PdfFile;
-use App\Models\PdfYanzhenjiaSync;
 use App\Models\PdfYanzhenjiaSetting;
+use App\Models\PdfYanzhenjiaSync;
 use App\Services\Pdf\PdfYanzhenjiaSyncDispatcher;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -202,30 +202,21 @@ final class SyncPdfToYanzhenjia implements ShouldQueue
             }
         }
 
-        $stream = fopen($path, 'rb');
-        if ($stream === false) {
-            throw new RuntimeException('The signed PDF could not be opened.');
-        }
-
-        try {
-            $response = Http::acceptJson()
-                ->withBasicAuth($targetAppid, $secret)
-                ->withHeaders(['Accept-Language' => 'zh-CN'])
-                ->connectTimeout(10)
-                ->timeout(90)
-                ->withOptions(['allow_redirects' => false])
-                ->attach('pdf', $stream, $payload['file_name'], ['Content-Type' => 'application/pdf'])
-                ->post($apiUrl, $payload);
-        } finally {
-            fclose($stream);
-        }
+        $response = Http::asJson()
+            ->acceptJson()
+            ->withBasicAuth($targetAppid, $secret)
+            ->withHeaders(['Accept-Language' => 'zh-CN'])
+            ->connectTimeout(10)
+            ->timeout(90)
+            ->withOptions(['allow_redirects' => false])
+            ->post($apiUrl, $payload);
 
         if (! $response->successful()
             || $response->json('success') !== true
             || $response->json('source_file_id') !== $payload['source_file_id']
-            || $response->json('hash_verified') !== true
+            || $response->json('hash_verified') !== false
             || ! is_numeric($response->json('id'))) {
-            throw new RuntimeException('Yanzhenjia v1 rejected the signed PDF (HTTP '.$response->status().').');
+            throw new RuntimeException('Yanzhenjia v1 rejected the file registration (HTTP '.$response->status().').');
         }
 
         $this->markSucceeded($sync, (int) $response->json('id'));

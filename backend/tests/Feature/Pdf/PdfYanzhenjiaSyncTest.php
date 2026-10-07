@@ -4,6 +4,7 @@ namespace Tests\Feature\Pdf;
 
 use App\Jobs\SyncPdfToYanzhenjia;
 use App\Models\PdfFile;
+use App\Models\PdfYanzhenjiaSetting;
 use App\Models\PdfYanzhenjiaSync;
 use App\Services\Pdf\PdfYanzhenjiaSyncDispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -94,6 +95,100 @@ final class PdfYanzhenjiaSyncTest extends TestCase
         $this->assertStringContainsString($file->file_id, $upload['body']);
         $this->assertStringContainsString($file->sha256_hash, $upload['body']);
         $this->assertStringContainsString('REPORT-1.pdf', $upload['body']);
+    }
+
+    public function test_v1_registers_only_json_metadata_without_sending_the_pdf(): void
+    {
+        $appid = '0123456789abcdef0123456789abcdef';
+        PdfYanzhenjiaSetting::query()->create([
+            'id' => PdfYanzhenjiaSetting::SINGLETON_ID,
+            'enabled' => true,
+            'appid' => $appid,
+            'secret' => 'test-company-secret',
+        ]);
+        $file = $this->signedFile();
+        $sync = PdfYanzhenjiaSync::query()->sole();
+        $this->assertSame(PdfYanzhenjiaSyncDispatcher::API_V1, $sync->api_version);
+
+        Http::fake(['*' => Http::response([
+            'success' => true,
+            'id' => 31,
+            'source_file_id' => $file->file_id,
+            'already_exists' => false,
+            'hash_verified' => false,
+        ], 201)]);
+
+        (new SyncPdfToYanzhenjia($file->id, PdfYanzhenjiaSyncDispatcher::API_V1))->handle();
+
+        $this->assertSame('succeeded', $sync->fresh()->status);
+        $this->assertSame(31, $sync->fresh()->remote_file_id);
+        Http::assertSent(function (Request $request) use ($appid, $sync): bool {
+            $this->assertSame('https://www.yanzhenjia.cn/api/v1/files', $request->url());
+            $this->assertSame('Basic '.base64_encode($appid.':test-company-secret'), $request->header('Authorization')[0]);
+            $this->assertStringStartsWith('application/json', $request->header('Content-Type')[0]);
+            $this->assertSame($sync->request_payload, json_decode($request->body(), true, 512, JSON_THROW_ON_ERROR));
+            $this->assertArrayNotHasKey('pdf', $request->data());
+
+            return true;
+        });
+    }
+
+    public function test_v1_retry_reuses_the_frozen_metadata_and_accepts_an_idempotent_response(): void
+    {
+        PdfYanzhenjiaSetting::query()->create([
+            'id' => PdfYanzhenjiaSetting::SINGLETON_ID,
+            'enabled' => true,
+            'appid' => '0123456789abcdef0123456789abcdef',
+            'secret' => 'test-company-secret',
+        ]);
+        $file = $this->signedFile();
+        $sync = PdfYanzhenjiaSync::query()->sole();
+        Http::fakeSequence()
+            ->push(['message' => 'temporary error'], 503)
+            ->push([
+                'success' => true,
+                'id' => 31,
+                'source_file_id' => $file->file_id,
+                'already_exists' => true,
+                'hash_verified' => false,
+            ], 200);
+
+        try {
+            (new SyncPdfToYanzhenjia($file->id, PdfYanzhenjiaSyncDispatcher::API_V1))->handle();
+            $this->fail('The first request should fail.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('HTTP 503', $exception->getMessage());
+        }
+
+        (new SyncPdfToYanzhenjia($file->id, PdfYanzhenjiaSyncDispatcher::API_V1))->handle();
+
+        $this->assertSame('succeeded', $sync->fresh()->status);
+        $this->assertSame(31, $sync->fresh()->remote_file_id);
+        Http::assertSentCount(2);
+        foreach (Http::recorded() as [$request]) {
+            $this->assertSame($sync->request_payload, json_decode($request->body(), true, 512, JSON_THROW_ON_ERROR));
+        }
+    }
+
+    public function test_v1_does_not_register_a_changed_local_original(): void
+    {
+        PdfYanzhenjiaSetting::query()->create([
+            'id' => PdfYanzhenjiaSetting::SINGLETON_ID,
+            'enabled' => true,
+            'appid' => '0123456789abcdef0123456789abcdef',
+            'secret' => 'test-company-secret',
+        ]);
+        $file = $this->signedFile();
+        Storage::disk('pdf')->put($file->file_path, '%PDF-1.7 changed report');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('frozen Yanzhenjia request');
+
+        try {
+            (new SyncPdfToYanzhenjia($file->id, PdfYanzhenjiaSyncDispatcher::API_V1))->handle();
+        } finally {
+            Http::assertNothingSent();
+        }
     }
 
     public function test_retry_accepts_the_targets_idempotent_response_after_an_ambiguous_failure(): void
