@@ -241,6 +241,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         // PDF 防篡改系统
         Route::prefix('pdf')->group(function (): void {
             Route::get('/yanzhenjia-settings', [PdfYanzhenjiaSettingsController::class, 'show']);
+            Route::get('/yanzhenjia-settings/recent-syncs', [PdfYanzhenjiaSettingsController::class, 'recentSyncs']);
             Route::put('/yanzhenjia-settings', [PdfYanzhenjiaSettingsController::class, 'update']);
             Route::get('/handwritten-signing/options', [PdfHandwrittenSigningController::class, 'planningOptions']);
             Route::get('/documents', [PdfDocumentController::class, 'index']);

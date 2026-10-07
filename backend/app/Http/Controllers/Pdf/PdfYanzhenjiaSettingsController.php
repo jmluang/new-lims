@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Pdf;
 
 use App\Http\Controllers\Controller;
 use App\Models\PdfYanzhenjiaSetting;
+use App\Models\PdfYanzhenjiaSync;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,33 @@ final class PdfYanzhenjiaSettingsController extends Controller
         $setting = PdfYanzhenjiaSetting::query()->find(PdfYanzhenjiaSetting::SINGLETON_ID);
 
         return response()->json(['data' => $this->serialize($setting)]);
+    }
+
+    public function recentSyncs(Request $request): JsonResponse
+    {
+        $this->authorizePermission($request, self::RESOURCE.'.read', self::RESOURCE);
+
+        $syncs = PdfYanzhenjiaSync::query()
+            ->with('pdfFile:id,file_id,file_name,cover_report_number,sha256_hash')
+            ->orderByDesc('updated_at')
+            ->orderByDesc('id')
+            ->limit(20)
+            ->get();
+
+        return response()->json(['data' => $syncs->map(function (PdfYanzhenjiaSync $sync): array {
+            $payload = is_array($sync->request_payload) ? $sync->request_payload : [];
+
+            return [
+                'id' => $sync->id,
+                'api_version' => $sync->api_version,
+                'file_id' => $sync->pdfFile?->file_id,
+                'file_name' => $sync->pdfFile?->file_name,
+                'report_number' => $payload['report_number'] ?? $sync->pdfFile?->cover_report_number,
+                'sha256' => $payload['sha256'] ?? $sync->pdfFile?->sha256_hash,
+                'status' => $sync->status,
+                'updated_at' => $sync->updated_at?->toIso8601String(),
+            ];
+        })->values()]);
     }
 
     public function update(Request $request, AuditLogger $auditLogger): JsonResponse
