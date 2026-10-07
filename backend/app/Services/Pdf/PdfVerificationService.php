@@ -363,7 +363,10 @@ class PdfVerificationService
             }
 
             try {
-                $disk->put($relativePath, $stream);
+                app(PdfStorageDirectory::class)->ensure(dirname($disk->path($relativePath)));
+                if (! $disk->put($relativePath, $stream, 'private')) {
+                    return null;
+                }
             } finally {
                 fclose($stream);
             }

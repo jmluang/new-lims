@@ -35,6 +35,7 @@ class PdfSigningTest extends TestCase
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
         config([
+            'pdf_service.base_url' => 'http://127.0.0.1:8080',
             'pdf_service.enabled' => true,
             'pdf_service.signing.enabled' => true,
             'pdf_service.signing.photometric_removal_enabled' => false,
@@ -60,7 +61,7 @@ class PdfSigningTest extends TestCase
 
     public function test_signing_stamps_the_upload_and_records_its_digests(): void
     {
-        Storage::fake('pdf');
+        Storage::fake('pdf', ['permissions' => config('filesystems.disks.pdf.permissions', [])]);
         config(['services.yanzhenjia.enabled' => true]);
         Queue::fake();
 
@@ -102,6 +103,8 @@ class PdfSigningTest extends TestCase
         $this->assertSame(['CMA'], $record->metadata['function_stamp_names']);
         $this->assertSame('cover_extraction', $record->metadata['report_number_source']);
         Storage::disk('pdf')->assertExists($record->file_path);
+        $this->assertSame(02770, fileperms(dirname(Storage::disk('pdf')->path($record->file_path))) & 07777);
+        $this->assertSame(0640, fileperms(Storage::disk('pdf')->path($record->file_path)) & 0777);
         $this->assertDatabaseHas('pdf_yanzhenjia_syncs', ['pdf_file_id' => $record->id, 'status' => 'pending']);
         Queue::assertNotPushed(SyncPdfToYanzhenjia::class);
     }

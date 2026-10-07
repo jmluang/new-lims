@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Pdf;
 
 use App\Http\Controllers\Controller;
 use App\Services\Audit\AuditLogger;
+use App\Services\Pdf\PdfStorageDirectory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -231,11 +232,12 @@ abstract class PdfAssetController extends Controller
     protected function storeUpload(UploadedFile $file): string
     {
         $extension = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'bin');
+        app(PdfStorageDirectory::class)->ensure(Storage::disk(self::DISK)->path($this->directory()));
 
         return $file->storeAs(
             $this->directory(),
             Str::uuid()->toString().'.'.$extension,
-            ['disk' => self::DISK],
+            ['disk' => self::DISK, 'visibility' => 'private'],
         );
     }
 }
