@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
-import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
-import { inputClass } from '../system/utils'
+import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
+import { formatDateTime, inputClass } from '../system/utils'
 
 type YanzhenjiaSettings = {
   enabled: boolean
@@ -18,6 +18,38 @@ type SettingsForm = {
   enabled: boolean
   appid: string
   secret: string
+}
+
+type RecentSync = {
+  id: number
+  api_version: string
+  file_id: string | null
+  file_name: string | null
+  report_number: string | null
+  sha256: string | null
+  status: string
+  updated_at: string | null
+}
+
+type RecentSyncsResponse = { data: RecentSync[] }
+
+const syncStatus: Record<string, { label: string; className: string }> = {
+  pending: { label: '待同步', className: 'bg-slate-100 text-slate-700' },
+  queued: { label: '排队中', className: 'bg-blue-50 text-blue-700' },
+  running: { label: '同步中', className: 'bg-blue-50 text-blue-700' },
+  succeeded: { label: '成功', className: 'bg-emerald-50 text-emerald-700' },
+  failed: { label: '失败', className: 'bg-red-50 text-red-700' },
+}
+
+function SyncStatus({ row }: { row: RecentSync }) {
+  const status = syncStatus[row.status] ?? { label: row.status, className: 'bg-slate-100 text-slate-700' }
+
+  return (
+    <div className="space-y-1">
+      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>{status.label}</span>
+      <p className="text-xs text-slate-500">{row.api_version === 'v1' ? '公司 API' : '旧接口'}</p>
+    </div>
+  )
 }
 
 const queryKey = ['pdf', 'yanzhenjia-settings'] as const
@@ -35,6 +67,16 @@ export function YanzhenjiaSettingsPage() {
     },
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+  })
+
+  const recentSyncsQuery = useQuery({
+    queryKey: ['pdf', 'yanzhenjia-recent-syncs'],
+    queryFn: async () => {
+      const response = await api.get<RecentSyncsResponse>('/api/pdf/yanzhenjia-settings/recent-syncs')
+      return response.data.data
+    },
+    staleTime: 10_000,
+    refetchInterval: 30_000,
   })
 
   useEffect(() => {
@@ -153,6 +195,65 @@ export function YanzhenjiaSettingsPage() {
               </form>
             </PermissionGate>
           </div>
+        ) : null}
+      </Panel>
+
+      <Panel
+        title="最近同步文件"
+        description="按状态更新时间排序，显示最近 20 条。"
+        actions={<Button variant="ghost" disabled={recentSyncsQuery.isFetching} onClick={() => recentSyncsQuery.refetch()}>刷新</Button>}
+      >
+        {recentSyncsQuery.isError ? <ErrorNotice error={recentSyncsQuery.error} fallback="无法读取最近同步文件" /> : null}
+
+        {recentSyncsQuery.isPending ? (
+          <LoadingState label="正在加载最近同步文件" />
+        ) : recentSyncsQuery.data?.length === 0 ? (
+          <EmptyState title="暂无同步记录" description="完成签章并启用自动登记后，文件会出现在这里。" />
+        ) : recentSyncsQuery.data ? (
+          <>
+            <DataTable>
+              <thead className="bg-slate-50 text-left text-xs font-medium text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">文件名</th>
+                  <th className="px-3 py-2">报告编号</th>
+                  <th className="px-3 py-2">SHA-256</th>
+                  <th className="px-3 py-2">状态</th>
+                  <th className="px-3 py-2">更新时间</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {recentSyncsQuery.data.map((row) => (
+                  <tr key={row.id}>
+                    <td className="max-w-56 px-3 py-2 text-slate-900">
+                      <p className="break-words font-medium">{row.file_name ?? '-'}</p>
+                      <p className="mt-0.5 break-all font-mono text-xs text-slate-500">{row.file_id ?? '-'}</p>
+                    </td>
+                    <td className="px-3 py-2 text-slate-700">{row.report_number ?? '-'}</td>
+                    <td className="min-w-72 max-w-96 break-all px-3 py-2 font-mono text-xs text-slate-600">{row.sha256 ?? '-'}</td>
+                    <td className="px-3 py-2"><SyncStatus row={row} /></td>
+                    <td className="whitespace-nowrap px-3 py-2 text-slate-700">{formatDateTime(row.updated_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
+
+            <div className="space-y-2 md:hidden">
+              {recentSyncsQuery.data.map((row) => (
+                <article className="rounded-lg border border-emerald-900/10 p-3" key={row.id}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-medium text-slate-900">{row.file_name ?? '-'}</p>
+                      <p className="mt-0.5 break-all font-mono text-xs text-slate-500">{row.file_id ?? '-'}</p>
+                    </div>
+                    <SyncStatus row={row} />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-700">报告编号：{row.report_number ?? '-'}</p>
+                  <p className="mt-1 break-all font-mono text-[11px] text-slate-600">SHA-256：{row.sha256 ?? '-'}</p>
+                  <p className="mt-2 text-xs text-slate-500">更新时间：{formatDateTime(row.updated_at)}</p>
+                </article>
+              ))}
+            </div>
+          </>
         ) : null}
       </Panel>
     </PageShell>
