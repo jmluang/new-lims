@@ -13,7 +13,7 @@ export function MessageCenter() {
   const messagesQuery = useQuery({
     queryKey: ['messages'],
     queryFn: fetchMessages,
-    refetchInterval: 5000,
+    refetchInterval: 10_000,
   })
   const markRead = useMutation({
     mutationFn: markMessageRead,

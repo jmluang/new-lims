@@ -80,7 +80,7 @@ export function YanzhenjiaSettingsPage() {
 
       <Panel
         title="API 接入"
-        description="请先在验真家后台创建 API 应用，再将 AppID 与 Secret 填写在此处。"
+        description="填写验真家提供的 AppID 和 Secret。"
       >
         {settingsQuery.isPending ? (
           <LoadingState label="正在加载验真家配置" />
@@ -132,7 +132,7 @@ export function YanzhenjiaSettingsPage() {
                       className={inputClass}
                       maxLength={4096}
                       onChange={(event) => setForm((current) => ({ ...current, secret: event.target.value }))}
-                      placeholder={settingsQuery.data.has_secret ? '已保存；留空以保留当前 Secret' : '请输入验真家生成的 Secret'}
+                      placeholder={settingsQuery.data.has_secret ? '已保存；留空保留当前 Secret' : '请输入验真家生成的 Secret'}
                       required={form.enabled && !settingsQuery.data.has_secret}
                       type="password"
                       value={form.secret}
