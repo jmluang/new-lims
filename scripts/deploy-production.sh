@@ -315,6 +315,22 @@ sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artis
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" route:cache
 sudo -u "$deploy_user" "$php_bin" -d opcache.enable_cli=0 "$active_backend/artisan" view:cache
 
+# A long-running Laravel worker keeps the code and working directory from the
+# release where it started. Restart it before pruning that release so queued
+# jobs use the newly activated PHP code.
+sudo systemctl restart lims-pdf-queue.service
+sudo systemctl is-active --quiet lims-pdf-queue.service || {
+  printf '%s\n' 'LIMS queue worker did not restart successfully.' >&2
+  exit 1
+}
+worker_pid="$(sudo systemctl show lims-pdf-queue.service -p MainPID --value)"
+worker_cwd="$(sudo readlink "/proc/$worker_pid/cwd")"
+[[ "$worker_cwd" == "$active_release/backend" ]] || {
+  printf 'LIMS queue worker is running from the wrong release: %s\n' "$worker_cwd" >&2
+  exit 1
+}
+printf 'LIMS queue worker restarted on release %s\n' "$release_sha"
+
 # Only here, with the new release live and its caches warm, is it safe to drop
 # the older ones. Every release directory carries its own backend/vendor and
 # frontend/node_modules, both built on the server after the upload, so nothing
