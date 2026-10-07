@@ -128,7 +128,7 @@ public class SignerService {
             String qrCodeUrl
     ) throws Exception {
         return processToFile(pdf, perforation, sigImg, functionStamps, mode, signingKeyId,
-                contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, qrCodeImg, qrCodeUrl, null);
+                contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, qrCodeImg, qrCodeUrl, null, null);
     }
 
     public FileProcessResult processToFile(
@@ -147,6 +147,29 @@ public class SignerService {
             MultipartFile qrCodeImg,
             String qrCodeUrl,
             String confirmedReportNumber
+    ) throws Exception {
+        return processToFile(pdf, perforation, sigImg, functionStamps, mode, signingKeyId,
+                contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, qrCodeImg, qrCodeUrl,
+                confirmedReportNumber, null);
+    }
+
+    public FileProcessResult processToFile(
+            MultipartFile pdf,
+            MultipartFile perforation,
+            MultipartFile sigImg,
+            List<MultipartFile> functionStamps,
+            String mode,
+            String signingKeyId,
+            String contact,
+            String location,
+            String reason,
+            String hashAlgo,
+            boolean tsaEnabled,
+            String tsaUrl,
+            MultipartFile qrCodeImg,
+            String qrCodeUrl,
+            String confirmedReportNumber,
+            String reportAppid
     ) throws Exception {
         PdfFiles files = new PdfFiles();
         try {
@@ -167,7 +190,7 @@ public class SignerService {
                     ? (coverFields == null ? null : coverFields.reportNumber())
                     : confirmedReportNumber.trim();
             File output = processPdf(files, input, perforation, sigImg, functionStamps, mode,
-                    signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, reportNumber);
+                    signingKeyId, contact, location, reason, hashAlgo, tsaEnabled, tsaUrl, reportNumber, reportAppid);
             return new FileProcessResult(output, coverFields, files);
         } catch (Exception | Error failure) {
             try {
@@ -193,7 +216,8 @@ public class SignerService {
             String hashAlgo,
             boolean tsaEnabled,
             String tsaUrl,
-            String reportNumber
+            String reportNumber,
+            String reportAppid
     ) throws Exception {
         log.info("SignerService.processPdf: mode={}, pdfTemp={}, perfPresent={}, sigImgPresent={}",
                 mode, tempPdf.getAbsolutePath(), perforation != null && !perforation.isEmpty(), sigImg != null && !sigImg.isEmpty());
@@ -210,22 +234,34 @@ public class SignerService {
                 if (baseUrl == null || baseUrl.isBlank()) {
                     baseUrl = "https://www.yanzhenjia.cn/";
                 }
-                String queryUrl = baseUrl + "?query=" + java.net.URLEncoder.encode(reportNumber, java.nio.charset.StandardCharsets.UTF_8);
+                String host = java.net.URI.create(baseUrl).getHost();
+                boolean yanzhenjia = "www.yanzhenjia.cn".equalsIgnoreCase(host)
+                        || "yanzhenjia.cn".equalsIgnoreCase(host);
+                boolean validAppid = reportAppid != null && reportAppid.matches("(?i)[a-f0-9]{32}");
+                if (yanzhenjia && !validAppid) {
+                    log.warn("Skipping Yanzhenjia QR code because the company AppID is missing or invalid");
+                } else {
+                    String separator = baseUrl.contains("?") ? "&" : "?";
+                    String queryUrl = baseUrl + separator + "query=" + java.net.URLEncoder.encode(reportNumber, java.nio.charset.StandardCharsets.UTF_8);
+                    if (validAppid) {
+                        queryUrl += "&appid=" + reportAppid.toLowerCase(java.util.Locale.ROOT);
+                    }
 
-                log.info("Generating QR code for URL: {}", queryUrl);
+                    log.info("Generating QR code for URL: {}", queryUrl);
 
-                try {
-                    // 获取配置的二维码像素尺寸
-                    int[] pixelSize = getQrCodePixelSize();
-                    int qrWidth = pixelSize[0];
-                    int qrHeight = pixelSize[1];
+                    try {
+                        // 获取配置的二维码像素尺寸
+                        int[] pixelSize = getQrCodePixelSize();
+                        int qrWidth = pixelSize[0];
+                        int qrHeight = pixelSize[1];
 
-                    byte[] qrCodeBytes = generateQrCode(queryUrl, qrWidth, qrHeight);
-                    addQrCodeToFirstPage(doc, qrCodeBytes);
-                    log.info("QR code added successfully to first page");
-                } catch (Exception qrEx) {
-                    log.error("Failed to generate or add QR code", qrEx);
-                    // 继续处理，不因二维码失败而中断
+                        byte[] qrCodeBytes = generateQrCode(queryUrl, qrWidth, qrHeight);
+                        addQrCodeToFirstPage(doc, qrCodeBytes);
+                        log.info("QR code added successfully to first page");
+                    } catch (Exception qrEx) {
+                        log.error("Failed to generate or add QR code", qrEx);
+                        // 继续处理，不因二维码失败而中断
+                    }
                 }
             } else {
                 log.info("No report number found in PDF, skipping QR code generation");

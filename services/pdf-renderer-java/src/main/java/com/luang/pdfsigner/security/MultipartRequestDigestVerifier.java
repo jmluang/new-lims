@@ -126,7 +126,7 @@ public final class MultipartRequestDigestVerifier {
                         "pdf", "perforation_image", "signature_appearance_image",
                         "certificate_query_qr_code", "mode", "signature_contact",
                         "signature_location", "signature_reason", "function_stamp_count",
-                        "certificate_query_qr_code_url", "report_number",
+                        "certificate_query_qr_code_url", "report_number", "report_appid",
                         // The signing desk sends its perforation geometry on every
                         // sealed request; leaving these out rejected the whole
                         // legacy flow as a body mismatch.

@@ -108,15 +108,18 @@ class PdfHmacControllerIntegrationTest {
             }
         }
         String reportNumber = " XPD20261005-003 ";
+        String reportAppid = "0123456789abcdef0123456789abcdef";
         String digest = multipartManifestDigest(List.of(
                 part("pdf", "application/pdf", pdf),
                 part("mode", "text/plain;charset=utf-8", "stamp".getBytes(StandardCharsets.UTF_8)),
-                part("report_number", "text/plain;charset=utf-8", reportNumber.getBytes(StandardCharsets.UTF_8))
+                part("report_number", "text/plain;charset=utf-8", reportNumber.getBytes(StandardCharsets.UTF_8)),
+                part("report_appid", "text/plain;charset=utf-8", reportAppid.getBytes(StandardCharsets.UTF_8))
         ));
         var request = multipart("/api/pdf/process")
                 .file(new MockMultipartFile("pdf", "report.pdf", "application/pdf", pdf));
         request.param("mode", "stamp");
         request.param("report_number", reportNumber);
+        request.param("report_appid", reportAppid);
         addAuthentication(request, digest, "nonce-confirmed-report-" + UUID.randomUUID());
 
         String body = mockMvc.perform(request)
@@ -142,7 +145,7 @@ class PdfHmacControllerIntegrationTest {
                     }
                 }
             }
-            assertThat(qrContents).contains("https://www.yanzhenjia.cn/?query=" + reportNumber.trim());
+            assertThat(qrContents).contains("https://www.yanzhenjia.cn/?query=" + reportNumber.trim() + "&appid=" + reportAppid);
         }
     }
 

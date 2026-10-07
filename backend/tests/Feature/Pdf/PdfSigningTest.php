@@ -6,6 +6,7 @@ use App\Jobs\SyncPdfToYanzhenjia;
 use App\Models\DigitalSignature;
 use App\Models\HomepageFunctionStamp;
 use App\Models\PdfFile;
+use App\Models\PdfYanzhenjiaSetting;
 use App\Models\PerforationStamp;
 use App\Models\User;
 use App\Services\Pdf\PdfRendererClient;
@@ -138,6 +139,13 @@ class PdfSigningTest extends TestCase
     {
         Storage::fake('pdf');
 
+        PdfYanzhenjiaSetting::query()->create([
+            'id' => PdfYanzhenjiaSetting::SINGLETON_ID,
+            'enabled' => true,
+            'appid' => '0123456789abcdef0123456789abcdef',
+            'secret' => 'test-secret',
+        ]);
+
         // What extraction produced in production: a whole labelled cover line
         // rather than the number. It reaches the ledger search and the report
         // recipient, so the operator's confirmation has to win.
@@ -155,6 +163,7 @@ class PdfSigningTest extends TestCase
         $response->assertOk();
         $this->assertSame('XDP2025120133', rawurldecode((string) $response->headers->get('X-Cover-Report-Number')));
         $this->assertSame('XDP2025120133', $this->rendererFields['report_number'] ?? null);
+        $this->assertSame('0123456789abcdef0123456789abcdef', $this->rendererFields['report_appid'] ?? null);
 
         $record = PdfFile::query()->sole();
         $this->assertSame('XDP2025120133', $record->cover_report_number);

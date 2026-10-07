@@ -23,7 +23,7 @@ Endpoints
     - `report_number` - optional operator-confirmed number; takes priority over cover extraction for the QR code and PDF title
 
 Certificate query links
-- New PDF QR codes default to `https://www.yanzhenjia.cn/?query=<URL-encoded report number>`.
+- New PDF QR codes default to `https://www.yanzhenjia.cn/?query=<URL-encoded report number>&appid=<company AppID>`.
 - This temporarily changes the URL embedded in the first-page PDF QR code while
   the WeChat Mini Program is unreleased. Keep the existing Mini Program query
   page and scheme integration; its previous gateway
@@ -32,6 +32,9 @@ Certificate query links
 - Set `CERTIFICATE_QUERY_BASE_URL=https://www.yanzhenjia.cn/` in the renderer runtime environment.
   Existing deployments use `shared/pdf-renderer-java/.env`; update any old explicit
   value there when deploying, because it overrides the Compose default.
+- Configure the company AppID and Secret in the LIMS Yanzhenjia settings page. The
+  signing request supplies the AppID for each PDF; it is not stored in the renderer
+  `.env`. The Yanzhenjia destination omits the QR code when no valid AppID exists.
 - The Yanzhenjia homepage must include URL query lookup support before activating
   the new destination. Existing signed PDFs retain their original QR code and
   must be regenerated from unsigned source files to change it.

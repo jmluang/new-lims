@@ -101,6 +101,7 @@ public class PdfController {
             @RequestParam(required = false, name = "function_stamp_count") Integer functionStampCount,
             @RequestParam(required = false, name = "certificate_query_qr_code_url") String qrCodeUrl,
             @RequestParam(required = false, name = "report_number") String reportNumber,
+            @RequestParam(required = false, name = "report_appid") String reportAppid,
             HttpServletRequest request,
             HttpServletResponse response
     ) throws Exception {
@@ -140,7 +141,7 @@ public class PdfController {
         try (SignerService.FileProcessResult result = signerService.processToFile(pdf, perforation, sigImg, functionStamps,
                 mode, null, contact, location, reason,
                 signingPolicy.hashAlgorithm(), false,
-                null, qrCodeImg, qrCodeUrl, reportNumber)) {
+                null, qrCodeImg, qrCodeUrl, reportNumber, reportAppid)) {
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             try (var json = new JsonFactory().createGenerator(response.getOutputStream());
                  InputStream input = Files.newInputStream(result.pdfFile().toPath())) {

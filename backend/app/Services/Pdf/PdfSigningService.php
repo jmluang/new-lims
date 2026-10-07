@@ -5,6 +5,7 @@ namespace App\Services\Pdf;
 use App\Models\DigitalSignature;
 use App\Models\HomepageFunctionStamp;
 use App\Models\PdfFile;
+use App\Models\PdfYanzhenjiaSetting;
 use App\Models\PerforationStamp;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -167,6 +168,11 @@ class PdfSigningService
 
         if ($confirmedReportNumber !== '') {
             $fields['report_number'] = $confirmedReportNumber;
+        }
+
+        $yanzhenjia = PdfYanzhenjiaSetting::query()->find(PdfYanzhenjiaSetting::SINGLETON_ID);
+        if ($yanzhenjia?->enabled && $yanzhenjia->hasCredentials()) {
+            $fields['report_appid'] = strtolower((string) $yanzhenjia->appid);
         }
 
         $files = [];
