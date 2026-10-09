@@ -28,6 +28,7 @@ type RecentSync = {
   report_number: string | null
   sha256: string | null
   status: string
+  source_deleted_at: string | null
   updated_at: string | null
 }
 
@@ -47,6 +48,7 @@ function SyncStatus({ row }: { row: RecentSync }) {
   return (
     <div className="space-y-1">
       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>{status.label}</span>
+      {row.source_deleted_at ? <p className="text-xs text-amber-700">源文件已删除</p> : null}
       <p className="text-xs text-slate-500">{row.api_version === 'v1' ? '公司 API' : '旧接口'}</p>
     </div>
   )

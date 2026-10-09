@@ -66,6 +66,7 @@ final class PdfYanzhenjiaSyncDispatcher
 
         return DB::transaction(function () use ($limit, $versions): int {
             $syncs = PdfYanzhenjiaSync::query()
+                ->whereNotNull('pdf_file_id')
                 ->whereIn('api_version', $versions)
                 ->where(function ($query): void {
                     $query->where('status', 'pending')

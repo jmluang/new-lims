@@ -264,7 +264,8 @@ final class PdfYanzhenjiaSyncTest extends TestCase
 
         (new SyncPdfToYanzhenjia($file->id))->handle();
 
-        $this->assertDatabaseCount('pdf_yanzhenjia_syncs', 0);
+        $this->assertDatabaseCount('pdf_yanzhenjia_syncs', 1);
+        $this->assertDatabaseHas('pdf_yanzhenjia_syncs', ['pdf_file_id' => null]);
         Http::assertNothingSent();
     }
 

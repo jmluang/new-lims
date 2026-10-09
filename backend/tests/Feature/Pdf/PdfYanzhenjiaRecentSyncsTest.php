@@ -74,4 +74,50 @@ final class PdfYanzhenjiaRecentSyncsTest extends TestCase
             ->assertForbidden()
             ->assertJsonPath('permission', 'pdf_yanzhenjia_settings.read');
     }
+
+    public function test_deleting_a_signed_file_preserves_its_sync_history(): void
+    {
+        foreach (['pdf_yanzhenjia_settings.read', 'pdf_files.delete'] as $permission) {
+            Permission::findOrCreate($permission, 'web');
+        }
+        $user = User::factory()->create();
+        $user->givePermissionTo('pdf_yanzhenjia_settings.read', 'pdf_files.delete');
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        Sanctum::actingAs($user);
+
+        $file = PdfFile::query()->create([
+            'file_id' => 'SYNC-DELETED',
+            'file_name' => 'deleted-report.pdf',
+            'cover_report_number' => 'REPORT-DELETED',
+            'sha256_hash' => hash('sha256', 'deleted-report'),
+            'file_size' => 100,
+            'created_by' => 'Operator',
+        ]);
+        $sync = PdfYanzhenjiaSync::query()->create([
+            'pdf_file_id' => $file->id,
+            'api_version' => 'v1',
+            'request_payload' => ['report_number' => 'REPORT-DELETED'],
+            'status' => 'succeeded',
+            'remote_file_id' => 123,
+        ]);
+
+        $this->deleteJson("/api/pdf/files/{$file->id}")->assertOk();
+
+        $this->assertDatabaseMissing('pdf_files', ['id' => $file->id]);
+        $this->assertDatabaseHas('pdf_yanzhenjia_syncs', [
+            'id' => $sync->id,
+            'pdf_file_id' => null,
+            'source_file_id' => 'SYNC-DELETED',
+            'source_file_name' => 'deleted-report.pdf',
+            'status' => 'succeeded',
+            'remote_file_id' => 123,
+        ]);
+        $this->getJson('/api/pdf/yanzhenjia-settings/recent-syncs')
+            ->assertOk()
+            ->assertJsonPath('data.0.file_id', 'SYNC-DELETED')
+            ->assertJsonPath('data.0.file_name', 'deleted-report.pdf')
+            ->assertJsonPath('data.0.status', 'succeeded')
+            ->assertJsonPath('data.0.report_number', 'REPORT-DELETED');
+        $this->assertNotNull($sync->fresh()->source_deleted_at);
+    }
 }
