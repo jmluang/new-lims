@@ -18,6 +18,7 @@ import { mergeCertificateTemplate } from './certificateMerge'
 
 /** Match the production signer's three heavy-job slots; extra files wait here. */
 const MAX_CONCURRENT_TASKS = 3
+const SUCCESS_RESET_SECONDS = 5
 
 const languageNames: Record<string, string> = { zh: '中文', en: 'English' }
 
@@ -82,6 +83,7 @@ export function PdfSigningPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [signing, setSigning] = useState(false)
   const [autoStart, setAutoStart] = useState(false)
+  const [successCountdown, setSuccessCountdown] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [config, setConfig] = useState<SigningConfig | null>(null)
 
@@ -297,6 +299,7 @@ export function PdfSigningPage() {
     setError(null)
     setResults([])
     setTasks([])
+    setSuccessCountdown(null)
 
     const pending = queue.map((item, index) => ({ item, index: index + 1 }))
     setTotalCount(pending.length)
@@ -328,8 +331,23 @@ export function PdfSigningPage() {
 
     setSigning(false)
     setQueue([])
+    // Only this signing desk auto-clears a completely successful batch.
+    // Any failed item remains visible until the operator clears it manually.
+    setSuccessCountdown(collected.every((result) => !result.error) ? SUCCESS_RESET_SECONDS : null)
     await queryClient.invalidateQueries({ queryKey: ['pdf', 'files'] })
   }
+
+  useEffect(() => {
+    if (successCountdown === null) return
+    if (successCountdown === 0) {
+      reset()
+      return
+    }
+
+    const timer = setTimeout(() => setSuccessCountdown((current) => current === null ? null : current - 1), 1000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [successCountdown])
 
   function reset() {
     setResults([])
@@ -337,6 +355,7 @@ export function PdfSigningPage() {
     setTasks([])
     setProcessedCount(0)
     setTotalCount(0)
+    setSuccessCountdown(null)
     setError(null)
   }
 
@@ -392,6 +411,7 @@ export function PdfSigningPage() {
               ? `共 ${results.length} 个文件，成功 ${successCount} 个，失败 ${failureCount} 个。失败原因会保留在下方。`
               : `共 ${results.length} 个文件全部处理成功，已开始下载。`
           }
+          actions={successCountdown !== null ? <span className="text-xs text-slate-500">{successCountdown} 秒后自动收起</span> : undefined}
         >
           <ul className="space-y-2">
             {results.map((result) => (
