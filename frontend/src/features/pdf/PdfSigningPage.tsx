@@ -62,8 +62,8 @@ type TaskState = {
   progress: number
   status: string
   stage: TaskStage
-  /** Wall-clock start, used to show that a silent stage is still alive. */
-  startedAt: number
+  /** Start of the current preparation/upload/wait phase. */
+  stageStartedAt: number
   /** Upload size, used to state what a normal duration looks like. */
   bytes: number
   /** Set once the request is with the server and no progress events arrive. */
@@ -210,7 +210,7 @@ export function PdfSigningPage() {
         progress: 0,
         status: '准备中',
         stage: 'merge',
-        startedAt: Date.now(),
+        stageStartedAt: Date.now(),
         bytes: item.file.size,
       },
     ])
@@ -223,10 +223,10 @@ export function PdfSigningPage() {
         payload = await mergeCertificateTemplate(item.file, effectiveConfig.certificateId)
         setTask({ progress: 50, status: '声明页合并完成', stage: 'merge' })
       } else {
-        setTask({ progress: 50, status: '无需合并声明页', stage: 'upload' })
+        setTask({ progress: 50, status: '无需合并声明页', stage: 'upload', stageStartedAt: Date.now() })
       }
 
-      setTask({ progress: 50, status: '上传并签章…', stage: 'upload' })
+      setTask({ progress: 50, status: '上传并签章…', stage: 'upload', stageStartedAt: Date.now() })
 
       const form = new FormData()
       form.append('pdf_file', payload, item.file.name)
@@ -273,7 +273,7 @@ export function PdfSigningPage() {
           // time instead of leaving a bar frozen near the end, which is what
           // makes a working job look hung.
           if (uploaded >= 100) {
-            setTask({ progress: 95, status: '服务端签章中', stage: 'signing', signingSince: Date.now() })
+            setTask({ progress: 95, status: '服务端处理中', stage: 'signing', signingSince: Date.now(), stageStartedAt: Date.now() })
 
             return
           }
@@ -284,7 +284,7 @@ export function PdfSigningPage() {
 
       const { download_url: downloadUrl, download_name: downloadName } = response.data.data
 
-      setTask({ progress: 100, status: '完成', stage: 'done' })
+      setTask({ progress: 100, status: '签章完成，开始下载', stage: 'done', stageStartedAt: Date.now() })
 
       // A finished file downloads straight away so a large batch does not need
       // one click per report.
@@ -678,7 +678,7 @@ function ProcessingOverlay({
  */
 function TaskCard({ task, now }: { task: TaskState; now: number }) {
   const signing = task.stage === 'signing'
-  const elapsedSeconds = Math.max(0, Math.round((now - task.startedAt) / 1000))
+  const phaseSeconds = Math.max(0, Math.round((now - task.stageStartedAt) / 1000))
   const signingSeconds = task.signingSince ? Math.max(0, Math.round((now - task.signingSince) / 1000)) : 0
   const expected = expectedSigningSeconds(task.bytes)
   // Several times the measured norm, so the warning keeps its meaning.
@@ -689,7 +689,13 @@ function TaskCard({ task, now }: { task: TaskState; now: number }) {
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="font-medium text-slate-500">任务 {task.index}</span>
         <span className={task.stage === 'error' ? 'text-red-700' : 'text-slate-500'}>
-          {signing ? `已用 ${elapsedSeconds} 秒 / 通常约 ${expected} 秒` : `${Math.round(task.progress)}%`}
+          {signing
+            ? `上传后等待 ${signingSeconds} 秒 / 通常签章约 ${expected} 秒`
+            : task.stage === 'merge'
+              ? `合并已用 ${phaseSeconds} 秒`
+              : task.stage === 'upload'
+                ? `上传已用 ${phaseSeconds} 秒`
+                : `${Math.round(task.progress)}%`}
         </span>
       </div>
       <p className="mt-1 truncate text-sm text-slate-900">{task.fileName}</p>
