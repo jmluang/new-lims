@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Pdf;
 
 use App\Http\Controllers\Controller;
 use App\Models\PdfFile;
+use App\Models\PdfYanzhenjiaSync;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -61,6 +62,14 @@ class PdfFileController extends Controller
                 subject: $file,
                 before: $this->serialize($file, includeMetadata: true),
             );
+            PdfYanzhenjiaSync::query()->where('pdf_file_id', $file->id)->update([
+                'source_file_id' => $file->file_id,
+                'source_file_name' => $file->file_name,
+                'source_report_number' => $file->cover_report_number,
+                'source_sha256' => $file->sha256_hash,
+                'source_deleted_at' => now(),
+                'pdf_file_id' => null,
+            ]);
             $file->delete();
 
             return $file->file_path;

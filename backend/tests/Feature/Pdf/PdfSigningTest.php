@@ -10,6 +10,7 @@ use App\Models\PdfYanzhenjiaSetting;
 use App\Models\PerforationStamp;
 use App\Models\User;
 use App\Services\Pdf\PdfRendererClient;
+use App\Services\Pdf\PdfRendererHttpException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
@@ -107,6 +108,55 @@ class PdfSigningTest extends TestCase
         $this->assertSame(0640, fileperms(Storage::disk('pdf')->path($record->file_path)) & 0777);
         $this->assertDatabaseHas('pdf_yanzhenjia_syncs', ['pdf_file_id' => $record->id, 'status' => 'pending']);
         Queue::assertNotPushed(SyncPdfToYanzhenjia::class);
+    }
+
+    public function test_signing_can_return_a_download_link_without_transferring_the_pdf_twice(): void
+    {
+        Storage::fake('pdf');
+        $signedBytes = '%PDF-1.7 signed output';
+        $this->fakeRendererReturning($signedBytes, ['report_number' => 'ZS-2026-0007'], ['signature_appearance_image']);
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $response = $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.7 source'),
+            'original_name' => 'report.pdf',
+            'digital_signature_id' => $this->seal(DigitalSignature::class, ['name' => '检测专用章'])->id,
+            'response_mode' => 'json',
+        ]);
+
+        $response->assertOk()->assertJsonPath('data.sha256', hash('sha256', $signedBytes))
+            ->assertJsonPath('data.file_size', strlen($signedBytes))
+            ->assertJsonPath('data.report_number', 'ZS-2026-0007');
+        $this->assertStringNotContainsString($signedBytes, $response->getContent());
+        $this->assertSame($signedBytes, $this->get($response->json('data.download_url'))->streamedContent());
+    }
+
+    public function test_signing_waits_for_an_explicitly_busy_pdf_service(): void
+    {
+        Storage::fake('pdf');
+        $signature = $this->seal(DigitalSignature::class, ['name' => '检测专用章']);
+        $attempts = 0;
+        $client = Mockery::mock(PdfRendererClient::class);
+        $client->shouldReceive('processPdf')->twice()->andReturnUsing(function () use (&$attempts): array {
+            if (++$attempts === 1) {
+                throw new PdfRendererHttpException(503, '{"success":false,"error":"PDF_BUSY"}');
+            }
+
+            $outputPath = storage_path('app/private/pdf-renderer-test-'.Str::uuid().'.pdf');
+            file_put_contents($outputPath, '%PDF-1.7 signed output');
+
+            return ['pdf_path' => $outputPath, 'cover_fields' => null, 'response' => []];
+        });
+        $this->app->instance(PdfRendererClient::class, $client);
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.7 source'),
+            'digital_signature_id' => $signature->id,
+        ])->assertOk();
+
+        $this->assertSame(2, $attempts);
+        $this->assertDatabaseCount('pdf_files', 1);
     }
 
     public function test_the_response_carries_a_link_the_browser_can_download_without_a_token(): void

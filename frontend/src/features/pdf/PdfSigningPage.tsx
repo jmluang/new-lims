@@ -7,7 +7,6 @@ import { Button, ErrorNotice, LoadingState, PageShell, Panel } from '../system/s
 import { blobErrorMessage, formatBytes, inputClass } from '../system/utils'
 import {
   assetFileUrl,
-  decodeHeaderValue,
   digestLabels,
   useAuthedObjectUrl,
   useSigningOptions,
@@ -17,11 +16,9 @@ import {
 } from './api'
 import { mergeCertificateTemplate } from './certificateMerge'
 
-/** How many files are signed at once; matches the zs-lims signing desk. */
+/** Match the production signer's three heavy-job slots; extra files wait here. */
 const MAX_CONCURRENT_TASKS = 3
-
-/** Seconds the results stay on screen before the desk clears itself. */
-const AUTO_RESET_SECONDS = 5
+const SUCCESS_RESET_SECONDS = 5
 
 const languageNames: Record<string, string> = { zh: '中文', en: 'English' }
 
@@ -37,13 +34,21 @@ type SignResult = {
   key: string
   originalName: string
   downloadName?: string
-  blobUrl?: string
-  /** Real URL for the same file; preferred over the blob when the server sends one. */
   downloadUrl?: string | null
   sha256?: string | null
   fileSize?: number | null
   reportNumber?: string | null
   error?: string
+}
+
+type SigningResponse = {
+  data: {
+    download_url: string
+    download_name: string
+    sha256: string
+    file_size: number
+    report_number: string | null
+  }
 }
 
 type TaskStage = 'merge' | 'upload' | 'signing' | 'done' | 'error'
@@ -55,22 +60,6 @@ type TaskState = {
   progress: number
   status: string
   stage: TaskStage
-  /** Wall-clock start, used to show that a silent stage is still alive. */
-  startedAt: number
-  /** Upload size, used to state what a normal duration looks like. */
-  bytes: number
-  /** Set once the request is with the server and no progress events arrive. */
-  signingSince?: number
-}
-
-/**
- * Rough server-side signing time, measured on production: a 13-page, 6 MB
- * report signs in about 5s, and the cost tracks pages times bytes. Used only
- * to set expectations and to decide when a run is worth flagging as unusual —
- * never to fake progress.
- */
-function expectedSigningSeconds(bytes: number) {
-  return Math.max(3, Math.round((bytes / 1048576) * 0.8))
 }
 
 type SigningConfig = {
@@ -94,7 +83,7 @@ export function PdfSigningPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [signing, setSigning] = useState(false)
   const [autoStart, setAutoStart] = useState(false)
-  const [countdown, setCountdown] = useState<number | null>(null)
+  const [successCountdown, setSuccessCountdown] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [config, setConfig] = useState<SigningConfig | null>(null)
 
@@ -203,8 +192,6 @@ export function PdfSigningPage() {
         progress: 0,
         status: '准备中',
         stage: 'merge',
-        startedAt: Date.now(),
-        bytes: item.file.size,
       },
     ])
 
@@ -216,10 +203,10 @@ export function PdfSigningPage() {
         payload = await mergeCertificateTemplate(item.file, effectiveConfig.certificateId)
         setTask({ progress: 50, status: '声明页合并完成', stage: 'merge' })
       } else {
-        setTask({ progress: 50, status: '无需合并声明页', stage: 'upload' })
+        setTask({ progress: 50, status: '准备上传', stage: 'upload' })
       }
 
-      setTask({ progress: 50, status: '上传并签章…', stage: 'upload' })
+      setTask({ progress: 50, status: '上传中', stage: 'upload' })
 
       const form = new FormData()
       form.append('pdf_file', payload, item.file.name)
@@ -249,8 +236,11 @@ export function PdfSigningPage() {
         form.append('remove_photometric_content', '1')
       }
 
-      const response = await api.post<Blob>('/api/pdf/signing/process', form, {
-        responseType: 'blob',
+      // The signed URL downloads once; the POST no longer carries a second
+      // copy of the entire PDF before the browser starts its real download.
+      form.append('response_mode', 'json')
+
+      const response = await api.post<SigningResponse>('/api/pdf/signing/process', form, {
         onUploadProgress: (event) => {
           if (!event.total) {
             return
@@ -263,7 +253,7 @@ export function PdfSigningPage() {
           // time instead of leaving a bar frozen near the end, which is what
           // makes a working job look hung.
           if (uploaded >= 100) {
-            setTask({ progress: 95, status: '服务端签章中', stage: 'signing', signingSince: Date.now() })
+            setTask({ progress: 95, status: '签章处理中', stage: 'signing' })
 
             return
           }
@@ -272,35 +262,27 @@ export function PdfSigningPage() {
         },
       })
 
-      const disposition = response.headers['content-disposition'] as string | undefined
-      const downloadName = parseFileName(disposition) ?? `${stripExtension(item.file.name)}-正本.pdf`
-      const blobUrl = URL.createObjectURL(response.data)
-      const downloadUrl = (response.headers['x-final-download-url'] as string | undefined) ?? null
+      const { download_url: downloadUrl, download_name: downloadName } = response.data.data
 
-      setTask({ progress: 100, status: '完成', stage: 'done' })
+      setTask({ progress: 100, status: '完成，开始下载', stage: 'done' })
 
       // A finished file downloads straight away so a large batch does not need
       // one click per report.
       //
-      // Prefer the server's URL: a browser that hands downloads to its own
-      // download manager (360 浏览器 among them) cannot act on a `blob:` URL, so
-      // the automatic download silently does nothing there. The blob is kept as
-      // the fallback and still backs the manual button, which works even after
-      // the link has expired.
-      triggerDownload(downloadUrl ?? blobUrl, downloadName)
+      // A real URL also works in browsers that delegate downloads to their own
+      // download manager (360 Browser cannot download a blob: URL).
+      triggerDownload(downloadUrl, downloadName)
 
       return {
         key: item.key,
         originalName: item.file.name,
         downloadName,
-        blobUrl,
         downloadUrl,
-        sha256: (response.headers['x-final-file-hash'] as string | undefined) ?? null,
-        fileSize: Number(response.headers['x-final-file-size'] ?? 0) || null,
-        reportNumber: decodeHeaderValue(response.headers['x-cover-report-number'] as string | undefined),
+        sha256: response.data.data.sha256,
+        fileSize: response.data.data.file_size,
+        reportNumber: response.data.data.report_number,
       } satisfies SignResult
     } catch (caught) {
-      // A blob responseType turns error bodies into blobs, so read the JSON back.
       const message = await blobErrorMessage(caught, '签章失败')
       setTask({ progress: 100, status: message, stage: 'error' })
 
@@ -317,7 +299,7 @@ export function PdfSigningPage() {
     setError(null)
     setResults([])
     setTasks([])
-    setCountdown(null)
+    setSuccessCountdown(null)
 
     const pending = queue.map((item, index) => ({ item, index: index + 1 }))
     setTotalCount(pending.length)
@@ -349,39 +331,31 @@ export function PdfSigningPage() {
 
     setSigning(false)
     setQueue([])
-    setCountdown(AUTO_RESET_SECONDS)
+    // Only this signing desk auto-clears a completely successful batch.
+    // Any failed item remains visible until the operator clears it manually.
+    setSuccessCountdown(collected.every((result) => !result.error) ? SUCCESS_RESET_SECONDS : null)
     await queryClient.invalidateQueries({ queryKey: ['pdf', 'files'] })
   }
 
-  // Auto-reset countdown after a finished batch.
   useEffect(() => {
-    if (countdown === null) {
-      return
-    }
-
-    if (countdown <= 0) {
+    if (successCountdown === null) return
+    if (successCountdown === 0) {
       reset()
       return
     }
 
-    const timer = setTimeout(() => setCountdown((current) => (current === null ? null : current - 1)), 1000)
-
+    const timer = setTimeout(() => setSuccessCountdown((current) => current === null ? null : current - 1), 1000)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countdown])
+  }, [successCountdown])
 
   function reset() {
-    results.forEach((result) => {
-      if (result.blobUrl) {
-        URL.revokeObjectURL(result.blobUrl)
-      }
-    })
     setResults([])
     setQueue([])
     setTasks([])
     setProcessedCount(0)
     setTotalCount(0)
-    setCountdown(null)
+    setSuccessCountdown(null)
     setError(null)
   }
 
@@ -434,19 +408,10 @@ export function PdfSigningPage() {
           title="处理结果"
           description={
             failureCount > 0
-              ? `共 ${results.length} 个文件，成功 ${successCount} 个，失败 ${failureCount} 个。文件已自动下载，也可在此重新下载。`
-              : `共 ${results.length} 个文件全部处理成功，已自动下载，也可在此重新下载。`
+              ? `共 ${results.length} 个文件，成功 ${successCount} 个，失败 ${failureCount} 个。失败原因会保留在下方。`
+              : `共 ${results.length} 个文件全部处理成功，已开始下载。`
           }
-          actions={
-            countdown !== null ? (
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span>{countdown} 秒后自动重置</span>
-                <Button variant="ghost" onClick={() => setCountdown(null)}>
-                  取消
-                </Button>
-              </div>
-            ) : undefined
-          }
+          actions={successCountdown !== null ? <span className="text-xs text-slate-500">{successCountdown} 秒后自动收起</span> : undefined}
         >
           <ul className="space-y-2">
             {results.map((result) => (
@@ -619,23 +584,13 @@ function ProcessingOverlay({
   overallProgress: number
   tasks: TaskState[]
 }) {
-  // A ticking clock is the cheapest proof that a silent stage is still running:
-  // the server sends nothing between "upload finished" and "here is your file".
-  const [now, setNow] = useState(() => Date.now())
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 500)
-
-    return () => clearInterval(timer)
-  }, [])
-
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/40 px-4 py-10">
       <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6 shadow-xl">
         <div className="flex flex-col items-center text-center">
           <Loader2 className="size-10 animate-spin text-emerald-600" aria-hidden="true" />
           <h2 className="mt-3 text-base font-semibold text-slate-900">正在批量处理 PDF 文件</h2>
-          <p className="mt-1 text-sm text-slate-500">请稍候，系统正在合并声明页、加盖印章并写入数字签名…</p>
+          <p className="mt-1 text-sm text-slate-500">请稍候，文件正在处理中…</p>
         </div>
 
         <div className="mt-5">
@@ -649,20 +604,11 @@ function ProcessingOverlay({
 
         {tasks.length > 0 ? (
           <div className="mt-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-medium text-slate-600">
-                并发处理任务（{tasks.length} / {MAX_CONCURRENT_TASKS}）
-              </span>
-              <span className="flex items-center gap-1 text-xs text-slate-400">
-                <span className="rounded bg-sky-50 px-1.5 py-0.5 text-sky-700">合并声明页</span>
-                <ArrowRight className="size-3" aria-hidden="true" />
-                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">后端处理</span>
-              </span>
-            </div>
+            <p className="text-xs font-medium text-slate-600">最多 3 份并行，其余等待</p>
 
             <ul className="mt-2 space-y-2">
               {tasks.map((task) => (
-                <TaskCard key={task.key} task={task} now={now} />
+                <TaskCard key={task.key} task={task} />
               ))}
             </ul>
           </div>
@@ -675,40 +621,28 @@ function ProcessingOverlay({
 /**
  * One in-flight file.
  *
- * While the server signs, there is no progress to report — so this shows the
- * seconds elapsed instead. A number that keeps moving is what distinguishes
- * "working" from "hung", which a bar parked at 95% cannot do.
+ * The server does not publish signing percentages, so preparation/signing use
+ * an animated stripe rather than an invented number.
  */
-function TaskCard({ task, now }: { task: TaskState; now: number }) {
-  const signing = task.stage === 'signing'
-  const elapsedSeconds = Math.max(0, Math.round((now - task.startedAt) / 1000))
-  const signingSeconds = task.signingSince ? Math.max(0, Math.round((now - task.signingSince) / 1000)) : 0
-  const expected = expectedSigningSeconds(task.bytes)
-  // Several times the measured norm, so the warning keeps its meaning.
-  const overdue = signing && signingSeconds >= Math.max(45, expected * 5)
+function TaskCard({ task }: { task: TaskState }) {
+  const indeterminate = task.stage === 'merge' || task.stage === 'signing'
 
   return (
     <li className="rounded-md border border-emerald-900/10 bg-slate-50 p-3">
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="font-medium text-slate-500">任务 {task.index}</span>
         <span className={task.stage === 'error' ? 'text-red-700' : 'text-slate-500'}>
-          {signing ? `已用 ${elapsedSeconds} 秒 / 通常约 ${expected} 秒` : `${Math.round(task.progress)}%`}
+          {indeterminate ? '处理中' : `${Math.round(task.progress)}%`}
         </span>
       </div>
       <p className="mt-1 truncate text-sm text-slate-900">{task.fileName}</p>
-      <p className={cn('text-xs', task.stage === 'error' ? 'text-red-700' : overdue ? 'text-amber-700' : 'text-slate-500')}>
-        {task.status}
-        {signing ? '…' : ''}
-        {overdue ? ' · 比平常久，仍在进行' : ''}
-      </p>
+      <p className={cn('text-xs', task.stage === 'error' ? 'text-red-700' : 'text-slate-500')}>{task.status}</p>
 
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
-        {signing ? (
+        {indeterminate ? (
           // Indeterminate: the server reports nothing until it is done, so an
           // animated stripe is honest where a percentage would be invented.
-          <div
-            className={cn('h-full w-1/3 animate-[pdfsign-sweep_1.4s_ease-in-out_infinite] rounded-full', overdue ? 'bg-amber-500' : 'bg-emerald-600')}
-          />
+          <div className="h-full w-1/3 animate-[pdfsign-sweep_1.4s_ease-in-out_infinite] rounded-full bg-emerald-600" />
         ) : (
           <div
             className={cn(
@@ -746,10 +680,10 @@ function SignResultCard({ result }: { result: SignResult }) {
         >
           {result.error ? '处理失败' : '处理成功'}
         </span>
-        {result.blobUrl ? (
+        {result.downloadUrl ? (
           <a
             className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800"
-            href={result.downloadUrl ?? result.blobUrl}
+            href={result.downloadUrl}
             download={result.downloadName}
           >
             <Download className="size-4" aria-hidden="true" />
@@ -1224,28 +1158,4 @@ function triggerDownload(url: string, fileName: string) {
   // Detached on the next tick rather than immediately: some browsers cancel a
   // download whose anchor leaves the document in the same task as the click.
   setTimeout(() => anchor.remove(), 0)
-}
-
-function stripExtension(name: string) {
-  return name.replace(/\.[^/.]+$/, '')
-}
-
-function parseFileName(disposition?: string) {
-  if (!disposition) {
-    return null
-  }
-
-  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
-
-  if (utf8Match) {
-    try {
-      return decodeURIComponent(utf8Match[1])
-    } catch {
-      return null
-    }
-  }
-
-  const match = /filename="?([^";]+)"?/i.exec(disposition)
-
-  return match ? match[1] : null
 }

@@ -133,6 +133,22 @@ final class PdfYanzhenjiaSyncTest extends TestCase
         });
     }
 
+    public function test_v1_sends_the_extracted_cover_report_date_in_iso_format(): void
+    {
+        PdfYanzhenjiaSetting::query()->create([
+            'id' => PdfYanzhenjiaSetting::SINGLETON_ID,
+            'enabled' => true,
+            'appid' => '0123456789abcdef0123456789abcdef',
+            'secret' => 'test-company-secret',
+        ]);
+        $file = $this->signedFile(false);
+        $file->update(['metadata' => ['cover_fields' => ['report_date' => '2026/10/8']]]);
+
+        app(PdfYanzhenjiaSyncDispatcher::class)->enqueue($file->fresh());
+
+        $this->assertSame('2026-10-08', PdfYanzhenjiaSync::query()->sole()->request_payload['report_date']);
+    }
+
     public function test_v1_retry_reuses_the_frozen_metadata_and_accepts_an_idempotent_response(): void
     {
         PdfYanzhenjiaSetting::query()->create([
@@ -248,7 +264,8 @@ final class PdfYanzhenjiaSyncTest extends TestCase
 
         (new SyncPdfToYanzhenjia($file->id))->handle();
 
-        $this->assertDatabaseCount('pdf_yanzhenjia_syncs', 0);
+        $this->assertDatabaseCount('pdf_yanzhenjia_syncs', 1);
+        $this->assertDatabaseHas('pdf_yanzhenjia_syncs', ['pdf_file_id' => null]);
         Http::assertNothingSent();
     }
 

@@ -9,6 +9,11 @@ final class PdfYanzhenjiaSync extends Model
 {
     protected $fillable = [
         'pdf_file_id',
+        'source_file_id',
+        'source_file_name',
+        'source_report_number',
+        'source_sha256',
+        'source_deleted_at',
         'api_version',
         'target_appid',
         'request_payload',
@@ -25,6 +30,7 @@ final class PdfYanzhenjiaSync extends Model
             'request_payload' => 'array',
             'attempts' => 'integer',
             'synced_at' => 'datetime',
+            'source_deleted_at' => 'datetime',
         ];
     }
 

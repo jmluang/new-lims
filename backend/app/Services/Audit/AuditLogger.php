@@ -74,7 +74,7 @@ class AuditLogger
                 'hash' => $hash,
                 'created_at' => $createdAt,
             ]);
-        });
+        }, 5); // Concurrent signings can deadlock on the hash-chain tail; retry the whole append.
     }
 
     /**

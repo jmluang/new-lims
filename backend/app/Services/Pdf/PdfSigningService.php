@@ -232,7 +232,7 @@ class PdfSigningService
             'function_stamp_count' => $functionStampIndex,
         ]);
 
-        $result = $this->pdfRendererClient->processPdf($pdfPath, $fields, $files);
+        $result = $this->processWhenSignerAvailable($pdfPath, $fields, $files);
 
         // The client writes the response to its own scratch path; move it under
         // this job's working directory so the finally-block cleans it up.
@@ -251,6 +251,31 @@ class PdfSigningService
             'cover_fields' => $result['cover_fields'] ?? null,
             'signed' => true,
         ];
+    }
+
+    /**
+     * The Java admission filter returns PDF_BUSY before touching the uploaded
+     * document. Only that explicit response is safe to retry: a transport error
+     * or a different 503 could mean that processing already started.
+     *
+     * @param  array<string, mixed>  $fields
+     * @param  array<string, string>  $files
+     * @return array<string, mixed>
+     */
+    private function processWhenSignerAvailable(string $pdfPath, array $fields, array $files): array
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return $this->pdfRendererClient->processPdf($pdfPath, $fields, $files);
+            } catch (PdfRendererHttpException $exception) {
+                $body = json_decode($exception->responseBody, true);
+                if ($exception->statusCode !== 503 || ! is_array($body) || ($body['error'] ?? null) !== 'PDF_BUSY' || $attempt >= 15) {
+                    throw $exception;
+                }
+
+                usleep(1_000_000);
+            }
+        }
     }
 
     private function store(string $sourcePath): string

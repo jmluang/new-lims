@@ -41,11 +41,12 @@ final class PdfYanzhenjiaSettingsController extends Controller
             return [
                 'id' => $sync->id,
                 'api_version' => $sync->api_version,
-                'file_id' => $sync->pdfFile?->file_id,
-                'file_name' => $sync->pdfFile?->file_name,
-                'report_number' => $payload['report_number'] ?? $sync->pdfFile?->cover_report_number,
-                'sha256' => $payload['sha256'] ?? $sync->pdfFile?->sha256_hash,
+                'file_id' => $sync->source_file_id ?? $sync->pdfFile?->file_id,
+                'file_name' => $sync->source_file_name ?? $sync->pdfFile?->file_name,
+                'report_number' => $payload['report_number'] ?? $sync->source_report_number ?? $sync->pdfFile?->cover_report_number,
+                'sha256' => $payload['sha256'] ?? $sync->source_sha256 ?? $sync->pdfFile?->sha256_hash,
                 'status' => $sync->status,
+                'source_deleted_at' => $sync->source_deleted_at?->toIso8601String(),
                 'updated_at' => $sync->updated_at?->toIso8601String(),
             ];
         })->values()]);

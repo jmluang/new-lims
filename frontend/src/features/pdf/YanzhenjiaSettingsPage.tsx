@@ -4,6 +4,7 @@ import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { Button, DataTable, EmptyState, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { formatDateTime, inputClass } from '../system/utils'
+import { YanzhenjiaSyncStatus } from './YanzhenjiaSyncStatus'
 
 type YanzhenjiaSettings = {
   enabled: boolean
@@ -28,29 +29,11 @@ type RecentSync = {
   report_number: string | null
   sha256: string | null
   status: string
+  source_deleted_at: string | null
   updated_at: string | null
 }
 
 type RecentSyncsResponse = { data: RecentSync[] }
-
-const syncStatus: Record<string, { label: string; className: string }> = {
-  pending: { label: '待同步', className: 'bg-slate-100 text-slate-700' },
-  queued: { label: '排队中', className: 'bg-blue-50 text-blue-700' },
-  running: { label: '同步中', className: 'bg-blue-50 text-blue-700' },
-  succeeded: { label: '成功', className: 'bg-emerald-50 text-emerald-700' },
-  failed: { label: '失败', className: 'bg-red-50 text-red-700' },
-}
-
-function SyncStatus({ row }: { row: RecentSync }) {
-  const status = syncStatus[row.status] ?? { label: row.status, className: 'bg-slate-100 text-slate-700' }
-
-  return (
-    <div className="space-y-1">
-      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${status.className}`}>{status.label}</span>
-      <p className="text-xs text-slate-500">{row.api_version === 'v1' ? '公司 API' : '旧接口'}</p>
-    </div>
-  )
-}
 
 const queryKey = ['pdf', 'yanzhenjia-settings'] as const
 
@@ -230,7 +213,7 @@ export function YanzhenjiaSettingsPage() {
                     </td>
                     <td className="px-3 py-2 text-slate-700">{row.report_number ?? '-'}</td>
                     <td className="min-w-72 max-w-96 break-all px-3 py-2 font-mono text-xs text-slate-600">{row.sha256 ?? '-'}</td>
-                    <td className="px-3 py-2"><SyncStatus row={row} /></td>
+                    <td className="px-3 py-2"><YanzhenjiaSyncStatus row={row} /></td>
                     <td className="whitespace-nowrap px-3 py-2 text-slate-700">{formatDateTime(row.updated_at)}</td>
                   </tr>
                 ))}
@@ -245,7 +228,7 @@ export function YanzhenjiaSettingsPage() {
                       <p className="break-words text-sm font-medium text-slate-900">{row.file_name ?? '-'}</p>
                       <p className="mt-0.5 break-all font-mono text-xs text-slate-500">{row.file_id ?? '-'}</p>
                     </div>
-                    <SyncStatus row={row} />
+                    <YanzhenjiaSyncStatus row={row} />
                   </div>
                   <p className="mt-2 text-xs text-slate-700">报告编号：{row.report_number ?? '-'}</p>
                   <p className="mt-1 break-all font-mono text-[11px] text-slate-600">SHA-256：{row.sha256 ?? '-'}</p>
