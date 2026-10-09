@@ -19,9 +19,6 @@ import { mergeCertificateTemplate } from './certificateMerge'
 /** Match the production signer's three heavy-job slots; extra files wait here. */
 const MAX_CONCURRENT_TASKS = 3
 
-/** Seconds the results stay on screen before the desk clears itself. */
-const AUTO_RESET_SECONDS = 5
-
 const languageNames: Record<string, string> = { zh: '中文', en: 'English' }
 
 type QueuedFile = {
@@ -85,7 +82,6 @@ export function PdfSigningPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [signing, setSigning] = useState(false)
   const [autoStart, setAutoStart] = useState(false)
-  const [countdown, setCountdown] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [config, setConfig] = useState<SigningConfig | null>(null)
 
@@ -301,7 +297,6 @@ export function PdfSigningPage() {
     setError(null)
     setResults([])
     setTasks([])
-    setCountdown(null)
 
     const pending = queue.map((item, index) => ({ item, index: index + 1 }))
     setTotalCount(pending.length)
@@ -333,26 +328,8 @@ export function PdfSigningPage() {
 
     setSigning(false)
     setQueue([])
-    setCountdown(AUTO_RESET_SECONDS)
     await queryClient.invalidateQueries({ queryKey: ['pdf', 'files'] })
   }
-
-  // Auto-reset countdown after a finished batch.
-  useEffect(() => {
-    if (countdown === null) {
-      return
-    }
-
-    if (countdown <= 0) {
-      reset()
-      return
-    }
-
-    const timer = setTimeout(() => setCountdown((current) => (current === null ? null : current - 1)), 1000)
-
-    return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countdown])
 
   function reset() {
     setResults([])
@@ -360,7 +337,6 @@ export function PdfSigningPage() {
     setTasks([])
     setProcessedCount(0)
     setTotalCount(0)
-    setCountdown(null)
     setError(null)
   }
 
@@ -413,18 +389,8 @@ export function PdfSigningPage() {
           title="处理结果"
           description={
             failureCount > 0
-              ? `共 ${results.length} 个文件，成功 ${successCount} 个，失败 ${failureCount} 个。文件已自动下载，也可在此重新下载。`
-              : `共 ${results.length} 个文件全部处理成功，已自动下载，也可在此重新下载。`
-          }
-          actions={
-            countdown !== null ? (
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span>{countdown} 秒后自动重置</span>
-                <Button variant="ghost" onClick={() => setCountdown(null)}>
-                  取消
-                </Button>
-              </div>
-            ) : undefined
+              ? `共 ${results.length} 个文件，成功 ${successCount} 个，失败 ${failureCount} 个。失败原因会保留在下方。`
+              : `共 ${results.length} 个文件全部处理成功，已开始下载。`
           }
         >
           <ul className="space-y-2">
