@@ -118,6 +118,7 @@ class PdfSigningController extends Controller
             'function_stamp_ids' => ['nullable', 'array', 'max:20'],
             'function_stamp_ids.*' => ['integer', 'exists:homepage_function_stamps,id'],
             'remove_photometric_content' => ['sometimes', 'boolean'],
+            'response_mode' => ['sometimes', 'in:json'],
         ]);
 
         $removePhotometric = (bool) ($validated['remove_photometric_content'] ?? false);
@@ -182,6 +183,24 @@ class PdfSigningController extends Controller
 
         $syncDispatcher->enqueue($result['pdf_file']);
 
+        $downloadUrl = URL::temporarySignedRoute(
+            'pdf.files.temporary-download',
+            now()->addMinutes((int) $signing['download_link_ttl_minutes']),
+            ['pdfFile' => $result['pdf_file']->id],
+        );
+
+        // The signing desk downloads from this signed URL. Returning the PDF
+        // in the POST as well would transfer every finished report twice.
+        if (($validated['response_mode'] ?? null) === 'json') {
+            return response()->json(['data' => [
+                'download_url' => $downloadUrl,
+                'download_name' => $result['pdf_file']->signedDownloadName(),
+                'sha256' => $result['metadata']['sha256_hash'],
+                'file_size' => $result['metadata']['file_size'],
+                'report_number' => $result['metadata']['cover_report_number'] ?? null,
+            ]]);
+        }
+
         return response()->download($result['path'], $result['pdf_file']->signedDownloadName(), [
             'Content-Type' => 'application/pdf',
             'X-Final-File-Hash' => $result['metadata']['sha256_hash'],
@@ -192,11 +211,7 @@ class PdfSigningController extends Controller
             // inline as well, but a `blob:` URL is useless to a browser that
             // delegates downloads to its own download manager, so the desk
             // triggers the download from this instead when it is present.
-            'X-Final-Download-Url' => URL::temporarySignedRoute(
-                'pdf.files.temporary-download',
-                now()->addMinutes((int) $signing['download_link_ttl_minutes']),
-                ['pdfFile' => $result['pdf_file']->id],
-            ),
+            'X-Final-Download-Url' => $downloadUrl,
             // These are listed in config/cors.php `exposed_headers` so the SPA
             // can read them cross-origin.
             //

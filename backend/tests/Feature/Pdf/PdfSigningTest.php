@@ -110,6 +110,27 @@ class PdfSigningTest extends TestCase
         Queue::assertNotPushed(SyncPdfToYanzhenjia::class);
     }
 
+    public function test_signing_can_return_a_download_link_without_transferring_the_pdf_twice(): void
+    {
+        Storage::fake('pdf');
+        $signedBytes = '%PDF-1.7 signed output';
+        $this->fakeRendererReturning($signedBytes, ['report_number' => 'ZS-2026-0007'], ['signature_appearance_image']);
+        Sanctum::actingAs($this->userWithPermissions(['pdf_signing.create']));
+
+        $response = $this->post('/api/pdf/signing/process', [
+            'pdf_file' => UploadedFile::fake()->createWithContent('report.pdf', '%PDF-1.7 source'),
+            'original_name' => 'report.pdf',
+            'digital_signature_id' => $this->seal(DigitalSignature::class, ['name' => '检测专用章'])->id,
+            'response_mode' => 'json',
+        ]);
+
+        $response->assertOk()->assertJsonPath('data.sha256', hash('sha256', $signedBytes))
+            ->assertJsonPath('data.file_size', strlen($signedBytes))
+            ->assertJsonPath('data.report_number', 'ZS-2026-0007');
+        $this->assertStringNotContainsString($signedBytes, $response->getContent());
+        $this->assertSame($signedBytes, $this->get($response->json('data.download_url'))->streamedContent());
+    }
+
     public function test_signing_waits_for_an_explicitly_busy_pdf_service(): void
     {
         Storage::fake('pdf');

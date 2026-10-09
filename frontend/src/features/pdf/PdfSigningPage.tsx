@@ -7,7 +7,6 @@ import { Button, ErrorNotice, LoadingState, PageShell, Panel } from '../system/s
 import { blobErrorMessage, formatBytes, inputClass } from '../system/utils'
 import {
   assetFileUrl,
-  decodeHeaderValue,
   digestLabels,
   useAuthedObjectUrl,
   useSigningOptions,
@@ -37,13 +36,21 @@ type SignResult = {
   key: string
   originalName: string
   downloadName?: string
-  blobUrl?: string
-  /** Real URL for the same file; preferred over the blob when the server sends one. */
   downloadUrl?: string | null
   sha256?: string | null
   fileSize?: number | null
   reportNumber?: string | null
   error?: string
+}
+
+type SigningResponse = {
+  data: {
+    download_url: string
+    download_name: string
+    sha256: string
+    file_size: number
+    report_number: string | null
+  }
 }
 
 type TaskStage = 'merge' | 'upload' | 'signing' | 'done' | 'error'
@@ -249,8 +256,11 @@ export function PdfSigningPage() {
         form.append('remove_photometric_content', '1')
       }
 
-      const response = await api.post<Blob>('/api/pdf/signing/process', form, {
-        responseType: 'blob',
+      // The signed URL downloads once; the POST no longer carries a second
+      // copy of the entire PDF before the browser starts its real download.
+      form.append('response_mode', 'json')
+
+      const response = await api.post<SigningResponse>('/api/pdf/signing/process', form, {
         onUploadProgress: (event) => {
           if (!event.total) {
             return
@@ -272,35 +282,27 @@ export function PdfSigningPage() {
         },
       })
 
-      const disposition = response.headers['content-disposition'] as string | undefined
-      const downloadName = parseFileName(disposition) ?? `${stripExtension(item.file.name)}-正本.pdf`
-      const blobUrl = URL.createObjectURL(response.data)
-      const downloadUrl = (response.headers['x-final-download-url'] as string | undefined) ?? null
+      const { download_url: downloadUrl, download_name: downloadName } = response.data.data
 
       setTask({ progress: 100, status: '完成', stage: 'done' })
 
       // A finished file downloads straight away so a large batch does not need
       // one click per report.
       //
-      // Prefer the server's URL: a browser that hands downloads to its own
-      // download manager (360 浏览器 among them) cannot act on a `blob:` URL, so
-      // the automatic download silently does nothing there. The blob is kept as
-      // the fallback and still backs the manual button, which works even after
-      // the link has expired.
-      triggerDownload(downloadUrl ?? blobUrl, downloadName)
+      // A real URL also works in browsers that delegate downloads to their own
+      // download manager (360 Browser cannot download a blob: URL).
+      triggerDownload(downloadUrl, downloadName)
 
       return {
         key: item.key,
         originalName: item.file.name,
         downloadName,
-        blobUrl,
         downloadUrl,
-        sha256: (response.headers['x-final-file-hash'] as string | undefined) ?? null,
-        fileSize: Number(response.headers['x-final-file-size'] ?? 0) || null,
-        reportNumber: decodeHeaderValue(response.headers['x-cover-report-number'] as string | undefined),
+        sha256: response.data.data.sha256,
+        fileSize: response.data.data.file_size,
+        reportNumber: response.data.data.report_number,
       } satisfies SignResult
     } catch (caught) {
-      // A blob responseType turns error bodies into blobs, so read the JSON back.
       const message = await blobErrorMessage(caught, '签章失败')
       setTask({ progress: 100, status: message, stage: 'error' })
 
@@ -371,11 +373,6 @@ export function PdfSigningPage() {
   }, [countdown])
 
   function reset() {
-    results.forEach((result) => {
-      if (result.blobUrl) {
-        URL.revokeObjectURL(result.blobUrl)
-      }
-    })
     setResults([])
     setQueue([])
     setTasks([])
@@ -746,10 +743,10 @@ function SignResultCard({ result }: { result: SignResult }) {
         >
           {result.error ? '处理失败' : '处理成功'}
         </span>
-        {result.blobUrl ? (
+        {result.downloadUrl ? (
           <a
             className="inline-flex h-9 shrink-0 items-center gap-2 rounded-md bg-emerald-700 px-3 text-sm font-medium text-white hover:bg-emerald-800"
-            href={result.downloadUrl ?? result.blobUrl}
+            href={result.downloadUrl}
             download={result.downloadName}
           >
             <Download className="size-4" aria-hidden="true" />
@@ -1224,28 +1221,4 @@ function triggerDownload(url: string, fileName: string) {
   // Detached on the next tick rather than immediately: some browsers cancel a
   // download whose anchor leaves the document in the same task as the click.
   setTimeout(() => anchor.remove(), 0)
-}
-
-function stripExtension(name: string) {
-  return name.replace(/\.[^/.]+$/, '')
-}
-
-function parseFileName(disposition?: string) {
-  if (!disposition) {
-    return null
-  }
-
-  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
-
-  if (utf8Match) {
-    try {
-      return decodeURIComponent(utf8Match[1])
-    } catch {
-      return null
-    }
-  }
-
-  const match = /filename="?([^";]+)"?/i.exec(disposition)
-
-  return match ? match[1] : null
 }
