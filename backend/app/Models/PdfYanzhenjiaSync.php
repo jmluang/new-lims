@@ -11,6 +11,8 @@ final class PdfYanzhenjiaSync extends Model
         'pdf_file_id',
         'source_file_id',
         'source_file_name',
+        'source_report_number',
+        'source_sha256',
         'source_deleted_at',
         'api_version',
         'target_appid',

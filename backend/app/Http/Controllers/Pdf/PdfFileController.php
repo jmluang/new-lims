@@ -65,6 +65,8 @@ class PdfFileController extends Controller
             PdfYanzhenjiaSync::query()->where('pdf_file_id', $file->id)->update([
                 'source_file_id' => $file->file_id,
                 'source_file_name' => $file->file_name,
+                'source_report_number' => $file->cover_report_number,
+                'source_sha256' => $file->sha256_hash,
                 'source_deleted_at' => now(),
                 'pdf_file_id' => null,
             ]);
