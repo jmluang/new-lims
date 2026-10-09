@@ -125,7 +125,7 @@ final class PdfYanzhenjiaSyncDispatcher
         }
 
         $optionalFields = [
-            'report_date' => [$metadata['report_date'] ?? null, 10],
+            'report_date' => [$this->normalizeReportDate($coverFields['report_date'] ?? null), 10],
             'product_name' => [$coverFields['product_name'] ?? null, 255],
             'model_specification' => [$coverFields['model_specification'] ?? null, 255],
             'entrusting_unit' => [$coverFields['entrust_company'] ?? null, 255],
@@ -157,5 +157,25 @@ final class PdfYanzhenjiaSyncDispatcher
         }
 
         return $payload;
+    }
+
+    private function normalizeReportDate(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if (preg_match('/\A(\d{4})([\/-])(\d{1,2})\2(\d{1,2})\z/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        $year = (int) $matches[1];
+        $month = (int) $matches[3];
+        $day = (int) $matches[4];
+
+        return checkdate($month, $day, $year)
+            ? sprintf('%04d-%02d-%02d', $year, $month, $day)
+            : null;
     }
 }
