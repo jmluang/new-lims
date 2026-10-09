@@ -17,8 +17,8 @@ import {
 } from './api'
 import { mergeCertificateTemplate } from './certificateMerge'
 
-/** The production PDF signer admits one heavy job at a time. */
-const MAX_CONCURRENT_TASKS = 1
+/** Match the production signer's three heavy-job slots; extra files wait here. */
+const MAX_CONCURRENT_TASKS = 3
 
 /** Seconds the results stay on screen before the desk clears itself. */
 const AUTO_RESET_SECONDS = 5
@@ -651,7 +651,7 @@ function ProcessingOverlay({
           <div className="mt-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium text-slate-600">
-                正在逐份处理
+                最多 3 份并行，超出排队等待
               </span>
               <span className="flex items-center gap-1 text-xs text-slate-400">
                 <span className="rounded bg-sky-50 px-1.5 py-0.5 text-sky-700">合并声明页</span>
