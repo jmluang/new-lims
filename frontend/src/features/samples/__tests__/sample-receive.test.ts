@@ -10,6 +10,15 @@ import {
 } from '../sampleSchema'
 
 describe('sample receive form', () => {
+  it('expands only outstanding samples on a later delivery', () => {
+    expect(expandExpectedReceiveRows([
+      { id: 1, sample_name: 'Lamp', quantity: 3, remaining_quantity: 2 },
+      { id: 2, sample_name: 'Controller', quantity: 1, remaining_quantity: 0 },
+    ])).toEqual([
+      expect.objectContaining({ test_order_sample_id: 1 }),
+      expect.objectContaining({ test_order_sample_id: 1 }),
+    ])
+  })
   it('requires a test order, current location and at least one row', () => {
     const parsed = receiveSamplesSchema.safeParse({
       test_order_id: 0,

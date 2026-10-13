@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\AuditLog;
+use App\Models\Sample;
 use App\Models\Standard;
 use App\Models\TestOrder;
 use App\Services\Audit\AuditLogger;
@@ -189,6 +190,13 @@ class TestOrderController extends Controller
     {
         $this->authorizePermission($request, 'samples.receive', 'samples', $testOrder);
 
+        $receivedCounts = Sample::query()
+            ->where('test_order_id', $testOrder->id)
+            ->whereNotNull('test_order_sample_id')
+            ->selectRaw('test_order_sample_id, COUNT(*) AS received_count')
+            ->groupBy('test_order_sample_id')
+            ->pluck('received_count', 'test_order_sample_id');
+
         return response()->json([
             'data' => [
                 'order' => [
@@ -208,6 +216,8 @@ class TestOrderController extends Controller
                         'rated_frequency' => $sample->rated_frequency,
                         'power' => $sample->power,
                         'quantity' => $sample->quantity,
+                        'remaining_quantity' => $sample->status === 'cancelled' ? 0
+                            : max(0, max(1, (int) $sample->quantity) - (int) $receivedCounts->get($sample->id, 0)),
                         'remark' => $sample->remark,
                     ])
                     ->values(),

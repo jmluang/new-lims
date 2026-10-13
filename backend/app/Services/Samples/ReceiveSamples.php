@@ -37,6 +37,7 @@ class ReceiveSamples
         }
 
         return DB::transaction(function () use ($actor, $testOrder, $payload, $acceptedRows, $rejectedRows): array {
+            $testOrder = TestOrder::query()->lockForUpdate()->findOrFail($testOrder->id);
             $deliverySequence = $this->sampleNumberService->nextDeliverySequence($testOrder);
             $deliveryReceivedCount = $acceptedRows->count();
             $orderSamplesById = $testOrder->samples()->get()->keyBy('id');
@@ -104,16 +105,32 @@ class ReceiveSamples
                     'remark' => '样品接收',
                 ]);
 
-                if (! empty($row['test_order_sample_id'])) {
-                    $testOrder->samples()
-                        ->whereKey($row['test_order_sample_id'])
-                        ->update(['status' => 'received']);
-                }
-
                 $createdSamples[] = $sample->fresh('flows');
             }
 
-            $testOrder->update(['sample_status' => 'received']);
+            $receivedCounts = Sample::query()
+                ->where('test_order_id', $testOrder->id)
+                ->whereNotNull('test_order_sample_id')
+                ->selectRaw('test_order_sample_id, COUNT(*) AS received_count')
+                ->groupBy('test_order_sample_id')
+                ->pluck('received_count', 'test_order_sample_id');
+            $hasRemainingSamples = false;
+
+            foreach ($orderSamplesById as $orderSample) {
+                if ($orderSample->status === 'cancelled') {
+                    continue;
+                }
+                $receivedCount = (int) $receivedCounts->get($orderSample->id, 0);
+                $complete = $receivedCount >= max(1, (int) $orderSample->quantity);
+                $hasRemainingSamples = $hasRemainingSamples || ! $complete;
+                if ($receivedCount > 0) {
+                    $orderSample->update(['status' => $complete ? 'received' : 'partially_received']);
+                }
+            }
+
+            if (! in_array($testOrder->sample_status, ['testing', 'completed'], true)) {
+                $testOrder->update(['sample_status' => $hasRemainingSamples ? 'partially_received' : 'received']);
+            }
 
             return [
                 'samples' => $createdSamples,

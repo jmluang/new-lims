@@ -115,7 +115,7 @@ class SampleFlowService
         $actions = [];
         $needsReturnRoom = $sample->status === 'testing' && $sample->current_holder !== '样品室';
 
-        if ($sample->status === 'pending' && $sample->current_holder === '样品室') {
+        if (in_array($sample->status, ['pending', 'outsource_returned'], true) && $sample->current_holder === '样品室') {
             $actions[] = 'lend';
         }
 

@@ -186,6 +186,70 @@ class SampleReceiveTest extends TestCase
             ->assertJsonPath('meta.locations.0.label', '样品室');
     }
 
+    public function test_partial_delivery_does_not_mark_the_entire_order_received(): void
+    {
+        $receiver = $this->userWithPermissions(['samples.receive']);
+        [$order, $orderSamples] = $this->orderWithSamples('PARTIAL-DELIVERY');
+
+        $this->postJsonAs($receiver, '/api/samples/receive', [
+            'test_order_id' => $order->id,
+            'current_location' => 'Sample room A1',
+            'samples' => [$this->receiveRow($orderSamples[0])],
+        ])->assertCreated();
+        $this->assertDatabaseHas('test_order_samples', ['id' => $orderSamples[1]->id, 'status' => 'pending']);
+        $options = $this->getJsonAs($receiver, '/api/samples/receive-options')->assertOk()->json('data');
+        $this->assertSame([
+            'status' => 'partially_received',
+            'selectable_order_ids' => [$order->id],
+        ], [
+            'status' => $order->fresh()->sample_status,
+            'selectable_order_ids' => array_column($options, 'id'),
+        ]);
+    }
+
+    public function test_split_quantity_deliveries_offer_only_the_remainder_until_complete(): void
+    {
+        $receiver = $this->userWithPermissions(['samples.receive']);
+        [$order, $orderSamples] = $this->orderWithSamples('SPLIT-DELIVERY');
+        $orderSamples[0]->update(['quantity' => 3]);
+        $orderSamples[1]->update(['status' => 'cancelled']);
+        $payload = [
+            'test_order_id' => $order->id,
+            'current_location' => 'Sample room A1',
+            'samples' => [$this->receiveRow($orderSamples[0])],
+        ];
+
+        $this->postJsonAs($receiver, '/api/samples/receive', $payload)->assertCreated();
+        $this->assertSame('partially_received', $orderSamples[0]->fresh()->status);
+        $this->assertSame('partially_received', $order->fresh()->sample_status);
+        $this->getJsonAs($receiver, "/api/test-orders/{$order->id}/sample-options")
+            ->assertOk()
+            ->assertJsonPath('data.samples.0.quantity', 3)
+            ->assertJsonPath('data.samples.0.remaining_quantity', 2)
+            ->assertJsonPath('data.samples.1.remaining_quantity', 0);
+
+        $payload['samples'][] = $this->receiveRow($orderSamples[0]);
+        $this->postJsonAs($receiver, '/api/samples/receive', $payload)->assertCreated();
+        $this->assertSame('received', $orderSamples[0]->fresh()->status);
+        $this->assertSame('received', $order->fresh()->sample_status);
+        $this->getJsonAs($receiver, "/api/test-orders/{$order->id}/sample-options")
+            ->assertOk()->assertJsonPath('data.samples.0.remaining_quantity', 0);
+        $this->getJsonAs($receiver, '/api/samples/receive-options')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_supplemental_delivery_preserves_later_order_progress(): void
+    {
+        $receiver = $this->userWithPermissions(['samples.receive']);
+        [$order, $orderSamples] = $this->orderWithSamples('SUPPLEMENTAL-DELIVERY');
+        $order->update(['sample_status' => 'testing']);
+        $this->postJsonAs($receiver, '/api/samples/receive', [
+            'test_order_id' => $order->id,
+            'current_location' => 'Sample room A1',
+            'samples' => [$this->receiveRow($orderSamples[0])],
+        ])->assertCreated();
+        $this->assertSame('testing', $order->fresh()->sample_status);
+    }
+
     private function orderWithSamples(string $orderNo): array
     {
         $order = TestOrder::query()->create([

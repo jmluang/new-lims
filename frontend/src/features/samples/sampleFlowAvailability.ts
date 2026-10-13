@@ -7,12 +7,13 @@ type SampleFlowState = {
 
 export function availableSampleFlowActions(sample: SampleFlowState): SampleFlowAction[] {
   const actions: SampleFlowAction[] = []
+  const needsReturnRoom = sample.status === 'testing' && sample.current_holder !== '样品室'
 
-  if (sample.status === 'pending' && sample.current_holder === '样品室') {
+  if (['pending', 'outsource_returned'].includes(sample.status ?? '') && sample.current_holder === '样品室') {
     actions.push('lend')
   }
 
-  if (sample.status === 'testing' && sample.current_holder !== '样品室') {
+  if (needsReturnRoom) {
     actions.push('transfer', 'return_room')
   }
 
@@ -21,7 +22,9 @@ export function availableSampleFlowActions(sample: SampleFlowState): SampleFlowA
   }
 
   if (!['returned', 'scrapped'].includes(sample.status ?? '')) {
-    actions.push('send_out', 'return_client', 'scrap', 'position_change')
+    actions.push('send_out')
+    if (!needsReturnRoom) actions.push('return_client')
+    actions.push('scrap', 'position_change')
   }
 
   return actions

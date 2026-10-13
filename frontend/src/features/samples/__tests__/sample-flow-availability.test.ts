@@ -19,7 +19,6 @@ describe('availableSampleFlowActions', () => {
       'transfer',
       'return_room',
       'send_out',
-      'return_client',
       'scrap',
       'position_change',
     ])

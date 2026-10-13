@@ -52,6 +52,7 @@ export type ReceiveExpectedSampleOption = {
   power?: string | null
   remark?: string | null
   quantity: number
+  remaining_quantity?: number
 }
 
 export class ReceiveSamplesValidationError extends Error {
@@ -88,7 +89,7 @@ export function acceptedReceiveRowCount(rows: ReceiveSampleRowValues[]) {
  */
 export function expandExpectedReceiveRows(samples: ReceiveExpectedSampleOption[]): ReceiveSampleRowValues[] {
   return samples.flatMap((sample) => {
-    const quantity = Number.isInteger(sample.quantity) && sample.quantity > 0 ? sample.quantity : 1
+    const quantity = sample.remaining_quantity ?? (Number.isInteger(sample.quantity) && sample.quantity > 0 ? sample.quantity : 1)
     const row: ReceiveSampleRowValues = {
       test_order_sample_id: sample.id,
       sample_name: sample.sample_name,

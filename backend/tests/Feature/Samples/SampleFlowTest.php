@@ -301,6 +301,26 @@ class SampleFlowTest extends TestCase
             ->assertJsonPath('meta.total', 3);
     }
 
+    public function test_sample_can_be_lent_again_after_returning_from_outsourcing(): void
+    {
+        $operator = $this->userWithPermissions(['samples.update', 'sample_flows.create']);
+        $sample = $this->receivedSample();
+
+        $this->postJsonAs($operator, "/api/samples/{$sample->id}/flows", [
+            'action_type' => 'send_out',
+            'holder_to' => 'External laboratory',
+        ])->assertCreated();
+        $this->postJsonAs($operator, "/api/samples/{$sample->id}/flows", [
+            'action_type' => 'receive_back',
+        ])->assertCreated();
+        $this->assertDatabaseHas('samples', ['id' => $sample->id, 'current_holder' => '样品室']);
+
+        $this->postJsonAs($operator, "/api/samples/{$sample->id}/flows", [
+            'action_type' => 'lend',
+        ])->assertCreated();
+        $this->assertDatabaseHas('samples', ['id' => $sample->id, 'status' => 'testing']);
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      */

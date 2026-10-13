@@ -112,6 +112,7 @@ export function PdfHandwrittenSigningPage() {
 function PlanningWorkspace() {
   const options = useQuery({ queryKey: ['pdf', 'handwritten', 'options'], queryFn: fetchPlanningOptions })
   const [file, setFile] = useState<File | null>(null)
+  const currentFile = useRef<File | null>(null)
   const [inspected, setInspected] = useState<Awaited<ReturnType<typeof inspectSigningSource>> | null>(null)
   const [uploadedFinalized, setFinalized] = useState<Awaited<ReturnType<typeof confirmAndFinalizeSigningSource>> | null>(null)
   const [uploadedIdempotencyKey, setWorkflowIdempotencyKey] = useState('')
@@ -163,11 +164,9 @@ function PlanningWorkspace() {
   })
 
   const inspectSource = useMutation({
-    mutationFn: async () => {
-      if (!file) throw new Error('请先选择未签名 PDF')
-      return inspectSigningSource(file)
-    },
-    onSuccess: (source) => {
+    mutationFn: inspectSigningSource,
+    onSuccess: (source, inspectedFile) => {
+      if (inspectedFile !== currentFile.current) return
       setInspected(source)
       setFinalized(null)
       setResult(null)
@@ -196,6 +195,7 @@ function PlanningWorkspace() {
       cancelSigningWorkflow(workflowUuid, 'PLANNER_CANCELLED'),
     onSuccess: setResult,
   })
+  const inspectingCurrentFile = inspectSource.isPending && inspectSource.variables === file
   const selected = placements.find((placement) => placement.semantic_role === selectedRole)!
   const ready = Boolean(
     finalized && workflowIdempotencyKey && effectivePolicyVersionUuid
@@ -251,7 +251,7 @@ function PlanningWorkspace() {
         {resumedDocument ? null : (
         <>
         <WorkspaceCard title="1. 上传并检查原始 PDF" icon={Upload}>
-          <label className={`block cursor-pointer rounded-lg border border-dashed border-emerald-400 bg-emerald-50/60 p-4 text-center transition hover:bg-emerald-50 ${finalized ? 'cursor-not-allowed opacity-70' : ''}`}>
+          <label className={`block cursor-pointer rounded-lg border border-dashed border-emerald-400 bg-emerald-50/60 p-4 text-center transition hover:bg-emerald-50 ${finalized || finalizeSource.isPending ? 'cursor-not-allowed opacity-70' : ''}`}>
             <Upload className="mx-auto size-5 text-emerald-700" />
             <span className="mt-2 block text-sm font-medium text-emerald-900">上传未签名 PDF</span>
             <span className="mt-1 block truncate text-xs text-slate-500">{file?.name ?? '最大 20 MB，不支持加密或已有签名的文件'}</span>
@@ -259,9 +259,10 @@ function PlanningWorkspace() {
               className="sr-only"
               type="file"
               accept="application/pdf,.pdf"
-              disabled={Boolean(finalized)}
+              disabled={Boolean(finalized) || finalizeSource.isPending}
               onChange={(event) => {
                 const next = event.target.files?.[0] ?? null
+                currentFile.current = next
                 setFile(next)
                 setReportNumber(next ? reportNumberFromFileName(next.name) : '')
                 setInspected(null)
@@ -272,7 +273,7 @@ function PlanningWorkspace() {
               }}
             />
           </label>
-          {inspectSource.isError ? <div className="mt-3"><ErrorNotice error={inspectSource.error} fallback="PDF 结构检查失败" /></div> : null}
+          {inspectSource.isError && inspectSource.variables === file ? <div className="mt-3"><ErrorNotice error={inspectSource.error} fallback="PDF 结构检查失败" /></div> : null}
           {inspected ? (
             <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800">
               <div className="font-semibold">结构检查通过 · {inspected.page_count} 页</div>
@@ -282,10 +283,10 @@ function PlanningWorkspace() {
           <Button
             variant="secondary"
             className="mt-3 w-full"
-            disabled={!file || inspectSource.isPending || Boolean(inspected) || Boolean(finalized)}
-            onClick={() => inspectSource.mutate()}
+            disabled={!file || inspectingCurrentFile || Boolean(inspected) || Boolean(finalized)}
+            onClick={() => file && inspectSource.mutate(file)}
           >
-            {inspectSource.isPending ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+            {inspectingCurrentFile ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
             {inspected ? 'PDF 已检查' : '检查 PDF'}
           </Button>
         </WorkspaceCard>
@@ -297,7 +298,7 @@ function PlanningWorkspace() {
               className={`${inputClass} mt-1`}
               value={reportNumber}
               maxLength={128}
-              disabled={!inspected || Boolean(finalized)}
+              disabled={!inspected || Boolean(finalized) || finalizeSource.isPending}
               placeholder="例如 XDP2025120133"
               onChange={(event) => setReportNumber(event.target.value)}
             />
