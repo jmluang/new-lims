@@ -407,6 +407,38 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
         $this->assertSame('cancelled', PdfOperationOutbox::query()->orderByDesc('id')->value('state'));
     }
 
+    public function test_reopening_a_signing_task_returns_its_persisted_operation(): void
+    {
+        [, $inspector, , $requestUuid] = $this->preparedWorkflowForCancellation();
+        $operation = $this->claimCancellationTestOperation($inspector, $requestUuid);
+        $this->grantPermissions($inspector, ['pdf.request.read']);
+
+        $this->getJson("/api/pdf/signing-requests/{$requestUuid}")
+            ->assertOk()
+            ->assertJsonPath('data.operation.operation_uuid', $operation->operation_uuid)
+            ->assertJsonPath('data.operation.state', 'claimed');
+    }
+
+    public function test_reopening_a_signed_task_returns_the_signers_result_instead_of_its_input(): void
+    {
+        [, $inspector, , $requestUuid] = $this->preparedWorkflowForCancellation();
+        $request = PdfSigningRequest::query()->where('request_uuid', $requestUuid)->sole();
+        $input = PdfFile::query()->findOrFail($request->expected_source_revision_id);
+        $signed = $input->replicate(['file_id', 'revision_uuid']);
+        $signed->revision_uuid = (string) Str::uuid();
+        $signed->revision_number = $input->revision_number + 1;
+        $signed->sha256_hash = hash('sha256', 'signed task result');
+        $signed->save();
+        $request->update(['status' => 'signed', 'completed_revision_id' => $signed->id]);
+        $this->grantPermissions($inspector, ['pdf.request.read']);
+        Sanctum::actingAs($inspector);
+
+        $this->getJson("/api/pdf/signing-requests/{$requestUuid}")
+            ->assertOk()
+            ->assertJsonPath('data.revision.revision_uuid', $signed->revision_uuid)
+            ->assertJsonPath('data.report_number', $request->workflow->document->authoritative_report_number);
+    }
+
     public function test_workflow_cancel_without_active_operation_terminalizes_all_unused_scope_rows(): void
     {
         [$actor, $inspector, $workflowUuid, $requestUuid] = $this->preparedWorkflowForCancellation();
@@ -526,7 +558,7 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
 
     public function test_request_rejection_without_active_operation_terminalizes_the_same_workflow_scope(): void
     {
-        [, $inspector, , $requestUuid] = $this->preparedWorkflowForCancellation();
+        [$actor, $inspector, , $requestUuid] = $this->preparedWorkflowForCancellation();
         $this->grantPermissions($inspector, [
             'pdf.request.reject',
             'pdf.request.sign_assigned',
@@ -557,6 +589,9 @@ class PdfHandwrittenSigningWorkflowTest extends TestCase
             'action' => 'pdf.workflow.rejected',
             'actor_user_id' => $inspector->id,
         ]);
+        $this->grantPermissions($actor, ['pdf.document.read']);
+        Sanctum::actingAs($actor);
+        $this->getJson('/api/pdf/documents')->assertOk()->assertJsonPath('data.0.stage', 'rejected');
     }
 
     public function test_finalize_operation_replays_promoted_bytes_after_transaction_b_failure(): void

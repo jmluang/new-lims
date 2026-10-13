@@ -85,11 +85,17 @@ final class PdfSigningNotifier
         }
 
         $role = self::roleLabel($request->act?->semantic_role);
+        $reason = match ($reasonCode) {
+            'CONTENT_REVIEW_REJECTED' => '内容审核不通过',
+            'SIGNATURE_POSITION_INCORRECT' => '签名位置不正确',
+            'REPORT_DATA_INCORRECT' => '报告数据不正确',
+            default => $reasonCode,
+        };
         UserMessage::query()->create([
             'recipient_user_id' => $document->created_by_id,
             'sender_user_id' => $request->assigned_user_id,
             'title' => '手写签名被拒绝',
-            'content' => "报告 {$document->authoritative_report_number} 的{$role}签名被拒绝，原因代码 {$reasonCode}。",
+            'content' => "报告 {$document->authoritative_report_number} 的{$role}签名被拒绝，原因：{$reason}。",
             'link_path' => '/pdf/documents?search='.rawurlencode($document->authoritative_report_number),
         ]);
     }

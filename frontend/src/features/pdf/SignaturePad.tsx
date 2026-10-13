@@ -11,6 +11,7 @@ export function SignaturePad({
   onReadyChange,
   padRef,
   aspectRatio = 900 / 320,
+  disabled = false,
 }: {
   onPreviewChange: (preview: string | null) => void
   onReadyChange: (ready: boolean) => void
@@ -23,6 +24,7 @@ export function SignaturePad({
    * out stretched sideways — the stored signature was not the one written.
    */
   aspectRatio?: number
+  disabled?: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
@@ -33,6 +35,7 @@ export function SignaturePad({
   const [inkVisible, setInkVisible] = useState(false)
 
   function clear() {
+    if (disabled) return
     const canvas = canvasRef.current
     const context = canvas?.getContext('2d')
     if (!canvas || !context) return
@@ -68,12 +71,13 @@ export function SignaturePad({
   }
 
   function beginStroke(canvas: HTMLCanvasElement, clientX: number, clientY: number) {
+    if (disabled) return
     drawing.current = true
     lastPoint.current = point(canvas, clientX, clientY)
   }
 
   function continueStroke(canvas: HTMLCanvasElement, clientX: number, clientY: number) {
-    if (!drawing.current || !lastPoint.current) return
+    if (disabled || !drawing.current || !lastPoint.current) return
     const next = point(canvas, clientX, clientY)
     const context = canvas.getContext('2d')
     if (!context) return
@@ -146,9 +150,10 @@ export function SignaturePad({
               value={width}
               onChange={(event) => setWidth(Number(event.target.value))}
               aria-label="签名笔画粗细"
+              disabled={disabled}
             />
           </label>
-          <Button variant="secondary" onClick={clear}>
+          <Button variant="secondary" disabled={disabled} onClick={clear}>
             <RotateCcw className="size-4" />
             重写
           </Button>
@@ -160,10 +165,11 @@ export function SignaturePad({
           width={CANVAS_WIDTH}
           height={Math.round(CANVAS_WIDTH / aspectRatio)}
           style={{ aspectRatio }}
-          className="block w-full touch-none cursor-crosshair"
+          className={`block w-full touch-none ${disabled ? 'cursor-not-allowed' : 'cursor-crosshair'}`}
           aria-label="手写签名区域"
+          aria-disabled={disabled || undefined}
           onPointerDown={(event) => {
-            if (event.pointerType === 'mouse') return
+            if (disabled || event.pointerType === 'mouse') return
             event.currentTarget.setPointerCapture(event.pointerId)
             beginStroke(event.currentTarget, event.clientX, event.clientY)
           }}

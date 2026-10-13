@@ -27,6 +27,7 @@ vi.mock('../handwrittenApi', () => ({
   fetchPlanningOptions: vi.fn(async () => ({ assignees: [], policies: [] })),
   fetchAssignedSigningRequests: vi.fn(async () => []),
   fetchSigningRequest: vi.fn(),
+  fetchSigningWorkflow: vi.fn(),
   fetchSigningOperation: vi.fn(),
   inspectSigningSource: vi.fn(),
   confirmAndFinalizeSigningSource: vi.fn(),
@@ -40,9 +41,21 @@ vi.mock('../handwrittenApi', () => ({
 vi.mock('../PdfPlacementWorkspace', () => ({ PdfPlacementWorkspace: () => null }))
 vi.mock('../SignaturePad', () => ({ SignaturePad: () => null }))
 
-async function planningMarkup(search: string) {
+async function planningMarkup(search: string, workflowStatus?: string, serverStatus?: string) {
   state.search = search
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  if (workflowStatus) {
+    client.setQueryData(['pdf', 'documents', 'doc-1', 'resume'], {
+      reportNumber: 'RPT-1', revision: { revision_uuid: 'revision-1', revision_role: 'finalized_unsigned' },
+      file: new Blob(['test pdf']), assignments: null, placements: null,
+      activeWorkflow: { workflow_uuid: 'workflow-1', status: workflowStatus },
+    })
+  }
+  if (serverStatus) {
+    client.setQueryData(['pdf', 'handwritten', 'workflow', 'workflow-1'], {
+      workflow_uuid: 'workflow-1', status: serverStatus, requests: [], fields: [],
+    })
+  }
   const { PdfHandwrittenSigningPage } = await import('../PdfHandwrittenSigningPage')
 
   return renderToStaticMarkup(
@@ -57,6 +70,18 @@ afterEach(() => {
 })
 
 describe('planning workspace layout', () => {
+  it('uses the current rejected state instead of the original ready snapshot', async () => {
+    const html = await planningMarkup('?document=doc-1', 'ready', 'rejected')
+    expect(html).toContain('重新确认并发起签署')
+    expect(html).not.toContain('取消签署流程')
+    expect(html).not.toMatch(/<fieldset[^>]*\sdisabled(?:=|\s|>)/)
+  })
+  it.each(['rejected', 'cancelled'])('allows editing placement controls after the workflow is %s', async (status) => {
+    const html = await planningMarkup('?document=doc-1', status)
+    expect(html).not.toMatch(/<fieldset[^>]*\sdisabled(?:=|\s|>)/)
+    expect(html).toContain('重新确认并发起签署')
+    expect(html).not.toContain('取消签署流程')
+  })
   it('drops the explainer strip that pushed the workspace down the page', async () => {
     const html = await planningMarkup('')
 

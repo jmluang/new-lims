@@ -16,8 +16,8 @@ export function workflowIdempotencyKey(input: {
   documentUuid: string | null
   revisionUuid: string | null
 }): string {
-  if (input.uploaded) return input.uploaded
   if (input.previousWorkflowUuid) return `workflow-after-${input.previousWorkflowUuid}`
+  if (input.uploaded) return input.uploaded
   if (input.documentUuid && input.revisionUuid) return `workflow-${input.documentUuid}-${input.revisionUuid}`
 
   return ''
@@ -25,5 +25,5 @@ export function workflowIdempotencyKey(input: {
 
 /** Whether the freeze action still has anything to do. */
 export function canFreeze(workflowStatus: string | null | undefined): boolean {
-  return workflowStatus == null || workflowStatus === 'cancelled'
+  return workflowStatus == null || workflowStatus === 'cancelled' || workflowStatus === 'rejected'
 }

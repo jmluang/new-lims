@@ -11,7 +11,7 @@ import type { SigningDocument } from './handwrittenApi'
 const UNSIGNED_ROLES = ['finalized_unsigned', 'prepared']
 
 /** Workflow states that no longer own the document. */
-const SETTLED_WORKFLOW = ['cancelled', 'failed']
+const SETTLED_WORKFLOW = ['cancelled', 'failed', 'rejected']
 
 function signed(document: SigningDocument): boolean {
   return document.revisions.some(
@@ -19,13 +19,13 @@ function signed(document: SigningDocument): boolean {
   ) || document.signers.some((signer) => signer.status === 'signed')
 }
 
-function frozen(document: SigningDocument): string | null {
+function frozen(document: SigningDocument, allowPartialSignatures = false): string | null {
   if (!document.is_owner) return '只有创建者可以修改或删除'
   if (document.stage === 'published' || document.status === 'published') return '已发布的报告不可修改'
   if (document.evidence_hold_state !== 'none') return '该报告处于证据保全中'
   if (document.integrity_state !== 'ok') return '该报告处于完整性保护中'
   if (document.has_running_work) return '该报告有正在处理的操作'
-  if (signed(document)) return '该报告已有签名'
+  if (!allowPartialSignatures && signed(document)) return '该报告已有签名'
 
   return null
 }
@@ -54,5 +54,7 @@ export function editableReason(document: SigningDocument): string | null {
  * cancelled, and blocking the way in would leave no way to replan.
  */
 export function planReason(document: SigningDocument): string | null {
-  return frozen(document)
+  // A new generation uses the original finalized PDF and preserves prior
+  // signatures. Only renaming or deleting would alter that signed history.
+  return frozen(document, true)
 }

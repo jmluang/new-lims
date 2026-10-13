@@ -32,8 +32,13 @@ describe('workflowIdempotencyKey', () => {
   })
 
   it('keeps the key the upload path already generated', () => {
-    expect(workflowIdempotencyKey({ ...resumed, uploaded: 'workflow-uploaded', previousWorkflowUuid: 'wf-1' }))
+    expect(workflowIdempotencyKey({ ...resumed, uploaded: 'workflow-uploaded' }))
       .toBe('workflow-uploaded')
+  })
+
+  it('does not replay the first upload attempt when replanning a stopped workflow', () => {
+    expect(workflowIdempotencyKey({ ...resumed, uploaded: 'workflow-uploaded', previousWorkflowUuid: 'wf-1' }))
+      .not.toBe('workflow-uploaded')
   })
 
   it('has no key before anything has been finalized', () => {
@@ -50,6 +55,10 @@ describe('canFreeze', () => {
 
   it('allows freezing again after a cancel, which frees the document', () => {
     expect(canFreeze('cancelled')).toBe(true)
+  })
+
+  it('allows a rejected workflow to be planned again', () => {
+    expect(canFreeze('rejected')).toBe(true)
   })
 
   it('refuses once the fields are committed', () => {

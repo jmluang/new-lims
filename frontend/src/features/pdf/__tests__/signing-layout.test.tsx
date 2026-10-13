@@ -23,6 +23,7 @@ vi.mock('../handwrittenApi', () => ({
   fetchPlanningOptions: vi.fn(async () => ({ assignees: [], policies: [] })),
   fetchAssignedSigningRequests: vi.fn(async () => []),
   fetchSigningRequest: vi.fn(),
+  fetchSigningWorkflow: vi.fn(),
   fetchSigningOperation: vi.fn(),
   inspectSigningSource: vi.fn(),
   confirmAndFinalizeSigningSource: vi.fn(),
@@ -111,7 +112,7 @@ describe('signing workspace', () => {
       'utf8',
     ))
 
-    expect(source).toContain("operation.data.result_revision_uuid")
+    expect(source).toContain("currentOperation.result_revision_uuid")
     expect(source).toContain("file={displayedRevision}")
     expect(source).toContain("signaturePreview={signingControlsLocked ? null : activeDrawing.previewUrl}")
   })

@@ -117,6 +117,15 @@ class PdfSigningNotificationTest extends TestCase
         );
     }
 
+    public function test_a_rejection_message_describes_the_reason_in_the_signing_form(): void
+    {
+        [, $requests] = $this->workflow();
+        app(PdfSigningNotifier::class)->notifyRejected($requests[0], 'REPORT_DATA_INCORRECT');
+
+        $this->assertStringContainsString('报告数据不正确', UserMessage::query()->sole()->content);
+        $this->assertStringNotContainsString('REPORT_DATA_INCORRECT', UserMessage::query()->sole()->content);
+    }
+
     /** @return array{0: PdfSigningWorkflow, 1: list<PdfSigningRequest>} */
     private function workflow(): array
     {

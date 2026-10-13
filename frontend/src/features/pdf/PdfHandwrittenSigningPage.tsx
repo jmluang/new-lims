@@ -32,6 +32,7 @@ import {
   fetchPlanningOptions,
   fetchSigningOperation,
   fetchSigningRequest,
+  fetchSigningWorkflow,
   inspectSigningSource,
   rejectSigningRequest,
   submitSignatureAppearance,
@@ -144,7 +145,16 @@ function PlanningWorkspace() {
   const assignments = editedAssignments
     ?? resume.data?.assignments
     ?? { inspector: 0, reviewer: 0, issuer: 0 }
-  const result = workflowResult ?? resume.data?.activeWorkflow ?? null
+  const savedResult = workflowResult ?? resume.data?.activeWorkflow ?? null
+  const liveWorkflow = useQuery({
+    queryKey: ['pdf', 'handwritten', 'workflow', savedResult?.workflow_uuid],
+    queryFn: () => fetchSigningWorkflow(savedResult!.workflow_uuid),
+    enabled: Boolean(savedResult) && !canFreeze(savedResult?.status) && savedResult?.status !== 'completed',
+    refetchInterval: (query) => ['completed', 'rejected', 'cancelled', 'failed'].includes(query.state.data?.status ?? '') ? false : 5000,
+  })
+  const result = savedResult && !canFreeze(savedResult.status)
+    && liveWorkflow.data?.workflow_uuid === savedResult.workflow_uuid
+      ? liveWorkflow.data : savedResult
   const workflowIdempotencyKey = buildWorkflowIdempotencyKey({
     uploaded: uploadedIdempotencyKey,
     previousWorkflowUuid: result?.workflow_uuid ?? null,
@@ -225,9 +235,11 @@ function PlanningWorkspace() {
               <>
                 <p className="font-medium">正在编辑已有报告 · {reportNumber}</p>
                 <p className="mt-1 text-sky-800">
-                  {result
+                  {result?.status === 'completed' ? '该报告已完成签署并发布。'
+                    : result && !canFreeze(result.status)
                     ? '该报告已在签署流程中。要改动签名位置或签署人，需先取消当前流程。'
-                    : '已载入定稿，直接调整签名位置和签署人即可。'}
+                    : result ? '本次签署已终止，调整签名位置和签署人后可重新发起。'
+                      : '已载入定稿，直接调整签名位置和签署人即可。'}
                 </p>
                 <a className="mt-1 inline-block underline" href="/pdf/documents">返回报告列表</a>
               </>
@@ -311,7 +323,7 @@ function PlanningWorkspace() {
         )}
 
         <WorkspaceCard title={resumedDocument ? '调整签名位置' : '3. 调整签名位置'} icon={Grip}>
-          <fieldset disabled={!finalized || Boolean(result)} className="disabled:opacity-50">
+          <fieldset disabled={!finalized || !canFreeze(result?.status)} className="disabled:opacity-50">
             {/* Each row owns its own page, so setting one no longer means
                 selecting it first. Selecting only decides which box the canvas
                 highlights while dragging. */}
@@ -423,9 +435,9 @@ function PlanningWorkspace() {
 
         {create.isError ? <ErrorNotice error={create.error} fallback="发起签署失败" /> : null}
         {result ? (
-          <div className={`rounded-xl border p-4 text-sm ${result.status === 'cancelled' ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
-            <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="size-4" />{result.status === 'cancelled' ? '签署流程已取消' : '已发起签署'}</div>
-            {result.status !== 'cancelled' ? (
+          <div className={`rounded-xl border p-4 text-sm ${canFreeze(result.status) ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+            <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="size-4" />{result.status === 'cancelled' ? '签署流程已取消' : result.status === 'rejected' ? '签署流程已拒绝' : result.status === 'completed' ? '全部签署已完成' : '已发起签署'}</div>
+            {!canFreeze(result.status) && result.status !== 'completed' ? (
               <Button
                 variant="secondary"
                 className="mt-3 w-full border-red-200 text-red-700 hover:bg-red-50"
@@ -459,7 +471,7 @@ function PlanningWorkspace() {
           }
         >
           {create.isPending ? <Loader2 className="size-4 animate-spin" /> : <LockKeyhole className="size-4" />}
-          {result?.status === 'cancelled' ? '重新确认并发起签署' : '确认签名位置并发起签署'}
+          {result && canFreeze(result.status) ? '重新确认并发起签署' : '确认签名位置并发起签署'}
         </Button>
         ) : null}
 
@@ -470,29 +482,37 @@ function PlanningWorkspace() {
 
 function SigningWorkspace() {
   const queryClient = useQueryClient()
-  const requests = useQuery({ queryKey: ['pdf', 'handwritten', 'requests'], queryFn: fetchAssignedSigningRequests })
+  const requests = useQuery({
+    queryKey: ['pdf', 'handwritten', 'requests'], queryFn: fetchAssignedSigningRequests,
+    refetchInterval: 5000,
+  })
   // A notification links to one task; without this it would open on whichever
   // happens to be first in the list.
   const [selectedRequestUuid, setSelectedRequestUuid] = useState(() => requestedSigningUuid() ?? '')
   const effectiveRequestUuid = selectedRequestUuid || requests.data?.[0]?.request_uuid || ''
   const [taskPickerOpen, setTaskPickerOpen] = useState(false)
-  const [pinnedRequest, setPinnedRequest] = useState<SigningRequestSummary | null>(null)
+  const [pinnedRequest, setPinnedRequest] = useState<Pick<SigningRequestSummary, 'request_uuid' | 'report_number' | 'semantic_role' | 'sequence'> | null>(null)
   const [pageSizeState, setPageSizeState] = useState<{
     requestUuid: string
     size: { width: number; height: number }
   } | null>(null)
   const listedCurrent = requests.data?.find((request) => request.request_uuid === effectiveRequestUuid) ?? null
-  const current = listedCurrent ?? (pinnedRequest?.request_uuid === effectiveRequestUuid ? pinnedRequest : null)
   const taskCount = requests.data?.length ?? 0
   const detail = useQuery({
     queryKey: ['pdf', 'handwritten', 'request', effectiveRequestUuid],
     queryFn: () => fetchSigningRequest(effectiveRequestUuid),
     enabled: Boolean(effectiveRequestUuid),
+    refetchInterval: 5000,
   })
+  const current = listedCurrent
+    ?? (pinnedRequest?.request_uuid === effectiveRequestUuid ? pinnedRequest : null)
+    ?? detail.data
+    ?? null
+  const sourceRevisionUuid = detail.data?.revision?.revision_uuid
   const revision = useQuery({
-    queryKey: ['pdf', 'handwritten', 'revision', detail.data?.revision.revision_uuid],
-    queryFn: () => downloadRevision(detail.data!.revision.revision_uuid),
-    enabled: Boolean(detail.data?.revision.revision_uuid),
+    queryKey: ['pdf', 'handwritten', 'revision', sourceRevisionUuid],
+    queryFn: () => downloadRevision(sourceRevisionUuid!),
+    enabled: Boolean(sourceRevisionUuid),
   })
   const [drawingState, setDrawingState] = useState<SignatureDrawingState>({ key: '', previewUrl: null, ready: false })
   const [currentPassword, setCurrentPassword] = useState('')
@@ -501,6 +521,7 @@ function SigningWorkspace() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [operationState, setOperationState] = useState<RequestOperationState>({ requestUuid: '', operationUuid: '' })
   const operationUuid = operationUuidForRequest(operationState, effectiveRequestUuid)
+    || detail.data?.operation?.operation_uuid || ''
   const padRef = useRef<{ toBlob: () => Promise<Blob>; clear: () => void } | null>(null)
 
   const operation = useQuery({
@@ -509,11 +530,34 @@ function SigningWorkspace() {
     enabled: Boolean(operationUuid),
     refetchInterval: (query) => {
       const state = query.state.data?.state
+      // An administrator can resolve manual review while this page stays open.
+      if (state === 'manual_review') return 5000
       return isSigningTerminalState(state) ? false : 2000
     },
   })
-  const completedRevisionUuid = operation.data?.state === 'completed'
-    ? operation.data.result_revision_uuid ?? ''
+  const persistedOperation = detail.data?.operation
+  const persistedOperationUuid = persistedOperation?.operation_uuid
+  const persistedOperationState = persistedOperation?.state
+  const persistedResultRevisionUuid = persistedOperation?.result_revision_uuid ?? null
+  const observedOperationState = operation.data?.state
+  const observedResultRevisionUuid = operation.data?.result_revision_uuid ?? null
+  useEffect(() => {
+    if (!persistedOperationUuid || !observedOperationState || persistedOperationUuid !== operationUuid) return
+    if (persistedOperationState === observedOperationState
+      && persistedResultRevisionUuid === observedResultRevisionUuid) return
+
+    // Read the canonical endpoints again instead of copying a possibly older
+    // request snapshot over a more recent operation response.
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'operation', operationUuid], exact: true }),
+      queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'request', effectiveRequestUuid], exact: true }),
+    ])
+  }, [persistedOperationUuid, persistedOperationState, persistedResultRevisionUuid,
+    operationUuid, observedOperationState, observedResultRevisionUuid, effectiveRequestUuid, queryClient])
+  const currentOperation = operation.data
+    ?? (detail.data?.operation?.operation_uuid === operationUuid ? detail.data.operation : null)
+  const completedRevisionUuid = currentOperation?.state === 'completed'
+    ? currentOperation.result_revision_uuid ?? ''
     : ''
   const completedRevision = useQuery({
     queryKey: ['pdf', 'handwritten', 'revision', completedRevisionUuid],
@@ -545,14 +589,18 @@ function SigningWorkspace() {
   })
   const reject = useMutation({
     mutationFn: () => rejectSigningRequest(effectiveRequestUuid, rejectReason),
-    onSuccess: async () => {
-      setSelectedRequestUuid('')
+    onSuccess: async (result) => {
+      setSelectedRequestUuid(result.request_uuid)
       setOperationState({ requestUuid: '', operationUuid: '' })
       setDrawingState({ key: '', previewUrl: null, ready: false })
       setPageSizeState(null)
-      setPinnedRequest(null)
+      setPinnedRequest(current)
       setRejectOpen(false)
-      await queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'requests'] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'requests'] }),
+        queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'request', result.request_uuid] }),
+      ])
+      showToast({ variant: 'success', title: '已拒绝签署', description: '本次签署流程已终止，已通知发起人。' })
     },
   })
 
@@ -563,8 +611,9 @@ function SigningWorkspace() {
   useEffect(() => {
     if (isSigningTerminalState(operation.data?.state)) {
       void queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'requests'] })
+      void queryClient.invalidateQueries({ queryKey: ['pdf', 'handwritten', 'request', effectiveRequestUuid] })
     }
-  }, [operation.data?.state, queryClient])
+  }, [operation.data?.state, queryClient, effectiveRequestUuid])
 
   // Announced once per operation, not once per poll: the operation query keeps
   // refetching, and re-firing on every tick would stack duplicate toasts.
@@ -602,14 +651,14 @@ function SigningWorkspace() {
   }, [detail.data])
   const padAspectRatio = useMemo(
     () => fieldAspectRatio(
-      detail.data?.field.slots[0]?.normalized_rect,
+      detail.data?.field?.slots[0]?.normalized_rect,
       pageSizeState?.requestUuid === effectiveRequestUuid ? pageSizeState.size : null,
     ),
     [detail.data, effectiveRequestUuid, pageSizeState],
   )
   const drawingKey = `${effectiveRequestUuid}:${padAspectRatio}`
   const activeDrawing = drawingStateForKey(drawingState, drawingKey)
-  const terminalState = operation.data?.state
+  const terminalState = currentOperation?.state
   const operationPending = Boolean(
     operationUuid
       && !isSigningTerminalState(terminalState),
@@ -617,6 +666,11 @@ function SigningWorkspace() {
   // A pre-key failure remains retryable. Completed, ambiguous and irreversible
   // outcomes retire the controls so the UI cannot contradict the recovery rule.
   const signingControlsLocked = signingControlsUnavailable(terminalState)
+    || operationPending || Boolean(detail.data && detail.data.status !== 'available')
+  // Keep the actual canvas through processing and resolvable review. Locking
+  // interaction must not discard ink that a retry can still use.
+  const signaturePadRetired = ['completed', 'irreversible_failed', 'cancelled'].includes(terminalState ?? '')
+    || Boolean(detail.data && !['available', 'signing', 'manual_review'].includes(detail.data.status))
   const taskSwitchLocked = signingTaskSwitchUnavailable(submit.isPending, operationPending, reject.isPending)
   const displayedRevision = completedRevisionUuid ? completedRevision.data ?? null : revision.data ?? null
 
@@ -650,7 +704,7 @@ function SigningWorkspace() {
           {signingControlsLocked ? null : (
             <Button
               variant="danger"
-              disabled={!detail.data || reject.isPending || operationPending}
+              disabled={!detail.data || taskSwitchLocked}
               onClick={() => setRejectOpen(true)}
             >
               <XCircle className="size-4" />
@@ -679,7 +733,7 @@ function SigningWorkspace() {
       />
 
       <aside className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
-        {signingControlsLocked ? null : <WorkspaceCard title="手写签名" icon={PenTool}>
+        {signaturePadRetired ? null : <WorkspaceCard title="手写签名" icon={PenTool}>
           {detail.data ? (
             <div className="mb-3 rounded-lg bg-slate-50 p-3 text-xs">
               <span className="text-slate-400">签名角色</span>
@@ -702,6 +756,7 @@ function SigningWorkspace() {
             }))}
             padRef={padRef}
             aspectRatio={padAspectRatio}
+            disabled={signingControlsLocked || taskSwitchLocked || !detail.data}
           />
         </WorkspaceCard>}
 
@@ -715,7 +770,7 @@ function SigningWorkspace() {
             <Button
               variant="primary"
               className="mt-3 w-full"
-              disabled={!detail.data || !activeDrawing.ready || submit.isPending || operationPending}
+              disabled={!detail.data || !activeDrawing.ready || taskSwitchLocked}
               onClick={() => {
                 if (current) {
                   setSelectedRequestUuid(current.request_uuid)
@@ -730,7 +785,23 @@ function SigningWorkspace() {
           </WorkspaceCard>
         )}
 
-        {operation.data ? <OperationState operation={operation.data} lastSigner={lastSigner} /> : null}
+        {currentOperation ? <OperationState operation={currentOperation} lastSigner={lastSigner} /> : (
+          detail.data?.status === 'signed' ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm">
+              <p className="font-semibold">{signedTitle(lastSigner)}</p>
+              <p className="mt-2 text-xs">{signedText(lastSigner)}</p>
+            </div>
+          ) : detail.data && detail.data.status !== 'available' ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+              {detail.data.status === 'pending' ? '等待前一位签署人完成，轮到你时会收到消息。'
+                : detail.data.status === 'signing' ? '签名正在处理中，请稍候。'
+                  : detail.data.status === 'rejected' ? '任务已拒绝，本次签署流程已终止。'
+                    : '任务已取消，本次签署流程已终止。'}
+            </div>
+          ) : null
+        )}
+        {detail.isError ? <ErrorNotice error={detail.error} fallback="签名任务加载失败" /> : null}
+        {revision.isError ? <ErrorNotice error={revision.error} fallback="报告加载失败" /> : null}
         {operation.isError ? <ErrorNotice error={operation.error} fallback="签名状态查询失败" /> : null}
         {completedRevision.isError ? <ErrorNotice error={completedRevision.error} fallback="已签署报告加载失败" /> : null}
       </aside>
@@ -750,7 +821,7 @@ function SigningWorkspace() {
             </Button>
             <Button
               variant="primary"
-              disabled={!currentPassword || submit.isPending}
+              disabled={!currentPassword || taskSwitchLocked || signingControlsLocked}
               onClick={() => submit.mutate()}
             >
               {submit.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
@@ -767,10 +838,10 @@ function SigningWorkspace() {
             autoComplete="current-password"
             autoFocus
             value={currentPassword}
-            disabled={submit.isPending}
+            disabled={taskSwitchLocked || signingControlsLocked}
             onChange={(event) => setCurrentPassword(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && currentPassword && !submit.isPending) submit.mutate()
+              if (event.key === 'Enter' && currentPassword && !taskSwitchLocked && !signingControlsLocked) submit.mutate()
             }}
           />
         </label>
@@ -828,6 +899,10 @@ function SigningWorkspace() {
                   : 'border-slate-200 bg-white hover:border-emerald-300'
               }`}
               onClick={() => {
+                const url = new URL(window.location.href)
+                url.searchParams.set('request', request.request_uuid)
+                url.hash = 'sign'
+                window.history.replaceState(null, '', url)
                 setSelectedRequestUuid(request.request_uuid)
                 setOperationState({ requestUuid: '', operationUuid: '' })
                 setDrawingState({ key: '', previewUrl: null, ready: false })

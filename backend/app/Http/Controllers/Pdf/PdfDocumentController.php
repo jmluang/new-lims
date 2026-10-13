@@ -237,7 +237,7 @@ class PdfDocumentController extends Controller
             return 'manual_review';
         }
 
-        if (in_array($workflow->status, ['cancelled', 'failed'], true)) {
+        if (in_array($workflow->status, ['cancelled', 'failed', 'rejected'], true)) {
             return $workflow->status;
         }
 

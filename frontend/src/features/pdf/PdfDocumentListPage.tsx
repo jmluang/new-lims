@@ -23,6 +23,7 @@ const stageLabels: Record<string, string> = {
   all_signed: '全部已签署',
   published: '已发布',
   cancelled: '已取消',
+  rejected: '已拒绝',
   failed: '已失败',
   manual_review: '待人工复核',
 }

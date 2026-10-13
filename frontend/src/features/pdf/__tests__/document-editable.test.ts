@@ -89,6 +89,21 @@ describe('editableReason', () => {
     expect(editableReason({ ...draft, workflow_uuid: 'wf-1', workflow_status: 'cancelled' })).toBeNull()
   })
 
+  it('allows correcting a rejected unsigned report before it is planned again', () => {
+    const rejected = { ...draft, status: 'rejected', stage: 'rejected', workflow_uuid: 'wf-1', workflow_status: 'rejected' }
+    expect(editableReason(rejected)).toBeNull()
+    expect(planReason(rejected)).toBeNull()
+  })
+
+  it('allows replanning a rejected partial signature while preserving its signed history', () => {
+    const partial: SigningDocument = {
+      ...draft, status: 'rejected', stage: 'rejected', workflow_uuid: 'wf-1', workflow_status: 'rejected',
+      revisions: [...draft.revisions, { revision_uuid: 'r2', revision_number: 2, revision_role: 'approval_signature', integrity_state: 'ready' }],
+    }
+    expect(editableReason(partial)).toBe('该报告已有签名')
+    expect(planReason(partial)).toBeNull()
+  })
+
   it('blocks documents where a signer has already signed', () => {
     expect(editableReason({
       ...draft,

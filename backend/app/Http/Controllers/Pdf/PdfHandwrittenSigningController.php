@@ -185,13 +185,25 @@ final class PdfHandwrittenSigningController extends Controller
         $this->authorizePermission($request, 'pdf.request.read', 'pdf.request');
         abort_unless($signingRequest->assigned_user_id === $request->user()->id, 403);
         $signingRequest->load(['workflow.document', 'act', 'field.slots']);
-        $revision = PdfFile::query()->find($signingRequest->expected_source_revision_id);
+        $revision = PdfFile::query()->find(
+            $signingRequest->status === 'signed'
+                ? $signingRequest->completed_revision_id
+                : $signingRequest->expected_source_revision_id,
+        );
+        $operation = PdfSigningOperation::query()
+            ->where('request_id', $signingRequest->id)
+            ->where('workflow_id', $signingRequest->workflow_id)
+            ->where('actor_user_id', $request->user()->id)
+            ->where('action', 'fill_signature_field')
+            ->latest('id')
+            ->first();
 
         return response()->json(['data' => [
             'request_uuid' => $signingRequest->request_uuid,
             'status' => $signingRequest->status,
             'sequence' => $signingRequest->sequence,
             'semantic_role' => $signingRequest->act->semantic_role,
+            'report_number' => $signingRequest->workflow->document->authoritative_report_number,
             'pdf_signature_role' => $signingRequest->act->pdf_signature_role,
             'field' => $signingRequest->field ? [
                 'field_uuid' => $signingRequest->field->field_uuid,
@@ -203,6 +215,7 @@ final class PdfHandwrittenSigningController extends Controller
                 ])->all(),
             ] : null,
             'revision' => $revision ? $this->revisionData($revision) : null,
+            'operation' => $operation ? $this->operationData($operation) : null,
             'certificate_subject' => 'organization',
         ]]);
     }

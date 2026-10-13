@@ -67,13 +67,15 @@ export type SigningRequestDetail = {
   status: string
   sequence: number
   semantic_role: SignatureRole
+  report_number: string
   pdf_signature_role: 'certification_p2' | 'approval'
   field: {
     field_uuid: string
     field_name: string
     slots: Array<{ page_index: number; widget_index: number; normalized_rect: NormalizedRect }>
-  }
-  revision: { revision_uuid: string; sha256: string; file_size: number }
+  } | null
+  revision: { revision_uuid: string; sha256: string; file_size: number } | null
+  operation: SigningOperation | null
   certificate_subject: string
 }
 
