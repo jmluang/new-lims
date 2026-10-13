@@ -188,7 +188,7 @@ export async function inspectSigningSource(file: File) {
   return response.data.data
 }
 
-export async function confirmAndFinalizeSigningSource(input: { sourceUuid: string; reportNumber: string }) {
+export async function finalizeSigningSource(input: { sourceUuid: string; reportNumber: string }): Promise<FinalizedPlanningRevision> {
   await api.post(`/api/pdf/signing-sources/${input.sourceUuid}/confirm`, { report_number: input.reportNumber })
   const response = await api.post<{ data: SigningOperation }>(
     `/api/pdf/signing-sources/${input.sourceUuid}/finalize`,
@@ -199,18 +199,21 @@ export async function confirmAndFinalizeSigningSource(input: { sourceUuid: strin
   if (operation.state !== 'completed' || !operation.result_revision_uuid) {
     throw new Error(operation.error_code ?? 'PDF 定稿未完成')
   }
-  const file = await downloadRevision(operation.result_revision_uuid)
-  const revision: FinalizedPlanningRevision = {
+  return {
     revision_uuid: operation.result_revision_uuid,
     revision_number: 0,
     revision_role: 'finalized_unsigned',
     sha256: operation.result_sha256 ?? '',
-    file_size: operation.result_size ?? file.size,
+    file_size: operation.result_size ?? 0,
     integrity_state: 'ready',
     disposition: 'active',
   }
+}
 
-  return { revision, file }
+export async function confirmAndFinalizeSigningSource(input: { sourceUuid: string; reportNumber: string }) {
+  const revision = await finalizeSigningSource(input)
+  const file = await downloadRevision(revision.revision_uuid)
+  return { revision: { ...revision, file_size: revision.file_size || file.size }, file }
 }
 
 export async function createPreparedSigningWorkflow(input: {

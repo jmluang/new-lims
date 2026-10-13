@@ -5,7 +5,7 @@ import { RefreshCw, Trash2 } from 'lucide-react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { api } from '../../lib/api'
 import { useEffectivePermissions } from '../auth/useCurrentUser'
-import { confirmAndFinalizeSigningSource } from '../pdf/handwrittenApi'
+import { finalizeSigningSource } from '../pdf/handwrittenApi'
 import { Button, ErrorNotice, Field, LoadingState, PageShell, Panel } from '../system/shared'
 import { errorMessage, inputClass, textareaClass } from '../system/utils'
 import { applyMeasurementImport, attachmentTypes, generateReportNumber, parseMeasurementFile, previewReportPdf, reportFormData, saveReport, type EquipmentRow, type MeasurementImportResult, type MeasurementKind, type Report, type ReportData, type ReportNumberAllocation, type ReportOptions, type SampleOption } from './lm79Api'
@@ -105,7 +105,7 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
     } else {
       const response = await api.post<{ data: { source_uuid: string; document_uuid: string; report_number: string } }>(`${BASE}/${row.id}/signing-source`)
       setSaved(current => current ? { ...current, locked: true, document_uuid: response.data.data.document_uuid } : current)
-      await confirmAndFinalizeSigningSource({ sourceUuid: response.data.data.source_uuid, reportNumber: response.data.data.report_number })
+      await finalizeSigningSource({ sourceUuid: response.data.data.source_uuid, reportNumber: response.data.data.report_number })
       window.location.assign(`/pdf/handwritten-signing?document=${encodeURIComponent(response.data.data.document_uuid)}#plan`)
     }
   } })

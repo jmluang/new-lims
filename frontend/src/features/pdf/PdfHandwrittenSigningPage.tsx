@@ -510,10 +510,12 @@ function SigningWorkspace() {
     ?? detail.data
     ?? null
   const sourceRevisionUuid = detail.data?.revision?.revision_uuid
+  // A revision UUID identifies immutable bytes, so only a new UUID needs a download.
   const revision = useQuery({
     queryKey: ['pdf', 'handwritten', 'revision', sourceRevisionUuid],
     queryFn: () => downloadRevision(sourceRevisionUuid!),
     enabled: Boolean(sourceRevisionUuid),
+    staleTime: Infinity,
   })
   const [drawingState, setDrawingState] = useState<SignatureDrawingState>({ key: '', previewUrl: null, ready: false })
   const [currentPassword, setCurrentPassword] = useState('')
@@ -564,6 +566,7 @@ function SigningWorkspace() {
     queryKey: ['pdf', 'handwritten', 'revision', completedRevisionUuid],
     queryFn: () => downloadRevision(completedRevisionUuid),
     enabled: Boolean(completedRevisionUuid),
+    staleTime: Infinity,
   })
   const submit = useMutation({
     mutationFn: async () => {

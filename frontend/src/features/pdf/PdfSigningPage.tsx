@@ -14,7 +14,7 @@ import {
   type FunctionStampOption,
   type SealOption,
 } from './api'
-import { mergeCertificateTemplate } from './certificateMerge'
+import { createCertificateMerger } from './certificateMerge'
 
 /** Match the production signer's three heavy-job slots; extra files wait here. */
 const MAX_CONCURRENT_TASKS = 3
@@ -179,7 +179,7 @@ export function PdfSigningPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue, signing])
 
-  async function signOne(item: QueuedFile, index: number) {
+  async function signOne(item: QueuedFile, index: number, mergeCertificate: ReturnType<typeof createCertificateMerger> | null) {
     const setTask = (patch: Partial<TaskState>) =>
       setTasks((current) => current.map((task) => (task.key === item.key ? { ...task, ...patch } : task)))
 
@@ -198,9 +198,9 @@ export function PdfSigningPage() {
     try {
       let payload: Blob = item.file
 
-      if (effectiveConfig.certificateId) {
+      if (mergeCertificate) {
         setTask({ progress: 10, status: '合并声明页…', stage: 'merge' })
-        payload = await mergeCertificateTemplate(item.file, effectiveConfig.certificateId)
+        payload = await mergeCertificate(item.file)
         setTask({ progress: 50, status: '声明页合并完成', stage: 'merge' })
       } else {
         setTask({ progress: 50, status: '准备上传', stage: 'upload' })
@@ -306,6 +306,7 @@ export function PdfSigningPage() {
     setProcessedCount(0)
 
     const collected: SignResult[] = []
+    const mergeCertificate = effectiveConfig.certificateId ? createCertificateMerger(effectiveConfig.certificateId) : null
 
     // Bounded concurrency: workers pull from a shared queue so a slow file
     // never stalls the rest of the batch.
@@ -317,7 +318,7 @@ export function PdfSigningPage() {
           return
         }
 
-        const result = await signOne(next.item, next.index)
+        const result = await signOne(next.item, next.index, mergeCertificate)
         collected.push(result)
         setResults([...collected])
         setProcessedCount(collected.length)
@@ -346,7 +347,6 @@ export function PdfSigningPage() {
 
     const timer = setTimeout(() => setSuccessCountdown((current) => current === null ? null : current - 1), 1000)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [successCountdown])
 
   function reset() {
