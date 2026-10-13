@@ -212,7 +212,7 @@ function queryClientWithOrder() {
     data: [order],
     meta: { current_page: 1, per_page: 100, total: 1 },
   })
-  queryClient.setQueryData(['test-order', 7], order)
+  queryClient.setQueryData(['test-order', 7], { data: order })
 
   return queryClient
 }

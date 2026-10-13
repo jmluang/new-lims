@@ -31,7 +31,7 @@ export function TestOrderDetailPage() {
     queryFn: async () => {
       const response = await api.get<ApiResource<TestOrder>>(`/api/test-orders/${testOrderId}`)
 
-      return response.data.data
+      return response.data
     },
   })
   const formOptionsQuery = useQuery({
@@ -50,12 +50,12 @@ export function TestOrderDetailPage() {
       return response.data.data
     },
     onSuccess: async (saved) => {
-      queryClient.setQueryData(['test-order', testOrderId], saved)
+      queryClient.setQueryData(['test-order', testOrderId], { data: saved })
       await queryClient.invalidateQueries({ queryKey: ['test-orders'] })
       await queryClient.invalidateQueries({ queryKey: ['test-order-history', testOrderId] })
     },
   })
-  const order = orderQuery.data
+  const order = orderQuery.data?.data
   // A detail page is for reading. Editing is entered deliberately, so a stray
   // click cannot alter a commission order that is already with the lab.
   const [editing, setEditing] = useState(false)

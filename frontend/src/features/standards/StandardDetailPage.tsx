@@ -18,10 +18,10 @@ export function StandardDetailPage() {
     queryFn: async () => {
       const response = await api.get<ApiResource<Standard>>(`/api/standards/${standardId}`)
 
-      return response.data.data
+      return response.data
     },
   })
-  const standard = standardQuery.data
+  const standard = standardQuery.data?.data
 
   return (
     <PageShell

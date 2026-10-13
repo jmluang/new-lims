@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ArrowLeft, Printer } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../../lib/api'
 import { Button, EmptyState, ErrorNotice, LoadingState, PageShell } from '../system/shared'
 import { SampleLabelPrintArea, SampleLabelPrintStyles, type SampleLabelPreview } from './SampleLabelPrintArea'
@@ -9,7 +9,7 @@ import { loadSampleLabelIds } from './sampleLabelPrintState'
 import { sampleLabelSpec } from './sampleLabelSpec'
 
 export function SampleLabelPrintPage() {
-  const sampleIds = useRef(loadSampleLabelIds()).current
+  const [sampleIds] = useState(loadSampleLabelIds)
   const printStarted = useRef(false)
   const preview = useMutation({
     mutationFn: async (ids: number[]) => {
@@ -45,7 +45,7 @@ export function SampleLabelPrintPage() {
   return (
     <PageShell
       title="样品标签打印"
-      description="本次接收的样品标签已生成，并会自动打开打印对话框。"
+      description={sampleIds.length > 0 ? '本次接收的样品标签已生成，并会自动打开打印对话框。' : '请先接收样品，或从样品信息中选择需要打印的样品。'}
       actions={
         <>
           <Link className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100" to="/samples">
@@ -62,7 +62,7 @@ export function SampleLabelPrintPage() {
       <SampleLabelPrintStyles />
       {preview.isPending ? <LoadingState label="正在生成样品标签" /> : null}
       {preview.error ? <ErrorNotice error={preview.error} fallback="无法生成样品标签" /> : null}
-      {!preview.isPending && !preview.error && preview.data?.length === 0 ? <EmptyState title="暂无待打印样品" description="请从样品接收页面完成接收后再打印标签。" /> : null}
+      {!preview.isPending && !preview.error && (sampleIds.length === 0 || preview.data?.length === 0) ? <EmptyState title="暂无待打印样品" description="请先接收样品，或从样品信息中选择需要打印的样品。" /> : null}
       <SampleLabelPrintArea labels={preview.data ?? []} />
     </PageShell>
   )

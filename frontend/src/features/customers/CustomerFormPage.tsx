@@ -45,6 +45,7 @@ export function CustomerFormPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['customers'] })
+      if (isEditing) await queryClient.invalidateQueries({ queryKey: ['customer', customerId], exact: true })
       await navigate({ to: '/customers' })
     },
   })

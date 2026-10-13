@@ -36,6 +36,7 @@ export function StandardFormPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['standards'] })
+      if (isEditing) await queryClient.invalidateQueries({ queryKey: ['standard', standardId], exact: true })
       await navigate({ to: '/standards' })
     },
   })

@@ -85,6 +85,7 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
     if (!saved && !reportNumber.trim()) throw new Error('请重新生成或填写报告编号')
     if (Object.values(imports).some(result => result && result.selected_record === null)) throw new Error('请先选择原始文件中本次报告采用的检测记录')
     const row = await saveReport(saved?.id, reportFormData(sampleId, reportNumber, data, retained, files))
+    queryClient.setQueryData(['lm79-report', String(row.id)], row)
     setSaved(row); setReportNumber(row.report_number); updateData(row.data); setEquipmentNotice(''); updateRetained(row.media.map(m => m.id)); updateFiles({}); setFileKey(k => k + 1)
     await queryClient.invalidateQueries({ queryKey: ['lm79-reports'] })
     return row
@@ -104,7 +105,9 @@ function ReportEditor({ options, initial, selectedSample, numberAllocation }: { 
       setPreview(URL.createObjectURL(pdf))
     } else {
       const response = await api.post<{ data: { source_uuid: string; document_uuid: string; report_number: string } }>(`${BASE}/${row.id}/signing-source`)
-      setSaved(current => current ? { ...current, locked: true, document_uuid: response.data.data.document_uuid } : current)
+      const handedOff = { ...row, locked: true, document_uuid: response.data.data.document_uuid }
+      queryClient.setQueryData(['lm79-report', String(row.id)], handedOff)
+      setSaved(handedOff)
       await finalizeSigningSource({ sourceUuid: response.data.data.source_uuid, reportNumber: response.data.data.report_number })
       window.location.assign(`/pdf/handwritten-signing?document=${encodeURIComponent(response.data.data.document_uuid)}#plan`)
     }

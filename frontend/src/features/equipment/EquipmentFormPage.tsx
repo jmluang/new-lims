@@ -63,6 +63,7 @@ export function EquipmentFormPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['equipment'] })
+      if (isEditing) await queryClient.invalidateQueries({ queryKey: ['equipment-record', equipmentId], exact: true })
       await navigate({ to: '/equipment' })
     },
   })

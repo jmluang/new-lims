@@ -20,7 +20,7 @@ vi.mock('../ReportEquipmentFields', () => ({ ReportEquipmentFields: () => null }
 
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
-it('transfers the finalized PDF only once across report handoff and planning entry', async () => {
+it.each(['completed', 'failed'])('keeps the handed-off report frozen when reopening after %s finalization', async (finalization) => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const actualWindow = window
   const location = { search: '', assign: server.navigate }
@@ -34,8 +34,11 @@ it('transfers the finalized PDF only once across report handoff and planning ent
     if (url === '/api/lm79-reports/7') return { data: { data: report } }
     if (url.endsWith('/signing-source')) return { data: { data: { source_uuid: 'source-1', document_uuid: 'doc-1', report_number: 'RPT-HANDOFF' } } }
     if (url.endsWith('/confirm')) return { data: {} }
-    if (url.endsWith('/finalize')) return { data: { data: { operation_uuid: 'operation-1', state: 'completed',
-      result_revision_uuid: 'revision-1', result_sha256: 'hash-1', result_size: 4 } } }
+    if (url.endsWith('/finalize')) {
+      if (finalization === 'failed') throw new Error('Finalization unavailable')
+      return { data: { data: { operation_uuid: 'operation-1', state: 'completed',
+        result_revision_uuid: 'revision-1', result_sha256: 'hash-1', result_size: 4 } } }
+    }
     throw new Error(`Unexpected POST: ${url}`)
   })
   server.get.mockReset().mockImplementation(async (url: string) => {
@@ -60,11 +63,21 @@ it('transfers the finalized PDF only once across report handoff and planning ent
     const submit = [...container.querySelectorAll('button')].find(button => button.textContent === '提交签署')!
     expect(submit).toBeDefined()
     await act(async () => { submit.click(); await new Promise(resolve => setTimeout(resolve, 40)) })
-    expect(server.navigate).toHaveBeenCalledWith('/pdf/handwritten-signing?document=doc-1#plan')
-    const { resumePlanning } = await import('../../pdf/resumePlanning')
-    const planned = await resumePlanning('doc-1')
-    expect(planned.file.size).toBe(4)
-    expect(server.get.mock.calls.filter(([url]) => url === '/api/pdf/revisions/revision-1/download')).toHaveLength(1)
+    if (finalization === 'completed') {
+      expect(server.navigate).toHaveBeenCalledWith('/pdf/handwritten-signing?document=doc-1#plan')
+      const { resumePlanning } = await import('../../pdf/resumePlanning')
+      const planned = await resumePlanning('doc-1')
+      expect(planned.file.size).toBe(4)
+      expect(server.get.mock.calls.filter(([url]) => url === '/api/pdf/revisions/revision-1/download')).toHaveLength(1)
+    } else {
+      expect(server.navigate).not.toHaveBeenCalled()
+      expect(container.textContent).toContain('报告操作失败')
+    }
+    await act(async () => root.render(null))
+    await act(async () => root.render(<QueryClientProvider client={client}><Lm79ReportPage /></QueryClientProvider>))
+    expect(container.textContent).toContain('报告已交接签署，原始资料已冻结。')
+    expect(container.querySelector('a[href="/pdf/handwritten-signing?document=doc-1#plan"]')).not.toBeNull()
+    expect([...container.querySelectorAll('button')].some(button => button.textContent === '保存草稿')).toBe(false)
   } finally {
     await act(async () => root.unmount())
     client.clear()

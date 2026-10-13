@@ -50,6 +50,10 @@ export function TestOrderFormPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['test-orders'] })
+      if (isEditing) {
+        await queryClient.invalidateQueries({ queryKey: ['test-order', testOrderId], exact: true })
+        await queryClient.invalidateQueries({ queryKey: ['test-order-history', testOrderId], exact: true })
+      }
       await navigate({ to: '/test-orders' })
     },
   })

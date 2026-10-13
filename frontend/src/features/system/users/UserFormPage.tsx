@@ -50,6 +50,7 @@ export function UserFormPage() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['system-users'] })
+      if (isEditing) await queryClient.invalidateQueries({ queryKey: ['system-user', userId], exact: true })
       await navigate({ to: '/system' })
     },
   })

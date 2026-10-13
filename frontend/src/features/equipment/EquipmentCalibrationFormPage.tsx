@@ -150,6 +150,7 @@ function CalibrationForm({ editingId, detail, projects }: { editingId: number | 
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['equipment-calibrations'] })
+      if (editingId !== null) await queryClient.invalidateQueries({ queryKey: ['equipment-calibration', editingId], exact: true })
       void navigate({ to: '/equipment/calibrations' })
     },
     onError: (error) => {
