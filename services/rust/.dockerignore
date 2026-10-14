@@ -1,0 +1,23 @@
+# Only first-party production sources, embedded assets and Cargo manifests enter
+# the build context. Tests, validation runs, databases and credentials stay out.
+**
+!Cargo.toml
+!Cargo.lock
+!crates/
+!crates/*/
+!crates/*/Cargo.toml
+!crates/*/src/
+!crates/*/src/**
+!crates/*/assets/
+!crates/*/assets/**
+!fixtures/
+!fixtures/tomcat-10.1.26-upload-idle-400.html
+!docs/
+!docs/THIRD-PARTY-NOTICES.txt
+!docs/DEPENDENCY-LICENSES.json
+# Last-match safeguards also apply inside otherwise allowed source/asset paths.
+**/*.pfx
+**/*.p12
+**/*.key
+**/private*.pem
+**/.env

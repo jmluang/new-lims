@@ -1,0 +1,5 @@
+# Explicit low-memory test override, not a change to the Java Compose default.
+services:
+  pdf-rust:
+    environment:
+      PDF_MAX_CONCURRENT_JOBS: "1"

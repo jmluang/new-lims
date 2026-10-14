@@ -1,0 +1,80 @@
+# Standalone candidate stack. No production containers, ports, DB or key mounts.
+# Application default=1; Compose default=3, matching the Java service exactly.
+services:
+  pdf-rust:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: new-lims-pdf-rust:local-test
+    ports:
+      - "127.0.0.1:${PDF_RUST_TEST_PORT:-18081}:8081"
+    mem_limit: ${PDF_SIGNER_MEM_LIMIT:-768m}
+    memswap_limit: ${PDF_SIGNER_MEM_LIMIT:-768m}
+    cpus: ${PDF_RUST_TEST_CPUS:-2}
+    pids_limit: 128
+    read_only: true
+    environment:
+      PDF_SERVICE_BIND_ADDRESS: 0.0.0.0
+      PDF_SERVICE_HMAC_ENABLED: "true"
+      PDF_SERVICE_HMAC_ACTIVE_KEY_ID: ${PDF_SERVICE_HMAC_ACTIVE_KEY_ID:-primary}
+      PDF_SERVICE_HMAC_KEYS: ${PDF_SERVICE_HMAC_KEYS:?test HMAC keys required}
+      PDF_SERVICE_HMAC_NONCE_STORE: redis
+      PDF_SERVICE_REDIS_HOST: redis-rust-test
+      PDF_MAX_CONCURRENT_JOBS: ${PDF_MAX_CONCURRENT_JOBS:-3}
+      PDF_HTTP_MAX_THREADS: ${PDF_HTTP_MAX_THREADS:-16}
+      SIGNATURE_RESERVED_SIZE: ${PDF_SIGNER_SIGNATURE_RESERVED_SIZE:-32768}
+      DEFAULT_PFX_PATH: /keys/test-signer.pfx
+      DEFAULT_PFX_PASS: ${DEFAULT_PFX_PASS:?offline test identity password required}
+      PDF_SIGNING_HASH_ALGO: SHA256
+      PDF_PADES_SIGNER_TRUSTED_ROOT_SHA256: ${PDF_PADES_SIGNER_TRUSTED_ROOT_SHA256:-}
+      PDF_EXECUTION_LEDGER_ENABLED: ${PDF_EXECUTION_LEDGER_ENABLED:-false}
+      PDF_EXECUTION_DB_URL: ${PDF_EXECUTION_DB_URL:-}
+      PDF_EXECUTION_DB_USERNAME: ${PDF_EXECUTION_DB_USERNAME:-}
+      PDF_EXECUTION_DB_PASSWORD: ${PDF_EXECUTION_DB_PASSWORD:-}
+      PDF_EXECUTION_RESULT_ROOT: /app/data/signing-results
+      PDF_PADES_TSA_URL: ${PDF_PADES_TSA_URL:-}
+      PDF_PADES_TSA_POLICY_OID: ${PDF_PADES_TSA_POLICY_OID:-}
+      PDF_PADES_TSA_TRUSTED_CERT_SHA256: ${PDF_PADES_TSA_TRUSTED_CERT_SHA256:-}
+      PDF_PADES_TSA_TIMEOUT_SECONDS: ${PDF_PADES_TSA_TIMEOUT_SECONDS:-10}
+      PDF_EXECUTION_RETIREMENT_SWEEP_INTERVAL_MS: ${PDF_EXECUTION_RETIREMENT_SWEEP_INTERVAL_MS:-60000}
+      FUNCTION_STAMP_TOP_MARGIN_MM: ${FUNCTION_STAMP_TOP_MARGIN_MM:-32}
+      FUNCTION_STAMP_LEFT_MARGIN_MM: ${FUNCTION_STAMP_LEFT_MARGIN_MM:-25}
+      FRONT_SEAL_OFFSET_LEFT_MM: ${FRONT_SEAL_OFFSET_LEFT_MM:-45}
+      FRONT_SEAL_OFFSET_UP_MM: ${FRONT_SEAL_OFFSET_UP_MM:-8}
+      FRONT_SEAL_PAGE3_OFFSET_LEFT_MM: ${FRONT_SEAL_PAGE3_OFFSET_LEFT_MM:-15}
+      FRONT_SEAL_PAGE3_OFFSET_UP_MM: ${FRONT_SEAL_PAGE3_OFFSET_UP_MM:-5}
+      FRONT_SEAL_SIZE_MM: ${FRONT_SEAL_SIZE_MM:-40}
+      PERFORATION_STAMP_HEIGHT_MM: ${PERFORATION_STAMP_HEIGHT_MM:-40}
+      PERFORATION_MULTI_STATE_APPEARANCE: "false"
+      QR_CODE_SIZE_MM: ${QR_CODE_SIZE_MM:-28.6}
+      QR_CODE_MARGIN_MM: ${QR_CODE_MARGIN_MM:-1}
+      QR_CODE_OFFSET_LEFT_MM: ${QR_CODE_OFFSET_LEFT_MM:-16}
+      QR_CODE_OFFSET_TOP_MM: ${QR_CODE_OFFSET_TOP_MM:-40}
+      QR_CODE_WIDTH_PX: ${QR_CODE_WIDTH_PX:-360}
+      QR_CODE_HEIGHT_PX: ${QR_CODE_HEIGHT_PX:-360}
+      CERTIFICATE_QUERY_BASE_URL: ${CERTIFICATE_QUERY_BASE_URL:-https://www.yanzhenjia.cn/}
+    volumes:
+      - ${PDF_RUST_TEST_KEYS_DIR:?offline test key directory required}:/keys:ro
+      - results-rust-test:/app/data/signing-results
+      # Disk-backed spool: tmpfs would charge all revisions to the memory cgroup.
+      - spool-rust-test:/tmp
+    depends_on:
+      redis-rust-test:
+        condition: service_healthy
+    restart: "no"
+    stop_grace_period: 180s
+  redis-rust-test:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "yes", "--appendfsync", "always"]
+    volumes:
+      - nonce-rust-test:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    restart: "no"
+volumes:
+  results-rust-test:
+  nonce-rust-test:
+  spool-rust-test:

@@ -89,6 +89,7 @@ export type DocumentSigner = {
 }
 
 export type SigningDocument = {
+  published_revision_uuid?: string | null
   document_uuid: string
   report_number: string
   status: string

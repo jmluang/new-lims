@@ -52,6 +52,21 @@ describe('resumePlanning', () => {
     expect(resumed.activeWorkflow).toBeNull()
   })
 
+  it('loads the authoritative published revision and locks completed planning', async () => {
+    state.document = { ...baseDocument, status: 'published', published_revision_uuid: 'published-5', workflow_uuid: 'wf-1', workflow_status: 'completed', revisions: [...baseDocument.revisions, { revision_uuid: 'published-5', revision_number: 5, revision_role: 'handwritten_signature', integrity_state: 'ready' }, { revision_uuid: 'later-6', revision_number: 6, revision_role: 'finalized_unsigned', integrity_state: 'ready' }] }
+    const resumed = await resumePlanning('doc-1')
+    expect(resumed.revision.revision_uuid).toBe('published-5')
+    expect(resumed.revision.revision_role).toBe('handwritten_signature')
+    expect(resumed.revision.disposition).toBe('published')
+    expect(resumed.readOnly).toBe(true)
+    expect(resumed.activeWorkflow).toBeNull()
+  })
+
+  it('does not silently display unsigned bytes if the published revision is absent', async () => {
+    state.document = { ...baseDocument, status: 'published', published_revision_uuid: 'missing' }
+    await expect(resumePlanning('doc-1')).rejects.toThrow('已发布版本不可用')
+  })
+
   it('refuses a document that has not been finalized yet', async () => {
     state.document = { ...baseDocument, revisions: [] }
 

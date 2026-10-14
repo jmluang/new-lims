@@ -1,0 +1,12 @@
+[package]
+name = "lims-images"
+version = "0.1.0"
+edition = "2024"
+[dependencies]
+image = { version = "=0.25.8", default-features = false, features = ["png", "jpeg", "bmp", "gif", "tiff"] }
+mozjpeg = { version = "=0.10.13", default-features = false }
+mozjpeg-sys = { version = "=2.2.3", default-features = false, features = ["unwinding"] }
+
+[dev-dependencies]
+sha2 = "0.10"
+serde_json = "1"

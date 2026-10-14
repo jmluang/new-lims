@@ -1,0 +1,302 @@
+{
+  "meta": {
+    "contractId": 1,
+    "uuid": "11111111-2222-3333-4444-555555555555",
+    "entrustOrderId": 1001,
+    "standardId": 2001,
+    "primarySectionId": 3001,
+    "status": "draft"
+  },
+  "toc": [
+    {
+      "title": "检测报告",
+      "page": 1,
+      "level": 1
+    },
+    {
+      "title": "目录",
+      "page": 2,
+      "level": 1
+    },
+    {
+      "title": "报告首页",
+      "page": 3,
+      "level": 1
+    },
+    {
+      "title": "样品描述",
+      "page": 4,
+      "level": 1
+    },
+    {
+      "title": "样品照片",
+      "page": 5,
+      "level": 1
+    },
+    {
+      "title": "实验仪器设备清单",
+      "page": 6,
+      "level": 1
+    },
+    {
+      "title": "测试条件",
+      "page": 6,
+      "level": 1
+    },
+    {
+      "title": "声明",
+      "page": 7,
+      "level": 1
+    }
+  ],
+  "page1": {
+    "headerCompanyName": "中山市鑫普达检测有限公司",
+    "headerReportNumber": "XDP2025090050",
+    "headerBadgeLabel": "公众号",
+    "title": "检测报告",
+    "reportNumber": "XDP2025090050",
+    "productName": "物联网节能感应灯管",
+    "modelSpecification": "SDG-AI018C-PRO",
+    "entrustCompany": "浙江和网信息技术有限公司",
+    "testItems": "委托测试",
+    "reportDate": "2025-09-15",
+    "institutionName": "中山市鑫普达检测有限公司",
+    "currentPage": 1,
+    "totalPages": 7,
+    "footerCompanyName": "中山市鑫普达检测有限公司",
+    "footerAddress": "广东省中山市横栏镇环镇北路52号第1栋201房和301房 http://www.zsxdp.com",
+    "footerPhone": "4000905661",
+    "footerRecordCode": "FO-22-03-3001",
+    "footerWebsite": "http://www.zsxdp.com"
+  },
+  "page2": {
+    "entries": [
+      {
+        "title": "检测报告",
+        "page": 1,
+        "level": 1
+      },
+      {
+        "title": "目录",
+        "page": 2,
+        "level": 1
+      }
+    ]
+  },
+  "page3": {
+    "basicInfo": [
+      {
+        "label": "商标",
+        "value": "/"
+      },
+      {
+        "label": "收样日期",
+        "value": "@TODAY@"
+      },
+      {
+        "label": "样品状况",
+        "value": "完好"
+      },
+      {
+        "label": "测试开始日期",
+        "value": "@TODAY@"
+      },
+      {
+        "label": "数量",
+        "value": "1 只"
+      },
+      {
+        "label": "测试完成日期",
+        "value": "@PLUS2@"
+      },
+      {
+        "label": "样品来源",
+        "value": "送样"
+      },
+      {
+        "label": "测试样品状态",
+        "value": "送样"
+      }
+    ],
+    "descriptions": [
+      {
+        "text": "委托单位：浙江和网信息技术有限公司"
+      },
+      {
+        "text": "委托单位地址：浙江省宁波象保合作区航天大道99号12幢721D室"
+      },
+      {
+        "text": "制造商：中山市睿者照明科技有限公司"
+      },
+      {
+        "text": "制造商地址：中山市古镇镇中兴大道103号第3层之5"
+      },
+      {
+        "text": "生产厂：中山市睿者照明科技有限公司"
+      },
+      {
+        "text": "生产厂地址：中山市古镇镇中兴大道103号第3层之5"
+      }
+    ],
+    "modelInfo": [
+      {
+        "text": "本申请单元所覆盖的其他产品型号规格及相关情况说明："
+      },
+      {
+        "text": "1. 本申请单元所覆盖的型号规格："
+      },
+      {
+        "text": "   主检型号：SDG-AI018C-PRO"
+      }
+    ],
+    "standards": [
+      {
+        "order": 1,
+        "code": "GB/T 1234-2022",
+        "title": "灯具分布光度测量的一般要求",
+        "reference": "GB/T 1234-2022 灯具分布光度测量的一般要求"
+      },
+      {
+        "order": 2,
+        "code": "Q/XDP 001-2024",
+        "title": "企业标准",
+        "reference": "企业标准 Q/XDP 001-2024"
+      }
+    ],
+    "declaration": {
+      "title": "本报告声明",
+      "lines": [
+        "本报告仅对送检样品负责。",
+        "未经书面批准不得复制。"
+      ]
+    },
+    "signatures": [
+      {
+        "role": "编制",
+        "signerName": "张三",
+        "dateLabel": "日期",
+        "dateValue": "@TODAY@"
+      },
+      {
+        "role": "审核",
+        "signerName": "李四",
+        "dateLabel": "日期",
+        "dateValue": "@TODAY@"
+      },
+      {
+        "role": "批准",
+        "signerName": "王五",
+        "dateLabel": "日期",
+        "dateValue": "@TODAY@"
+      }
+    ],
+    "remark": "",
+    "conclusion": "测试结论：本次委托检测项目符合标准要求。"
+  },
+  "page4": {
+    "lampTypes": [
+      "indoor"
+    ],
+    "lampTypeOther": "",
+    "rated": {
+      "voltage": "220V",
+      "frequency": "50Hz",
+      "power": "5W",
+      "cct": "--"
+    },
+    "dimensions": "直径26mm×长1200mm",
+    "luminousPortArea": "--",
+    "lightSourceTypes": [
+      "led"
+    ],
+    "lightSourceOther": "",
+    "detectionRemark": "",
+    "testItems": [
+      "electrical",
+      "cct",
+      "luminous-flux",
+      "cri",
+      "efficacy",
+      "chromaticity",
+      "distribution",
+      "color-deviation",
+      "peak-intensity",
+      "beam-angle"
+    ],
+    "testItemsOther": "",
+    "remarks": "--"
+  },
+  "page5": {
+    "images": [
+      {
+        "path": "storage/sample-top.jpg",
+        "caption": "样品外观",
+        "slot": 0,
+        "pageIndex": 1
+      },
+      {
+        "path": "storage/sample-bottom.jpg",
+        "caption": "样品细节",
+        "slot": 1,
+        "pageIndex": 1
+      }
+    ]
+  },
+  "page6": {
+    "devices": [
+      {
+        "deviceId": 1,
+        "deviceNo": "XDP-001",
+        "name": "积分球光谱仪",
+        "placement": "光学实验室",
+        "status": "在检",
+        "isUsed": true,
+        "remarks": "校准有效",
+        "model": "HAAS-2000",
+        "calibrationDue": "2025/09/24"
+      },
+      {
+        "deviceId": 2,
+        "deviceNo": "XDP-002",
+        "name": "功率分析仪",
+        "placement": "实验室A",
+        "status": "在检",
+        "isUsed": true,
+        "remarks": "",
+        "model": "PF210",
+        "calibrationDue": "2025/09/24"
+      }
+    ],
+    "notes": [
+      "以上设备均在检定有效期内。"
+    ]
+  },
+  "page7": {
+    "keyValues": [
+      {
+        "label": "环境温度",
+        "value": "25℃"
+      },
+      {
+        "label": "相对湿度",
+        "value": "60%"
+      },
+      {
+        "label": "供电电压",
+        "value": "220V/50Hz"
+      }
+    ],
+    "bulletPoints": [
+      "测试过程中如遇特殊情况将另行备注。"
+    ],
+    "statement": {
+      "title": "声明",
+      "lines": [
+        "本报告未经本公司书面批准不得部分复制。",
+        "任何异议请于报告发出之日起十五日内提出。"
+      ]
+    }
+  },
+  "templates": [],
+  "template_data": {}
+}

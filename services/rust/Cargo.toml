@@ -1,0 +1,24 @@
+[workspace]
+members = ["crates/core", "crates/crypto", "crates/images", "crates/server", "crates/render", "crates/legacy", "crates/signatures", "crates/execution"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+[workspace.dependencies]
+lims-core = { path = "crates/core" }
+lims-images = { path = "crates/images" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+thiserror = "2.0"
+tokio = { version = "1.48", features = ["full"] }
+uuid = { version = "1.18", features = ["serde", "v4"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "debuginfo"

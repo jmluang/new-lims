@@ -127,13 +127,14 @@ function PlanningWorkspace() {
   const effectivePolicyVersionUuid = policyVersionUuid || options.data?.policies[0]?.version_uuid || ''
 
   // Continuing an existing document is a read, not a mutation: upload, confirm
-  // and finalize already happened. A query also keys the work to the document,
-  // so StrictMode's remount cannot fire it — or re-download the PDF — twice.
+  // and finalize already happened. Recheck on entry because the workflow may
+  // have published a different revision since the previous visit.
   const resume = useQuery({
     queryKey: ['pdf', 'documents', resumedDocument, 'resume'],
     queryFn: () => resumePlanning(resumedDocument as string),
     enabled: resumedDocument !== null,
     staleTime: Infinity,
+    refetchOnMount: 'always',
     gcTime: Infinity,
     retry: false,
   })
@@ -146,6 +147,9 @@ function PlanningWorkspace() {
   const assignments = editedAssignments
     ?? resume.data?.assignments
     ?? { inspector: 0, reviewer: 0, issuer: 0 }
+  const readOnly = resume.data?.readOnly ?? false
+  const planningLocked = readOnly || (resumedDocument !== null
+    && (resume.isPending || resume.isFetching || resume.isError))
   const savedResult = workflowResult ?? resume.data?.activeWorkflow ?? null
   const liveWorkflow = useQuery({
     queryKey: ['pdf', 'handwritten', 'workflow', savedResult?.workflow_uuid],
@@ -218,13 +222,14 @@ function PlanningWorkspace() {
       <PdfPlacementWorkspace
         file={finalized?.file ?? null}
         placements={placements}
-        editable={Boolean(finalized) && canFreeze(result?.status)}
+        editable={!planningLocked && Boolean(finalized) && canFreeze(result?.status)}
         selectedRole={selectedRole}
         onSelectRole={setSelectedRole}
         onChange={setPlacements}
         emptyMessage={inspected ? '确认报告编号并完成定稿后，将加载定稿 PDF 供位置规划' : '上传并检查 PDF 后，再对定稿版本规划签名位置'}
       />
       <aside className="space-y-4 xl:min-h-0 xl:overflow-y-auto xl:pr-1">
+        <fieldset disabled={planningLocked} className="contents">
         {resumedDocument ? (
           <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-5 text-sky-900">
             {resume.isPending ? (
@@ -233,9 +238,10 @@ function PlanningWorkspace() {
               <ErrorNotice error={resume.error} fallback="报告载入失败" />
             ) : (
               <>
-                <p className="font-medium">正在编辑已有报告 · {reportNumber}</p>
+                <p className="font-medium">{readOnly ? '已发布报告（只读）' : '正在编辑已有报告'} · {reportNumber}</p>
                 <p className="mt-1 text-sky-800">
-                  {result?.status === 'completed' ? '该报告已完成签署并发布。'
+                  {readOnly ? '已载入已发布的最终版本，不能重新编排或取消已完成的签署。'
+                    : result?.status === 'completed' ? '该报告已完成签署并发布。'
                     : result && !canFreeze(result.status)
                     ? '该报告已在签署流程中。要改动签名位置或签署人，需先取消当前流程。'
                     : result ? '本次签署已终止，调整签名位置和签署人后可重新发起。'
@@ -435,7 +441,7 @@ function PlanningWorkspace() {
         </WorkspaceCard>
 
         {create.isError ? <ErrorNotice error={create.error} fallback="发起签署失败" /> : null}
-        {result ? (
+        {result && !readOnly ? (
           <div className={`rounded-xl border p-4 text-sm ${canFreeze(result.status) ? 'border-slate-300 bg-slate-50 text-slate-700' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
             <div className="flex items-center gap-2 font-semibold"><CheckCircle2 className="size-4" />{result.status === 'cancelled' ? '签署流程已取消' : result.status === 'rejected' ? '签署流程已拒绝' : result.status === 'completed' ? '全部签署已完成' : '已发起签署'}</div>
             {!canFreeze(result.status) && result.status !== 'completed' ? (
@@ -455,7 +461,7 @@ function PlanningWorkspace() {
         {/* Already frozen: the fields are committed and there is nothing left to
             freeze. It comes back once the workflow is cancelled, since that
             leaves the document free for a new generation. */}
-        {canFreeze(result?.status) ? (
+        {!planningLocked && canFreeze(result?.status) ? (
         <Button
           variant="primary"
           className="w-full"
@@ -476,6 +482,7 @@ function PlanningWorkspace() {
         </Button>
         ) : null}
 
+        </fieldset>
       </aside>
     </div>
   )

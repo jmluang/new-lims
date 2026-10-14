@@ -1,0 +1,145 @@
+{
+  "base": {
+    "entrust_date": "2026-10-01",
+    "urgency": {
+      "value": "normal",
+      "label": "普通"
+    },
+    "urgency_options": [
+      {
+        "value": "normal",
+        "label": "普通"
+      },
+      {
+        "value": "urgent",
+        "label": "加急"
+      }
+    ],
+    "planned_end_date": "2026-10-03",
+    "entrust_number": "SYN-ENTRUST-001",
+    "contract_number": "SYN-CONTRACT-001"
+  },
+  "client": {
+    "company_name": "合成申请单位",
+    "contact": "合成人员甲",
+    "phone": "000-00000000",
+    "address": "虚构测试路 1 号",
+    "email": "synthetic@example.invalid"
+  },
+  "manufacturer": {
+    "company_name": "合成制造单位",
+    "contact": "合成人员乙"
+  },
+  "producer": {
+    "company_name": "合成生产单位"
+  },
+  "requirements": {
+    "report_forms": [
+      {
+        "value": "electronic",
+        "label": "电子报告"
+      }
+    ],
+    "report_form_options": [
+      {
+        "value": "electronic",
+        "label": "电子报告"
+      },
+      {
+        "value": "paper",
+        "label": "纸质报告"
+      }
+    ],
+    "sample_return": {
+      "value": "yes",
+      "label": "退回"
+    },
+    "sample_return_options": [
+      {
+        "value": "yes",
+        "label": "退回"
+      },
+      {
+        "value": "no",
+        "label": "不退回"
+      }
+    ],
+    "report_submission": {
+      "value": "email",
+      "label": "电子邮件"
+    },
+    "report_submission_options": [
+      {
+        "value": "email",
+        "label": "电子邮件"
+      },
+      {
+        "value": "pickup",
+        "label": "自取"
+      }
+    ],
+    "allow_subcontract": {
+      "value": "no",
+      "label": "不允许"
+    },
+    "allow_subcontract_options": [
+      {
+        "value": "no",
+        "label": "不允许"
+      },
+      {
+        "value": "yes",
+        "label": "允许"
+      }
+    ],
+    "remarks": "合成委托要求",
+    "standards": [
+      {
+        "standard_code": "SYN-STD-2026",
+        "qualification_requirement": "合成资质",
+        "report_language": "中文",
+        "notes": "合成标准说明",
+        "position": 1
+      }
+    ]
+  },
+  "sample": {
+    "name": "合成灯具",
+    "model": "SYN-LAMP-A",
+    "voltage": "220 V",
+    "current": "0.05 A",
+    "power": "10 W",
+    "frequency": "50 Hz",
+    "quantity": 2,
+    "quantity_unit": "只",
+    "condition": {
+      "value": "good",
+      "label": "完好"
+    },
+    "condition_note": "合成状态",
+    "remarks": "合成样品"
+  },
+  "samples": [],
+  "logistics": {
+    "laboratory_name": "合成检测实验室",
+    "laboratory_address": "虚构测试路 2 号",
+    "laboratory_contact": "合成人员丙",
+    "laboratory_phone": "000-00000001",
+    "shipping_notes": "合成送样"
+  },
+  "signatures": {
+    "client_signature_name": "合成签名甲",
+    "client_signed_at": "2026-10-01",
+    "lab_resource_confirmed_by": "合成签名乙",
+    "lab_resource_confirmed_at": "2026-10-02",
+    "lab_reviewed_by": "合成签名丙",
+    "lab_reviewed_at": "2026-10-03"
+  },
+  "meta": {
+    "status": {
+      "value": "draft",
+      "label": "草稿"
+    },
+    "generated_at": "2026-10-01T00:00:00Z"
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "version": "pdf-hmac-request-vectors-v1",
+  "secret_base64": "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+  "positive": {
+    "version": "PDF-HMAC-V1",
+    "key_id": "primary",
+    "method": "POST",
+    "path_and_query": "/internal/pdf/signatures/sign-existing-field?attempt=1&mode=append",
+    "timestamp": "1786870800",
+    "nonce": "fixture-nonce-00000001",
+    "correlation_uuid": "11111111-2222-4333-8444-555555555555",
+    "operation_uuid": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "metadata": {
+      "config_bundle_hash": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "correlation_uuid": "11111111-2222-4333-8444-555555555555",
+      "input_fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "lease_epoch": 3,
+      "operation_input_manifest_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "operation_uuid": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      "policy_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "signing_policy_version_id": 7,
+      "signing_policy_version_uuid": "12345678-1234-4234-8234-123456789abc",
+      "version": "pdf-request-metadata-v1"
+    },
+    "metadata_jcs": "{\"config_bundle_hash\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"correlation_uuid\":\"11111111-2222-4333-8444-555555555555\",\"input_fingerprint\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"lease_epoch\":3,\"operation_input_manifest_hash\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"operation_uuid\":\"aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee\",\"policy_hash\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"signing_policy_version_id\":7,\"signing_policy_version_uuid\":\"12345678-1234-4234-8234-123456789abc\",\"version\":\"pdf-request-metadata-v1\"}",
+    "metadata_sha256": "ce5c01a3edde9b0799bd6bef71f8f193d7904b46027742bd1b373d45d3da47f8",
+    "part_manifest": {
+      "parts": [
+        {
+          "content_type": "image/png",
+          "length": 3,
+          "name": "appearance",
+          "sha256": "796120837694d3f3f29259cfeb25091698c2a0aa87873658d840b4993ee889b3"
+        },
+        {
+          "content_type": "text/plain;charset=utf-8",
+          "length": 20,
+          "name": "command",
+          "sha256": "d11e397567e988bb01614526274bd6df71fc87249fd5c84d5c2d68911d578cd2"
+        },
+        {
+          "content_type": "text/plain;charset=utf-8",
+          "length": 56,
+          "name": "operation",
+          "sha256": "052b7bea7f3e128d2d5001e74d8081420c8fd51c91e29d31bf3557113aa6cbfe"
+        },
+        {
+          "content_type": "application/pdf",
+          "length": 16,
+          "name": "pdf",
+          "sha256": "f581fc87f30296eff11777c3ce1b9a8b7077071ad8abedfcba317fef0c807224"
+        }
+      ],
+      "version": "pdf-part-manifest-v1"
+    },
+    "part_manifest_jcs": "{\"parts\":[{\"content_type\":\"image/png\",\"length\":3,\"name\":\"appearance\",\"sha256\":\"796120837694d3f3f29259cfeb25091698c2a0aa87873658d840b4993ee889b3\"},{\"content_type\":\"text/plain;charset=utf-8\",\"length\":20,\"name\":\"command\",\"sha256\":\"d11e397567e988bb01614526274bd6df71fc87249fd5c84d5c2d68911d578cd2\"},{\"content_type\":\"text/plain;charset=utf-8\",\"length\":56,\"name\":\"operation\",\"sha256\":\"052b7bea7f3e128d2d5001e74d8081420c8fd51c91e29d31bf3557113aa6cbfe\"},{\"content_type\":\"application/pdf\",\"length\":16,\"name\":\"pdf\",\"sha256\":\"f581fc87f30296eff11777c3ce1b9a8b7077071ad8abedfcba317fef0c807224\"}],\"version\":\"pdf-part-manifest-v1\"}",
+    "part_manifest_sha256": "3cf7388c68c18d829413c3fd1fbdbbf8db6a3fef656ed64b9960eb65233a7a70",
+    "canonical": "PDF-HMAC-V1\nprimary\nPOST\n/internal/pdf/signatures/sign-existing-field?attempt=1&mode=append\nce5c01a3edde9b0799bd6bef71f8f193d7904b46027742bd1b373d45d3da47f8\n3cf7388c68c18d829413c3fd1fbdbbf8db6a3fef656ed64b9960eb65233a7a70\n1786870800\nfixture-nonce-00000001\n11111111-2222-4333-8444-555555555555\naaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "signature": "00b667ff4864af1055850628f65581839afed49272e6ea202560b961a99fcc4d"
+  },
+  "negative": [
+    {
+      "name": "method_tampered",
+      "field": "method",
+      "value": "PUT"
+    },
+    {
+      "name": "path_tampered",
+      "field": "path_and_query",
+      "value": "/internal/pdf/signatures/sign-existing-field?attempt=2&mode=append"
+    },
+    {
+      "name": "metadata_tampered",
+      "field": "metadata_sha256",
+      "value": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "part_manifest_tampered",
+      "field": "part_manifest_sha256",
+      "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "name": "nonce_tampered",
+      "field": "nonce",
+      "value": "fixture-nonce-00000002"
+    },
+    {
+      "name": "operation_tampered",
+      "field": "operation_uuid",
+      "value": "ffffffff-eeee-4ddd-8ccc-bbbbbbbbbbbb"
+    }
+  ]
+}

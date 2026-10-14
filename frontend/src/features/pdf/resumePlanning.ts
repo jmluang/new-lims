@@ -9,7 +9,8 @@ import {
 
 export type ResumedPlanning = {
   reportNumber: string
-  revision: FinalizedPlanningRevision
+  revision: Omit<FinalizedPlanningRevision, 'revision_role'> & { revision_role: string }
+  readOnly: boolean
   file: Blob
   /** Restored from the previous plan when there is one, otherwise null. */
   assignments: Record<SignatureRole, number> | null
@@ -29,21 +30,24 @@ export type ResumedPlanning = {
  */
 export async function resumePlanning(documentUuid: string): Promise<ResumedPlanning> {
   const document = await fetchSigningDocument(documentUuid)
-  const finalized = document.revisions.find((revision) => revision.revision_role === 'finalized_unsigned')
+  const readOnly = document.status === 'published'
+  const finalized = document.revisions.find((revision) => readOnly
+    ? revision.revision_uuid === document.published_revision_uuid
+    : revision.revision_role === 'finalized_unsigned')
 
   if (!finalized) {
-    throw new Error('该文档还没有定稿版本，无法编排签名位置')
+    throw new Error(readOnly ? '该文档的已发布版本不可用，无法载入' : '该文档还没有定稿版本，无法编排签名位置')
   }
 
   const file = await downloadRevision(finalized.revision_uuid)
-  const revision: FinalizedPlanningRevision = {
+  const revision: ResumedPlanning['revision'] = {
     revision_uuid: finalized.revision_uuid,
     revision_number: finalized.revision_number ?? 0,
-    revision_role: 'finalized_unsigned',
+    revision_role: finalized.revision_role ?? 'finalized_unsigned',
     sha256: '',
     file_size: file.size,
     integrity_state: finalized.integrity_state,
-    disposition: 'active',
+    disposition: readOnly ? 'published' : 'active',
   }
 
   let assignments: Record<SignatureRole, number> | null = null
@@ -78,11 +82,12 @@ export async function resumePlanning(documentUuid: string): Promise<ResumedPlann
 
   return {
     reportNumber: document.report_number,
+    readOnly,
     revision,
     file,
     assignments,
     placements,
-    activeWorkflow: document.workflow_uuid && document.workflow_status
+    activeWorkflow: !readOnly && document.workflow_uuid && document.workflow_status
       ? { workflow_uuid: document.workflow_uuid, status: document.workflow_status }
       : null,
   }

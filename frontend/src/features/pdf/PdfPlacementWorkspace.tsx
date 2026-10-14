@@ -1,11 +1,13 @@
+import { releasePdfCanvas } from './pdfCanvasLifecycle'
 import { Loader2 } from 'lucide-react'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist'
+import { GlobalWorkerOptions, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { cn } from '../../lib/utils'
 import type { Placement, SignatureRole } from './handwrittenApi'
 import { applyDrag, type DragState } from './placementDrag'
 import { pageBoxStyle, placementPagesReady, samePlacements } from './placementReady'
+import { loadPdfDocument } from './pdfDocumentLifecycle'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 
@@ -79,24 +81,10 @@ export function PdfPlacementWorkspace({
 
   useEffect(() => {
     if (!file) return
-    let cancelled = false
-    let loaded: PDFDocumentProxy | null = null
-    file
-      .arrayBuffer()
-      .then((bytes) => getDocument({ data: bytes }).promise)
-      .then((pdf) => {
-        loaded = pdf
-        if (!cancelled) {
-          setLoadError(null)
-          setLoaded({ source: file, document: pdf })
-        }
-      })
-      .catch(() => !cancelled && setLoadError({ source: file, message: 'PDF 预览加载失败，请确认文件未加密且格式完整。' }))
-
-    return () => {
-      cancelled = true
-      void loaded?.destroy()
-    }
+    return loadPdfDocument(file, (pdf) => {
+      setLoadError(null)
+      setLoaded({ source: file, document: pdf })
+    }, () => setLoadError({ source: file, message: 'PDF 预览加载失败，请确认文件未加密且格式完整。' }))
   }, [file])
 
   const measuredPages = measured?.source === file ? measured.pages : new Set<number>()
@@ -272,13 +260,13 @@ const PdfPage = memo(function PdfPage({
     const canvas = canvasRef.current
     canvas.width = Math.floor(viewport.width * outputScale)
     canvas.height = Math.floor(viewport.height * outputScale)
-    canvas.style.width = `${viewport.width}px`
-    canvas.style.height = `${viewport.height}px`
+    canvas.style.width = '100%'
+    canvas.style.height = 'auto'
     setSize({ width: viewport.width, height: viewport.height })
     const context = canvas.getContext('2d')
     if (!context) return
     const task = page.render({ canvas, canvasContext: context, viewport, transform: [outputScale, 0, 0, outputScale, 0, 0] })
-    return () => task.cancel()
+    return releasePdfCanvas(task, canvas)
     // Deliberately only `page`: re-running this cancels and repaints the canvas,
     // which must not happen just because a parent render produced new callbacks.
   }, [page])

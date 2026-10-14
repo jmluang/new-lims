@@ -1,0 +1,5 @@
+Repository: https://github.com/jmluang/new-lims.git
+Main commit: 7841e29acce55a69def3d412cb19b8772aa325f4
+Frozen at: 2026-10-09T13:07:00Z
+Prior supplied commit: f8d74115ed1d16f7e308265fc3df0e7edfdce565
+Difference: three frontend copy changes only; no Java/PHP contract changes.

@@ -41,7 +41,7 @@ vi.mock('../handwrittenApi', () => ({
 vi.mock('../PdfPlacementWorkspace', () => ({ PdfPlacementWorkspace: () => null }))
 vi.mock('../SignaturePad', () => ({ SignaturePad: () => null }))
 
-async function planningMarkup(search: string, workflowStatus?: string, serverStatus?: string) {
+async function planningMarkup(search: string, workflowStatus?: string, serverStatus?: string, published = false) {
   state.search = search
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   if (workflowStatus) {
@@ -56,6 +56,7 @@ async function planningMarkup(search: string, workflowStatus?: string, serverSta
       workflow_uuid: 'workflow-1', status: serverStatus, requests: [], fields: [],
     })
   }
+  if (published) client.setQueryData(['pdf', 'documents', 'doc-1', 'resume'], { reportNumber: 'PUBLISHED-1', readOnly: true, revision: { revision_uuid: 'published-5' }, file: new Blob(['PDF']), placements: null, assignments: null, activeWorkflow: null })
   const { PdfHandwrittenSigningPage } = await import('../PdfHandwrittenSigningPage')
 
   return renderToStaticMarkup(
@@ -72,14 +73,15 @@ afterEach(() => {
 describe('planning workspace layout', () => {
   it('uses the current rejected state instead of the original ready snapshot', async () => {
     const html = await planningMarkup('?document=doc-1', 'ready', 'rejected')
-    expect(html).toContain('重新确认并发起签署')
+    expect(html).toContain('本次签署已终止')
     expect(html).not.toContain('取消签署流程')
-    expect(html).not.toMatch(/<fieldset[^>]*\sdisabled(?:=|\s|>)/)
+    // Static rendering has not refreshed resumed metadata yet.
+    expect(html).toMatch(/<fieldset[^>]*disabled=""[^>]*class="contents"/)
   })
-  it.each(['rejected', 'cancelled'])('allows editing placement controls after the workflow is %s', async (status) => {
+  it.each(['rejected', 'cancelled'])('retains the %s status while resumed metadata refreshes', async (status) => {
     const html = await planningMarkup('?document=doc-1', status)
-    expect(html).not.toMatch(/<fieldset[^>]*\sdisabled(?:=|\s|>)/)
-    expect(html).toContain('重新确认并发起签署')
+    expect(html).toMatch(/<fieldset[^>]*disabled=""[^>]*class="contents"/)
+    expect(html).toContain('本次签署已终止')
     expect(html).not.toContain('取消签署流程')
   })
   it('drops the explainer strip that pushed the workspace down the page', async () => {
@@ -106,6 +108,16 @@ describe('planning workspace layout', () => {
     expect(html).toContain('调整签名位置')
     expect(html).not.toContain('3. 调整签名位置')
     expect(html).toContain('指定三位签署人')
+  })
+
+  it('presents a published report as read-only without editing or cancellation actions', async () => {
+    const html = await planningMarkup('?document=doc-1', undefined, undefined, true)
+    expect(html).toContain('已发布报告（只读）')
+    expect(html).toContain('已载入已发布的最终版本')
+    expect(html).not.toContain('正在编辑已有报告')
+    expect(html).not.toContain('取消签署流程')
+    expect(html).not.toContain('确认签名位置并发起签署')
+    expect(html).toMatch(/<fieldset[^>]*disabled=""[^>]*class="contents"/)
   })
 
   it('gives every role its own page field instead of one behind a selection', async () => {

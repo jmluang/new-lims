@@ -1,0 +1,79 @@
+{
+  "header": {
+    "company": "合成检测实验室",
+    "fileNumber": "SYN-FO-001",
+    "version": "1.0",
+    "address": "虚构测试路 1 号",
+    "website": "example.invalid",
+    "email": "syn@example.invalid"
+  },
+  "cover": {
+    "reportNumber": "SYN-LIGHTING-001",
+    "receivedDate": "2026-10-01",
+    "issuedDate": "2026-10-03"
+  },
+  "form": {
+    "applicantName": "合成申请单位",
+    "applicantAddress": "虚构测试路 2 号",
+    "manufacturerName": "合成制造单位",
+    "manufacturerAddress": "虚构测试路 3 号",
+    "productName": "合成灯具",
+    "model": "SYN-LAMP-A",
+    "referenceStandard": "Commission test  IES LM-79-19",
+    "brand": "SYNTHETIC",
+    "sampleQuantity": "2 pcs",
+    "ratedVoltage": "AC 220 V",
+    "ratedPower": "10W",
+    "nominalLuminousFlux": "1000 lm",
+    "nominalCct": "4000K",
+    "laboratoryName": "合成检测实验室",
+    "laboratoryAddress": "虚构测试路 1 号",
+    "testItem": "合成光电测试",
+    "receivedDate": "2026-10-01",
+    "testPeriod": "2026-10-01 ~ 2026-10-02",
+    "sampleDescription": "合成 LED 灯具",
+    "serialNumber": "SYN-001",
+    "ambientTemperature": "25 °C",
+    "relativeHumidity": "50 %",
+    "airVelocity": "0.2 m/s",
+    "testDirection": "向下",
+    "stabilizationTime": "30 min",
+    "currentThd": "5 %",
+    "voltageRegulation": "0.1 %",
+    "supplyThd": "0.2 %"
+  },
+  "testSetup": {
+    "cInterval": "5 °",
+    "cRange": "0 ~ 360 °",
+    "gammaInterval": "1 °",
+    "gammaRange": "0 ~ 180 °",
+    "distance": "5 m",
+    "angularAccuracy": "0.1 °",
+    "cPlanes": "73",
+    "gammaPoints": "181"
+  },
+  "electrical": {
+    "inputVoltage": "220 V",
+    "inputCurrent": "0.05 A",
+    "inputPower": "10 W",
+    "powerFactor": "0.91",
+    "frequency": "50 Hz"
+  },
+  "colorimetry": {
+    "cct": "4025 K",
+    "duv": "0.0023",
+    "ra": "85.0",
+    "r9": "15.0",
+    "xy": "0.381, 0.379",
+    "uv": "0.225, 0.504",
+    "rf": "84",
+    "rg": "99"
+  },
+  "signatures": {
+    "testedBy": "合成人员甲",
+    "reviewedBy": "合成人员乙",
+    "approvedBy": "合成人员丙",
+    "date": "2026-10-03"
+  },
+  "photos": []
+}

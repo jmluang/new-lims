@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "contractId": 900001,
+    "uuid": "00000000-1111-2222-3333-444444444444",
+    "status": "draft"
+  },
+  "page1": {
+    "headerCompanyName": "合成检测实验室 SYNTHETIC LAB",
+    "headerReportNumber": "SYN-CONTRACT-001",
+    "headerBadgeLabel": "合成样本",
+    "title": "检测报告",
+    "reportNumber": "SYN-CONTRACT-001",
+    "productName": "合成灯具",
+    "modelSpecification": "SYN-LAMP-A",
+    "entrustCompany": "合成申请单位",
+    "testItems": "合成委托测试",
+    "reportDate": "2026-10-01",
+    "institutionName": "合成检测实验室",
+    "currentPage": 1,
+    "totalPages": 1,
+    "footerCompanyName": "合成检测实验室",
+    "footerAddress": "虚构测试路 1 号",
+    "footerPhone": "000-00000000",
+    "footerRecordCode": "SYN-RECORD",
+    "footerWebsite": "https://example.invalid"
+  },
+  "page2": {
+    "entries": [
+      {
+        "title": "检测报告",
+        "page": 1,
+        "level": 1
+      },
+      {
+        "title": "目录",
+        "page": 2,
+        "level": 1
+      },
+      {
+        "title": "合成信息",
+        "page": 3,
+        "level": 1
+      }
+    ]
+  },
+  "page3": {
+    "basicInfo": [
+      {
+        "label": "样品编号",
+        "value": "SYN-001"
+      },
+      {
+        "label": "收样日期",
+        "value": "2026-10-01"
+      }
+    ],
+    "descriptions": [
+      {
+        "text": "委托单位：合成申请单位"
+      },
+      {
+        "text": "地址：虚构测试路 2 号"
+      }
+    ],
+    "modelInfo": [
+      {
+        "text": "主检型号：SYN-LAMP-A"
+      }
+    ],
+    "standards": [
+      {
+        "order": 1,
+        "code": "SYN-STD-2026",
+        "title": "合成测试标准",
+        "reference": "SYN-STD-2026 合成标准"
+      }
+    ],
+    "declaration": {
+      "title": "合成说明",
+      "lines": [
+        "仅用于合成多语言测试。"
+      ]
+    },
+    "signatures": [
+      {
+        "role": "编制",
+        "signerName": "合成人员甲",
+        "dateLabel": "日期",
+        "dateValue": "2026-10-02"
+      }
+    ],
+    "remark": "合成备注",
+    "conclusion": "合成测试通过"
+  },
+  "page4": {
+    "lampTypes": [
+      "indoor"
+    ],
+    "lampTypeOther": "",
+    "rated": {
+      "voltage": "220 V",
+      "frequency": "50 Hz",
+      "power": "10 W",
+      "cct": "4000 K"
+    },
+    "dimensions": "100 × 50 mm",
+    "luminousPortArea": "50 cm²",
+    "lightSourceTypes": [
+      "led"
+    ],
+    "lightSourceOther": "",
+    "detectionRemark": "合成检测",
+    "testItems": [
+      "electrical",
+      "cct",
+      "luminous-flux"
+    ],
+    "testItemsOther": "",
+    "remarks": "合成样品描述"
+  },
+  "page5": {
+    "images": []
+  },
+  "page6": {
+    "devices": [
+      {
+        "deviceId": 1,
+        "deviceNo": "SYN-DEVICE-001",
+        "name": "合成测量仪",
+        "model": "SYN-METER",
+        "calibrationDue": "2027-10-01",
+        "isUsed": true
+      }
+    ],
+    "notes": [
+      "合成仪器清单"
+    ]
+  },
+  "page7": {
+    "keyValues": [
+      {
+        "label": "环境温度",
+        "value": "25 °C"
+      }
+    ],
+    "bulletPoints": [
+      "仅用于合成测试。"
+    ],
+    "statement": {
+      "title": "声明",
+      "lines": [
+        "无真实客户数据。"
+      ]
+    }
+  },
+  "templates": [],
+  "template_data": {}
+}

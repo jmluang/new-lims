@@ -187,12 +187,13 @@ class PdfDocumentController extends Controller
         $revisions = PdfFile::query()
             ->where('document_id', $document->id)
             ->orderBy('revision_number')
-            ->get(['revision_uuid', 'revision_number', 'revision_role', 'integrity_state']);
+            ->get(['id', 'revision_uuid', 'revision_number', 'revision_role', 'integrity_state']);
 
         return [
             'document_uuid' => $document->document_uuid,
             'report_number' => $document->authoritative_report_number,
             'status' => $document->status,
+            'published_revision_uuid' => $revisions->firstWhere('id', $document->published_revision_id)?->revision_uuid,
             'stage' => $this->stage($document, $workflow, $signers),
             'integrity_state' => $document->integrity_state,
             'evidence_hold_state' => $document->evidence_hold_state,

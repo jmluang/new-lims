@@ -1,0 +1,1156 @@
+{
+  "lighting": {
+    "root": "LightingReportPayload",
+    "records": {
+      "LightingReportPayload": {
+        "header": {
+          "type": "Header",
+          "canonical": "header"
+        },
+        "cover": {
+          "type": "Cover",
+          "canonical": "cover"
+        },
+        "form": {
+          "type": "Form",
+          "canonical": "form"
+        },
+        "testSetup": {
+          "type": "TestSetup",
+          "canonical": "testSetup"
+        },
+        "electrical": {
+          "type": "Electrical",
+          "canonical": "electrical"
+        },
+        "colorimetry": {
+          "type": "Colorimetry",
+          "canonical": "colorimetry"
+        },
+        "signatures": {
+          "type": "Signatures",
+          "canonical": "signatures"
+        },
+        "photos": {
+          "type": "List<byte[]>",
+          "canonical": "photos"
+        }
+      },
+      "Header": {
+        "company": {
+          "type": "String",
+          "canonical": "company"
+        },
+        "fileNumber": {
+          "type": "String",
+          "canonical": "fileNumber"
+        },
+        "version": {
+          "type": "String",
+          "canonical": "version"
+        },
+        "address": {
+          "type": "String",
+          "canonical": "address"
+        },
+        "website": {
+          "type": "String",
+          "canonical": "website"
+        },
+        "email": {
+          "type": "String",
+          "canonical": "email"
+        }
+      },
+      "Cover": {
+        "reportNumber": {
+          "type": "String",
+          "canonical": "reportNumber"
+        },
+        "receivedDate": {
+          "type": "String",
+          "canonical": "receivedDate"
+        },
+        "issuedDate": {
+          "type": "String",
+          "canonical": "issuedDate"
+        }
+      },
+      "Form": {
+        "applicantName": {
+          "type": "String",
+          "canonical": "applicantName"
+        },
+        "applicantAddress": {
+          "type": "String",
+          "canonical": "applicantAddress"
+        },
+        "manufacturerName": {
+          "type": "String",
+          "canonical": "manufacturerName"
+        },
+        "manufacturerAddress": {
+          "type": "String",
+          "canonical": "manufacturerAddress"
+        },
+        "productName": {
+          "type": "String",
+          "canonical": "productName"
+        },
+        "model": {
+          "type": "String",
+          "canonical": "model"
+        },
+        "referenceStandard": {
+          "type": "String",
+          "canonical": "referenceStandard"
+        },
+        "brand": {
+          "type": "String",
+          "canonical": "brand"
+        },
+        "sampleQuantity": {
+          "type": "String",
+          "canonical": "sampleQuantity"
+        },
+        "ratedVoltage": {
+          "type": "String",
+          "canonical": "ratedVoltage"
+        },
+        "ratedPower": {
+          "type": "String",
+          "canonical": "ratedPower"
+        },
+        "nominalLuminousFlux": {
+          "type": "String",
+          "canonical": "nominalLuminousFlux"
+        },
+        "nominalCct": {
+          "type": "String",
+          "canonical": "nominalCct"
+        },
+        "laboratoryName": {
+          "type": "String",
+          "canonical": "laboratoryName"
+        },
+        "laboratoryAddress": {
+          "type": "String",
+          "canonical": "laboratoryAddress"
+        },
+        "testItem": {
+          "type": "String",
+          "canonical": "testItem"
+        },
+        "receivedDate": {
+          "type": "String",
+          "canonical": "receivedDate"
+        },
+        "testPeriod": {
+          "type": "String",
+          "canonical": "testPeriod"
+        },
+        "sampleDescription": {
+          "type": "String",
+          "canonical": "sampleDescription"
+        },
+        "serialNumber": {
+          "type": "String",
+          "canonical": "serialNumber"
+        },
+        "ambientTemperature": {
+          "type": "String",
+          "canonical": "ambientTemperature"
+        },
+        "relativeHumidity": {
+          "type": "String",
+          "canonical": "relativeHumidity"
+        },
+        "airVelocity": {
+          "type": "String",
+          "canonical": "airVelocity"
+        },
+        "testDirection": {
+          "type": "String",
+          "canonical": "testDirection"
+        },
+        "stabilizationTime": {
+          "type": "String",
+          "canonical": "stabilizationTime"
+        },
+        "currentThd": {
+          "type": "String",
+          "canonical": "currentThd"
+        },
+        "voltageRegulation": {
+          "type": "String",
+          "canonical": "voltageRegulation"
+        },
+        "supplyThd": {
+          "type": "String",
+          "canonical": "supplyThd"
+        }
+      },
+      "TestSetup": {
+        "cInterval": {
+          "type": "String",
+          "canonical": "cInterval"
+        },
+        "cRange": {
+          "type": "String",
+          "canonical": "cRange"
+        },
+        "gammaInterval": {
+          "type": "String",
+          "canonical": "gammaInterval"
+        },
+        "gammaRange": {
+          "type": "String",
+          "canonical": "gammaRange"
+        },
+        "distance": {
+          "type": "String",
+          "canonical": "distance"
+        },
+        "angularAccuracy": {
+          "type": "String",
+          "canonical": "angularAccuracy"
+        },
+        "cPlanes": {
+          "type": "String",
+          "canonical": "cPlanes"
+        },
+        "gammaPoints": {
+          "type": "String",
+          "canonical": "gammaPoints"
+        }
+      },
+      "Electrical": {
+        "inputVoltage": {
+          "type": "String",
+          "canonical": "inputVoltage"
+        },
+        "inputCurrent": {
+          "type": "String",
+          "canonical": "inputCurrent"
+        },
+        "inputPower": {
+          "type": "String",
+          "canonical": "inputPower"
+        },
+        "powerFactor": {
+          "type": "String",
+          "canonical": "powerFactor"
+        },
+        "frequency": {
+          "type": "String",
+          "canonical": "frequency"
+        }
+      },
+      "Colorimetry": {
+        "cct": {
+          "type": "String",
+          "canonical": "cct"
+        },
+        "duv": {
+          "type": "String",
+          "canonical": "duv"
+        },
+        "ra": {
+          "type": "String",
+          "canonical": "ra"
+        },
+        "r9": {
+          "type": "String",
+          "canonical": "r9"
+        },
+        "xy": {
+          "type": "String",
+          "canonical": "xy"
+        },
+        "uv": {
+          "type": "String",
+          "canonical": "uv"
+        },
+        "rf": {
+          "type": "String",
+          "canonical": "rf"
+        },
+        "rg": {
+          "type": "String",
+          "canonical": "rg"
+        }
+      },
+      "Signatures": {
+        "testedBy": {
+          "type": "String",
+          "canonical": "testedBy"
+        },
+        "testedImage": {
+          "type": "byte[]",
+          "canonical": "testedImage"
+        },
+        "reviewedBy": {
+          "type": "String",
+          "canonical": "reviewedBy"
+        },
+        "reviewedImage": {
+          "type": "byte[]",
+          "canonical": "reviewedImage"
+        },
+        "approvedBy": {
+          "type": "String",
+          "canonical": "approvedBy"
+        },
+        "approvedImage": {
+          "type": "byte[]",
+          "canonical": "approvedImage"
+        },
+        "date": {
+          "type": "String",
+          "canonical": "date"
+        }
+      }
+    }
+  },
+  "entrust": {
+    "root": "EntrustOrderPayload",
+    "records": {
+      "EntrustOrderPayload": {
+        "base": {
+          "type": "Base",
+          "canonical": "base"
+        },
+        "client": {
+          "type": "Party",
+          "canonical": "client"
+        },
+        "manufacturer": {
+          "type": "Party",
+          "canonical": "manufacturer"
+        },
+        "producer": {
+          "type": "Party",
+          "canonical": "producer"
+        },
+        "requirements": {
+          "type": "Requirements",
+          "canonical": "requirements"
+        },
+        "sample": {
+          "type": "Sample",
+          "canonical": "sample"
+        },
+        "samples": {
+          "type": "List<Sample>",
+          "canonical": "samples"
+        },
+        "logistics": {
+          "type": "Logistics",
+          "canonical": "logistics"
+        },
+        "signatures": {
+          "type": "Signatures",
+          "canonical": "signatures"
+        },
+        "meta": {
+          "type": "Meta",
+          "canonical": "meta"
+        }
+      },
+      "Base": {
+        "entrust_date": {
+          "type": "String",
+          "canonical": "entrust_date"
+        },
+        "urgency": {
+          "type": "EnumValue",
+          "canonical": "urgency"
+        },
+        "urgency_options": {
+          "type": "List<EnumValue>",
+          "canonical": "urgency_options"
+        },
+        "planned_end_date": {
+          "type": "String",
+          "canonical": "planned_end_date"
+        },
+        "entrust_number": {
+          "type": "String",
+          "canonical": "entrust_number"
+        },
+        "contract_number": {
+          "type": "String",
+          "canonical": "contract_number"
+        }
+      },
+      "Party": {
+        "company_name": {
+          "type": "String",
+          "canonical": "company_name"
+        },
+        "name": {
+          "type": "String",
+          "canonical": "company_name"
+        },
+        "contact": {
+          "type": "String",
+          "canonical": "contact"
+        },
+        "phone": {
+          "type": "String",
+          "canonical": "phone"
+        },
+        "address": {
+          "type": "String",
+          "canonical": "address"
+        },
+        "email": {
+          "type": "String",
+          "canonical": "email"
+        }
+      },
+      "Requirements": {
+        "report_forms": {
+          "type": "List<EnumValue>",
+          "canonical": "report_forms"
+        },
+        "report_form_options": {
+          "type": "List<EnumValue>",
+          "canonical": "report_form_options"
+        },
+        "sample_return": {
+          "type": "EnumValue",
+          "canonical": "sample_return"
+        },
+        "sample_return_options": {
+          "type": "List<EnumValue>",
+          "canonical": "sample_return_options"
+        },
+        "report_submission": {
+          "type": "EnumValue",
+          "canonical": "report_submission"
+        },
+        "report_submission_options": {
+          "type": "List<EnumValue>",
+          "canonical": "report_submission_options"
+        },
+        "allow_subcontract": {
+          "type": "EnumValue",
+          "canonical": "allow_subcontract"
+        },
+        "allow_subcontract_options": {
+          "type": "List<EnumValue>",
+          "canonical": "allow_subcontract_options"
+        },
+        "remarks": {
+          "type": "String",
+          "canonical": "remarks"
+        },
+        "standards": {
+          "type": "List<Standard>",
+          "canonical": "standards"
+        }
+      },
+      "EnumValue": {
+        "value": {
+          "type": "String",
+          "canonical": "value"
+        },
+        "label": {
+          "type": "String",
+          "canonical": "label"
+        }
+      },
+      "Standard": {
+        "standard_code": {
+          "type": "String",
+          "canonical": "standard_code"
+        },
+        "qualification_requirement": {
+          "type": "String",
+          "canonical": "qualification_requirement"
+        },
+        "report_language": {
+          "type": "String",
+          "canonical": "report_language"
+        },
+        "notes": {
+          "type": "String",
+          "canonical": "notes"
+        },
+        "position": {
+          "type": "Integer",
+          "canonical": "position"
+        }
+      },
+      "Sample": {
+        "name": {
+          "type": "String",
+          "canonical": "name"
+        },
+        "model": {
+          "type": "String",
+          "canonical": "model"
+        },
+        "voltage": {
+          "type": "String",
+          "canonical": "voltage"
+        },
+        "current": {
+          "type": "String",
+          "canonical": "current"
+        },
+        "power": {
+          "type": "String",
+          "canonical": "power"
+        },
+        "frequency": {
+          "type": "String",
+          "canonical": "frequency"
+        },
+        "quantity": {
+          "type": "Integer",
+          "canonical": "quantity"
+        },
+        "quantity_unit": {
+          "type": "String",
+          "canonical": "quantity_unit"
+        },
+        "condition": {
+          "type": "EnumValue",
+          "canonical": "condition"
+        },
+        "condition_note": {
+          "type": "String",
+          "canonical": "condition_note"
+        },
+        "remarks": {
+          "type": "String",
+          "canonical": "remarks"
+        }
+      },
+      "Logistics": {
+        "laboratory_name": {
+          "type": "String",
+          "canonical": "laboratory_name"
+        },
+        "laboratory_address": {
+          "type": "String",
+          "canonical": "laboratory_address"
+        },
+        "laboratory_contact": {
+          "type": "String",
+          "canonical": "laboratory_contact"
+        },
+        "laboratory_phone": {
+          "type": "String",
+          "canonical": "laboratory_phone"
+        },
+        "shipping_notes": {
+          "type": "String",
+          "canonical": "shipping_notes"
+        }
+      },
+      "Signatures": {
+        "client_signature_name": {
+          "type": "String",
+          "canonical": "client_signature_name"
+        },
+        "client_signed_at": {
+          "type": "String",
+          "canonical": "client_signed_at"
+        },
+        "lab_resource_confirmed_by": {
+          "type": "String",
+          "canonical": "lab_resource_confirmed_by"
+        },
+        "lab_resource_confirmed_at": {
+          "type": "String",
+          "canonical": "lab_resource_confirmed_at"
+        },
+        "lab_reviewed_by": {
+          "type": "String",
+          "canonical": "lab_reviewed_by"
+        },
+        "lab_reviewed_at": {
+          "type": "String",
+          "canonical": "lab_reviewed_at"
+        }
+      },
+      "Meta": {
+        "status": {
+          "type": "EnumValue",
+          "canonical": "status"
+        },
+        "generated_at": {
+          "type": "String",
+          "canonical": "generated_at"
+        }
+      }
+    }
+  },
+  "contract": {
+    "root": "ContractPdfPayload",
+    "records": {
+      "ContractPdfPayload": {
+        "meta": {
+          "type": "Meta",
+          "canonical": "meta"
+        },
+        "toc": {
+          "type": "List<TocEntry>",
+          "canonical": "toc"
+        },
+        "page1": {
+          "type": "PageOne",
+          "canonical": "page1"
+        },
+        "page2": {
+          "type": "PageTwo",
+          "canonical": "page2"
+        },
+        "page3": {
+          "type": "PageThree",
+          "canonical": "page3"
+        },
+        "page4": {
+          "type": "PageFour",
+          "canonical": "page4"
+        },
+        "page5": {
+          "type": "PageFive",
+          "canonical": "page5"
+        },
+        "page6": {
+          "type": "PageSix",
+          "canonical": "page6"
+        },
+        "page7": {
+          "type": "PageSeven",
+          "canonical": "page7"
+        },
+        "templates": {
+          "type": "List<Template>",
+          "canonical": "templates"
+        },
+        "template_data": {
+          "type": "Map<String,Object>",
+          "canonical": "template_data"
+        },
+        "templateData": {
+          "type": "Map<String,Object>",
+          "canonical": "template_data"
+        }
+      },
+      "Meta": {
+        "contractId": {
+          "type": "Long",
+          "canonical": "contractId"
+        },
+        "uuid": {
+          "type": "String",
+          "canonical": "uuid"
+        },
+        "entrustOrderId": {
+          "type": "Long",
+          "canonical": "entrustOrderId"
+        },
+        "standardId": {
+          "type": "Long",
+          "canonical": "standardId"
+        },
+        "primarySectionId": {
+          "type": "Long",
+          "canonical": "primarySectionId"
+        },
+        "status": {
+          "type": "String",
+          "canonical": "status"
+        }
+      },
+      "TocEntry": {
+        "title": {
+          "type": "String",
+          "canonical": "title"
+        },
+        "page": {
+          "type": "int",
+          "canonical": "page"
+        },
+        "level": {
+          "type": "int",
+          "canonical": "level"
+        }
+      },
+      "PageTwo": {
+        "entries": {
+          "type": "List<TocEntry>",
+          "canonical": "entries"
+        }
+      },
+      "PageOne": {
+        "headerCompanyName": {
+          "type": "String",
+          "canonical": "headerCompanyName"
+        },
+        "headerReportNumber": {
+          "type": "String",
+          "canonical": "headerReportNumber"
+        },
+        "headerBadgeLabel": {
+          "type": "String",
+          "canonical": "headerBadgeLabel"
+        },
+        "title": {
+          "type": "String",
+          "canonical": "title"
+        },
+        "reportNumber": {
+          "type": "String",
+          "canonical": "reportNumber"
+        },
+        "productName": {
+          "type": "String",
+          "canonical": "productName"
+        },
+        "modelSpecification": {
+          "type": "String",
+          "canonical": "modelSpecification"
+        },
+        "entrustCompany": {
+          "type": "String",
+          "canonical": "entrustCompany"
+        },
+        "testItems": {
+          "type": "String",
+          "canonical": "testItems"
+        },
+        "reportDate": {
+          "type": "String",
+          "canonical": "reportDate"
+        },
+        "institutionName": {
+          "type": "String",
+          "canonical": "institutionName"
+        },
+        "currentPage": {
+          "type": "Integer",
+          "canonical": "currentPage"
+        },
+        "totalPages": {
+          "type": "Integer",
+          "canonical": "totalPages"
+        },
+        "footerCompanyName": {
+          "type": "String",
+          "canonical": "footerCompanyName"
+        },
+        "footerAddress": {
+          "type": "String",
+          "canonical": "footerAddress"
+        },
+        "footerPhone": {
+          "type": "String",
+          "canonical": "footerPhone"
+        },
+        "footerRecordCode": {
+          "type": "String",
+          "canonical": "footerRecordCode"
+        },
+        "footerWebsite": {
+          "type": "String",
+          "canonical": "footerWebsite"
+        }
+      },
+      "PageThree": {
+        "basicInfo": {
+          "type": "List<LabeledValue>",
+          "canonical": "basicInfo"
+        },
+        "descriptions": {
+          "type": "List<Paragraph>",
+          "canonical": "descriptions"
+        },
+        "modelInfo": {
+          "type": "List<Paragraph>",
+          "canonical": "modelInfo"
+        },
+        "standards": {
+          "type": "List<StandardEntry>",
+          "canonical": "standards"
+        },
+        "declaration": {
+          "type": "Declaration",
+          "canonical": "declaration"
+        },
+        "signatures": {
+          "type": "List<SignatureSlot>",
+          "canonical": "signatures"
+        },
+        "remark": {
+          "type": "String",
+          "canonical": "remark"
+        },
+        "conclusion": {
+          "type": "String",
+          "canonical": "conclusion"
+        }
+      },
+      "LabeledValue": {
+        "label": {
+          "type": "String",
+          "canonical": "label"
+        },
+        "value": {
+          "type": "String",
+          "canonical": "value"
+        }
+      },
+      "Paragraph": {
+        "text": {
+          "type": "String",
+          "canonical": "text"
+        }
+      },
+      "StandardEntry": {
+        "order": {
+          "type": "Integer",
+          "canonical": "order"
+        },
+        "code": {
+          "type": "String",
+          "canonical": "code"
+        },
+        "title": {
+          "type": "String",
+          "canonical": "title"
+        },
+        "reference": {
+          "type": "String",
+          "canonical": "reference"
+        }
+      },
+      "Declaration": {
+        "title": {
+          "type": "String",
+          "canonical": "title"
+        },
+        "lines": {
+          "type": "List<String>",
+          "canonical": "lines"
+        }
+      },
+      "SignatureSlot": {
+        "role": {
+          "type": "String",
+          "canonical": "role"
+        },
+        "signerName": {
+          "type": "String",
+          "canonical": "signerName"
+        },
+        "dateLabel": {
+          "type": "String",
+          "canonical": "dateLabel"
+        },
+        "dateValue": {
+          "type": "String",
+          "canonical": "dateValue"
+        }
+      },
+      "PageFour": {
+        "lampTypes": {
+          "type": "List<String>",
+          "canonical": "lampTypes"
+        },
+        "lampTypeOther": {
+          "type": "String",
+          "canonical": "lampTypeOther"
+        },
+        "rated": {
+          "type": "Rated",
+          "canonical": "rated"
+        },
+        "dimensions": {
+          "type": "String",
+          "canonical": "dimensions"
+        },
+        "luminousPortArea": {
+          "type": "String",
+          "canonical": "luminousPortArea"
+        },
+        "lightSourceTypes": {
+          "type": "List<String>",
+          "canonical": "lightSourceTypes"
+        },
+        "lightSourceOther": {
+          "type": "String",
+          "canonical": "lightSourceOther"
+        },
+        "detectionRemark": {
+          "type": "String",
+          "canonical": "detectionRemark"
+        },
+        "testItems": {
+          "type": "List<String>",
+          "canonical": "testItems"
+        },
+        "testItemsOther": {
+          "type": "String",
+          "canonical": "testItemsOther"
+        },
+        "remarks": {
+          "type": "String",
+          "canonical": "remarks"
+        }
+      },
+      "Rated": {
+        "voltage": {
+          "type": "String",
+          "canonical": "voltage"
+        },
+        "frequency": {
+          "type": "String",
+          "canonical": "frequency"
+        },
+        "power": {
+          "type": "String",
+          "canonical": "power"
+        },
+        "cct": {
+          "type": "String",
+          "canonical": "cct"
+        }
+      },
+      "PageFive": {
+        "images": {
+          "type": "List<ImageSlot>",
+          "canonical": "images"
+        }
+      },
+      "ImageSlot": {
+        "path": {
+          "type": "String",
+          "canonical": "path"
+        },
+        "caption": {
+          "type": "String",
+          "canonical": "caption"
+        },
+        "slot": {
+          "type": "Integer",
+          "canonical": "slot"
+        },
+        "pageIndex": {
+          "type": "Integer",
+          "canonical": "pageIndex"
+        }
+      },
+      "PageSix": {
+        "devices": {
+          "type": "List<DeviceEntry>",
+          "canonical": "devices"
+        },
+        "notes": {
+          "type": "List<String>",
+          "canonical": "notes"
+        }
+      },
+      "DeviceEntry": {
+        "deviceId": {
+          "type": "Long",
+          "canonical": "deviceId"
+        },
+        "deviceNo": {
+          "type": "String",
+          "canonical": "deviceNo"
+        },
+        "name": {
+          "type": "String",
+          "canonical": "name"
+        },
+        "placement": {
+          "type": "String",
+          "canonical": "placement"
+        },
+        "status": {
+          "type": "String",
+          "canonical": "status"
+        },
+        "isUsed": {
+          "type": "Boolean",
+          "canonical": "isUsed"
+        },
+        "remarks": {
+          "type": "String",
+          "canonical": "remarks"
+        },
+        "model": {
+          "type": "String",
+          "canonical": "model"
+        },
+        "calibrationDue": {
+          "type": "String",
+          "canonical": "calibrationDue"
+        }
+      },
+      "PageSeven": {
+        "keyValues": {
+          "type": "List<LabeledValue>",
+          "canonical": "keyValues"
+        },
+        "bulletPoints": {
+          "type": "List<String>",
+          "canonical": "bulletPoints"
+        },
+        "statement": {
+          "type": "Declaration",
+          "canonical": "statement"
+        }
+      },
+      "Template": {
+        "code": {
+          "type": "String",
+          "canonical": "code"
+        },
+        "display_name": {
+          "type": "String",
+          "canonical": "display_name"
+        },
+        "type": {
+          "type": "String",
+          "canonical": "type"
+        },
+        "renderer_key": {
+          "type": "String",
+          "canonical": "renderer_key"
+        },
+        "placement": {
+          "type": "String",
+          "canonical": "placement"
+        },
+        "config_pdf_path": {
+          "type": "String",
+          "canonical": "config_pdf_path"
+        },
+        "pdf_path": {
+          "type": "String",
+          "canonical": "pdf_path"
+        },
+        "pdf_url": {
+          "type": "String",
+          "canonical": "pdf_url"
+        },
+        "data": {
+          "type": "Map<String,Object>",
+          "canonical": "data"
+        }
+      }
+    }
+  },
+  "lm79": {
+    "root": "Lm79ReportPayload",
+    "records": {
+      "Lm79ReportPayload": {
+        "reportNumber": {
+          "type": "String",
+          "canonical": "reportNumber"
+        },
+        "labName": {
+          "type": "String",
+          "canonical": "labName"
+        },
+        "labAddress": {
+          "type": "String",
+          "canonical": "labAddress"
+        },
+        "productName": {
+          "type": "String",
+          "canonical": "productName"
+        },
+        "model": {
+          "type": "String",
+          "canonical": "model"
+        },
+        "applicant": {
+          "type": "String",
+          "canonical": "applicant"
+        },
+        "receivedDate": {
+          "type": "String",
+          "canonical": "receivedDate"
+        },
+        "issuedDate": {
+          "type": "String",
+          "canonical": "issuedDate"
+        },
+        "sections": {
+          "type": "List<Section>",
+          "canonical": "sections"
+        },
+        "photos": {
+          "type": "List<byte[]>",
+          "canonical": "photos"
+        },
+        "spectrum": {
+          "type": "List<List<Double>>",
+          "canonical": "spectrum"
+        },
+        "appendices": {
+          "type": "List<Appendix>",
+          "canonical": "appendices"
+        },
+        "documentInfo": {
+          "type": "DocumentInfo",
+          "canonical": "documentInfo"
+        }
+      },
+      "Section": {
+        "title": {
+          "type": "String",
+          "canonical": "title"
+        },
+        "headers": {
+          "type": "List<String>",
+          "canonical": "headers"
+        },
+        "rows": {
+          "type": "List<List<String>>",
+          "canonical": "rows"
+        },
+        "layout": {
+          "type": "String",
+          "canonical": "layout"
+        }
+      },
+      "Appendix": {
+        "title": {
+          "type": "String",
+          "canonical": "title"
+        },
+        "pdf": {
+          "type": "byte[]",
+          "canonical": "pdf"
+        }
+      },
+      "DocumentInfo": {
+        "fileNumber": {
+          "type": "String",
+          "canonical": "fileNumber"
+        },
+        "version": {
+          "type": "String",
+          "canonical": "version"
+        },
+        "website": {
+          "type": "String",
+          "canonical": "website"
+        },
+        "email": {
+          "type": "String",
+          "canonical": "email"
+        }
+      }
+    }
+  }
+}

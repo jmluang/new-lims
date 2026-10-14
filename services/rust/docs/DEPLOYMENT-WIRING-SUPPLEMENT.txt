@@ -1,0 +1,67 @@
+F2 / H2 部署接线补充（可纳入源码交付；仅说明，不代表已部署）
+
+适用源码：原 F91 + F2 的 crates/server/src/http.rs Busy multipart 修复，以及既有 H2 应用变更。本补充只读代码核对，不包含密码、私钥、证书或可直接使用的生产配置。
+
+1. Laravel 客户端与 Rust 服务端
+
+Laravel backend/config/pdf_service.php：
+- PDF_SERVICE_ENABLED：默认 false；启用服务调用需设 true。
+- PDF_SIGNING_ENABLED：默认 true；现代签署仍同时依赖上面的服务总开关。
+- PDF_SERVICE_BASE_URL：默认 http://127.0.0.1:8080；必须显式指向实际 Rust 地址。Rust 默认端口是8081，不能假定两端默认地址已经相同。
+- PDF_SERVICE_HMAC_ENABLED：默认 true。
+- PDF_SERVICE_HMAC_ACTIVE_KEY_ID：默认 primary。
+- PDF_SERVICE_HMAC_KEYS：默认空；原客户端和 Rust 服务须使用相同 key-id/key bytes。Rust接受逗号分隔的 id:Base64 格式，每个解码key至少32字节。值由外部秘密配置提供，本交付不提供。
+
+Rust crates/server/src/config.rs：PDF_SERVICE_BIND_ADDRESS默认127.0.0.1，PDF_SERVICE_PORT默认8081。容器内需要接受容器网络连接时应显式设相应监听地址（现有测试模板为0.0.0.0）；对外暴露地址由实际部署决定，测试loopback18081不是生产规范。保持现有调用API，无需为F2改Laravel请求格式。
+
+2. 现代签署执行账本、数据库/schema
+
+Rust crates/execution/src/service.rs 主变量：
+- PDF_EXECUTION_LEDGER_ENABLED：缺省关闭；仅值true（大小写不敏感）启用。现代H2签署/status/result路径必须启用，不能沿用测试compose的false默认值。
+- PDF_EXECUTION_DB_URL、PDF_EXECUTION_DB_USERNAME、PDF_EXECUTION_DB_PASSWORD：未设置且没有兼容别名时均为空；启用账本必须提供有效值。URL支持单主机mysql://及jdbc:mysql://。数据库参数按现有configuration.rs解析，不得自行添加未支持的TLS/认证参数。
+- 使用Laravel实际签署工作流所用的同一数据库/schema，并通过既有Laravel migrations建立表；Rust不会替应用创建或迁移业务schema。至少涉及pdf_signing_operations、pdf_signing_policy_versions、pdf_java_signing_executions及相关事件/工作流表。名称含java是兼容账本结构，切换Rust不改表名。
+- repository.rs建立的每个MySQL连接执行SET time_zone='+00:00'；不需要发明新的数据库时区环境变量。账户应有现有执行账本SQL所需权限，具体授权由部署方提供。
+
+ledger关闭或连接配置不能初始化时，现代执行返回EXECUTION_LEDGER_NOT_READY。GET /api/pdf/health中execution_database_ready仅作现有readiness检查，不替代完整数据库迁移检查。
+
+3. 结果与临时目录
+
+- PDF_EXECUTION_RESULT_ROOT：代码缺省为./data/signing-results（也接受已有PDF_EXECUTION_LEDGER_RESULT_ROOT兼容别名）。部署时显式使用绝对路径，挂载持久、可读写的结果存储，运行UID必须可写；它承载签署结果及恢复/退休状态，不应放在会随容器销毁的临时目录。
+- 现有compose示例使用/app/data/signing-results卷；只读根文件系统不能代替该可写结果挂载。
+- 现有模板另以磁盘卷挂载/tmp，供PDF临时spool使用；它与持久结果目录用途不同。测试接线采用磁盘spool，不能把改用tmpfs仍说成相同内存口径。
+
+4. HMAC nonce
+
+- PDF_SERVICE_HMAC_NONCE_STORE：默认redis；memory是显式测试模式，不会在Redis失败时自动替代它。
+- PDF_SERVICE_REDIS_HOST默认127.0.0.1，PDF_SERVICE_REDIS_PORT默认6379；容器部署必须填实际可达的Redis地址。
+- 本Rust nonce实现从host/port构建默认Redis连接：不读取Redis密码、DB编号、TLS URL环境变量。不要把当前代码没有实现的变量写成已支持的部署方式。
+- Redis按key-id/nonce执行SET NX EX，nonce TTL为300秒，访问超时2秒；错误闭锁为PDF_HMAC_NONCE_STORE_UNAVAILABLE。实际多实例应指向同一nonce存储，不能各自使用进程memory来实现共享防重放。
+- 公开GET /api/pdf/health不探测Redis可达性；已有受HMAC保护的GET /internal/pdf/diagnostics/dependencies返回nonce_store_ready。可复用原客户端/既有readiness流程，不需导出认证头或HMAC秘密。
+
+5. 外部签署身份、原策略与RFC3161 TSA
+
+- DEFAULT_PFX_PATH：代码优先显式配置，否则查/keys/signer.pfx、keys/signer.pfx，最后使用/keys/signer.pfx。部署应显式给出受控只读身份挂载路径。
+- DEFAULT_PFX_PASS：现代签署要求非空；没有可接受的默认口令。仅由外部秘密配置提供。
+- PDF_PADES_SIGNER_TRUSTED_ROOT_SHA256：默认空集合；现代签署要求版本化的签署根SHA256白名单，证书链必须终止于获授权的根。
+- PDF_PADES_TSA_TRUSTED_CERT_SHA256：默认空集合；B-T客户端要求TSA证书SHA256白名单。两个白名单支持逗号分隔SHA256指纹；不能从最终PDF提取自签证书后反向授权它自己。
+- PDF_PADES_TSA_URL：默认空，B-T需要有效HTTP/HTTPS URL。
+- PDF_PADES_TSA_POLICY_OID：未设置时库中的policy约束为None；复现已登记版本策略时必须使用该策略实际OID，不能硬编码隔离测试OID作为生产OID。
+- PDF_PADES_TSA_TIMEOUT_SECONDS默认10，允许1至60秒；实现按原Java边界约束发送/响应头，不应把它描述成全响应体绝对时限。
+- SIGNATURE_RESERVED_SIZE默认32768，允许16384至1048576字节；PDF_SIGNING_HASH_ALGO默认SHA256，目前只接受SHA256。
+
+外部PFX、根/TSA授权指纹和策略配置必须与Laravel原版本化policy/operation claim的组织证书指纹、policy_hash及config_bundle_hash保持一致。交付只提供变量名与代码默认值，不提供生产私钥、证书payload或秘密env文件。隔离测试CA/TSA的PASS不能表述为公共阅读器信任。
+
+6. 容量、F2身份及交付顺序
+
+PDF_MAX_CONCURRENT_JOBS的应用默认值是1，现有compose默认3；PDF_HTTP_MAX_THREADS默认16。需要复现已测capacity=3应显式设3。既有性能样本预算是2CPU/2GiB/swap0；compose默认768m是测试模板默认，不是已测生产配置。F2只修复Busy响应传输，不扩大capacity，5请求同时到达不等于5任务同时获准。
+
+交付建议顺序：补丁01（F91源及已有回归输入）、02（H2应用变更）、03（F91→F2 http.rs及同文件三个Busy回归）。更新assembled/source/checksum manifests。F2独立二进制以只读overlay复用F91运行镜像时，必须另记实际F2 binary SHA256和F2 source aggregate；不能把原镜像ID等同于新二进制身份，也不能沿用F91 binary hash声称F2已测。
+
+原13页报告基线b1e59b39ddc0481b与3页合成样本6adc53aa7083483b分开标注；此补充不补写任何未取得的F2回归、性能或生产部署PASS。
+
+核对源码（均只读）：
+- candidate-H2-canvas-release-20261012/backend/config/pdf_service.php
+- candidate-F2-busy-multipart-20261013/services/rust/crates/server/src/config.rs、nonce.rs、hmac.rs、http.rs
+- candidate-F2-busy-multipart-20261013/services/rust/crates/execution/src/service.rs、repository.rs、configuration.rs、sql.rs、storage.rs
+- candidate-F2-busy-multipart-20261013/services/rust/crates/signatures/src/service.rs、cms.rs
+- 原F91 services/rust/deploy/compose.yaml（F2未修改该模板）

@@ -1,0 +1,75 @@
+F2 source/binary handoff and deployment review (no production deployment performed)
+
+Apply the source patches in order to an independent checkout based on
+7841e29acce55a69def3d412cb19b8772aa325f4:
+01-add-rust-F-source-and-selected-regressions.patch
+02-application-7841e29-to-H2.patch
+03-service-F91-to-F2-busy-multipart.patch
+The first patch intentionally preserves F91. The third patch changes only
+services/rust/crates/server/src/http.rs and contains all three Busy regressions.
+The final F2 and assembled-source manifests identify the effective final source.
+Do not label the composed delivery or mounted F2 binary as unchanged F91.
+
+The tested F2 Linux/amd64 release binary is compiled with Rust1.90.0 and the
+unchanged Cargo.lock, release profile, one Cargo job and no incremental compiler.
+The evidence records the exact binary SHA256. The test used an unchanged F91
+runtime image with a read-only F2 binary mount; that is a binary-overlay candidate,
+not a newly built production image. Build a reviewed deployment image from the
+final patched source using services/rust/deploy/Dockerfile, or package the verified
+binary into a compatible reviewed Debian/bookworm runtime. Verify its deployed
+binary hash and mount the original font assets. No image publish or deployment
+is included in this delivery.
+
+The existing deploy/compose.yaml is an ISOLATED TEST TEMPLATE. Its768m memory and
+ledger=false defaults are not production settings. The measured service profile
+is2CPU/2GiB, MemorySwap=Memory, cgroup swap.max=0, capacity3. Client concurrency5
+allows expected503 PDF_BUSY; capacity is not silently expanded to5.
+
+Modern Laravel signed/published workflow requires:
+- PDF_EXECUTION_LEDGER_ENABLED=true.
+- PDF_EXECUTION_DB_URL=mysql://DB_HOST:3306/LARAVEL_DB?serverTimezone=UTC with the
+  reviewed TLS options appropriate to the actual connection. It must address the
+  SAME database/schema and execution tables used by Laravel's configured MySQL
+  connection and completed migrations, not a new isolated empty test schema.
+- PDF_EXECUTION_DB_USERNAME and PDF_EXECUTION_DB_PASSWORD supplied through the
+  approved secret mechanism, with the required execution table permissions.
+- PDF_EXECUTION_RESULT_ROOT=/app/data/signing-results backed by persistent,
+  writable storage owned by the runtime UID. Retain execution result/retirement
+  state across restarts; do not use tmpfs or an ephemeral container layer.
+- Persistent disk-backed signing spool and a shutdown grace period sufficient
+  for admitted work; don't discard uncertain execution outcomes or retry private
+  key operations solely because a caller lost its connection.
+
+Request authentication and nonce state:
+- PDF_SERVICE_HMAC_ENABLED=true; keep PDF_SERVICE_HMAC_ACTIVE_KEY_ID and
+  PDF_SERVICE_HMAC_KEYS aligned with Laravel's PDF_SERVICE_HMAC client keys.
+- PDF_SERVICE_HMAC_NONCE_STORE=redis, PDF_SERVICE_REDIS_HOST and
+  PDF_SERVICE_REDIS_PORT address a provisioned reachable Redis nonce store with
+  the reviewed durability and retention policy. HMAC and CSRF are retained.
+- Laravel PDF_SERVICE_ENABLED / PDF_SERVICE_BASE_URL point to the reviewed Rust
+  endpoint and correct same-origin/proxy topology. Local loopback ports are test
+  topology, not a production specification.
+
+Signing identity / external trust services:
+- Provision real authorized DEFAULT_PFX_PATH and DEFAULT_PFX_PASS from approved
+  secret storage; private keys and passwords are not included in source or zip.
+- Supply PDF_PADES_SIGNER_TRUSTED_ROOT_SHA256 for the actual approved signer
+  identity/trust policy.
+- Supply PDF_PADES_TSA_URL, PDF_PADES_TSA_POLICY_OID,
+  PDF_PADES_TSA_TRUSTED_CERT_SHA256 and PDF_PADES_TSA_TIMEOUT_SECONDS for the
+  reviewed external TSA endpoint, certificate pin and policy. This implementation
+  uses its real PFX signer plus the configured external TSA; no untested HSM or
+  external-signing-command support is implied.
+- Isolated fixture signer certificates/TSA pins prove test mathematical validity,
+  not public reader trust or authorization to sign a production business report.
+
+Evidence scopes remain separate:
+- Original XPD2026090064 report:13pages,1077640B, sourceSHA256
+  db18a34d33e1b79f9f1a495ede19a3defcb217be380a3b8ab6b18815be343cb4;
+  successful three-stamp outputs have16 signatures (P1/P3 front seal,
+  P1 function seal, all13pages perforation), tested with three~500KB PNG images.
+- Synthetic3page10692B report:6signatures per successful output. Its performance
+  results do not substitute for the original report's measurements.
+- Legacy performance capture deliberately has ledger=false and calls the custom
+  process API. Production modern workflow must use ledger=true and its real DB,
+  storage and signing/TSA policy. Performance cannot establish all-file parity.
