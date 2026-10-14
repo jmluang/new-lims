@@ -1,0 +1,14 @@
+ARG RUNTIME_IMAGE
+FROM ${RUNTIME_IMAGE}
+ARG GIT_COMMIT
+ARG SOURCE_SHA256
+ARG BINARY_SHA256
+COPY --chmod=0755 lims-server /usr/local/bin/lims-server
+RUN test -x /usr/local/bin/lims-server \
+    && test -n "$BINARY_SHA256" \
+    && printf '%s  /usr/local/bin/lims-server\n' "$BINARY_SHA256" | sha256sum -c -
+LABEL org.opencontainers.image.revision="${GIT_COMMIT}" \
+      io.lims.source.aggregate="${SOURCE_SHA256}" \
+      io.lims.binary.sha256="${BINARY_SHA256}" \
+      io.lims.packaging.executable_mode="0755"
+ENTRYPOINT ["/usr/local/bin/lims-server"]
