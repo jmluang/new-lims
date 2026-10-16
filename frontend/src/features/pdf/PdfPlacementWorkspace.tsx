@@ -1,5 +1,5 @@
 import { releasePdfCanvas } from './pdfCanvasLifecycle'
-import { Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Minus, Plus } from 'lucide-react'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { GlobalWorkerOptions, type PDFDocumentProxy, type PDFPageProxy } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
@@ -34,10 +34,13 @@ export function PdfPlacementWorkspace({
   signaturePreview,
   emptyMessage,
   onPageSize,
+  fitPage = false,
 }: {
   file: File | Blob | null
   placements: Placement[]
   editable: boolean
+  /** Read-only report reader; planning retains its existing continuous layout. */
+  fitPage?: boolean
   selectedRole?: SignatureRole
   onSelectRole?: (role: SignatureRole) => void
   onChange?: (placements: Placement[]) => void
@@ -168,6 +171,8 @@ export function PdfPlacementWorkspace({
     return <div className="flex min-h-[32rem] items-center justify-center text-sm text-slate-500">正在解析 PDF…</div>
   }
 
+  if (fitPage && !editable) return <FitPageReader key={document.fingerprints[0]} document={document} />
+
   return (
     <div className="grid min-h-0 grid-cols-[4.5rem_minmax(0,1fr)] overflow-hidden rounded-xl border border-slate-200 bg-slate-200/60 xl:h-full">
       <div className="space-y-2 overflow-y-auto border-r border-slate-200 bg-white p-2">
@@ -216,6 +221,56 @@ export function PdfPlacementWorkspace({
   )
 }
 
+const noPlacements: Placement[] = []
+const noAction = () => {}
+
+/** Measures the space remaining after the reader toolbar and page navigation. */
+function FitPageReader({ document }: { document: PDFDocumentProxy }) {
+  const [pageIndex, setPageIndex] = useState(0)
+  const [zoom, setZoom] = useState(1)
+  const viewport = useRef<HTMLDivElement>(null)
+  const [bounds, setBounds] = useState({ width: 1, height: 1 })
+  useEffect(() => {
+    const area = viewport.current
+    if (!area) return
+    const observer = new ResizeObserver(([entry]) => {
+      setBounds({ width: entry.contentRect.width, height: entry.contentRect.height })
+    })
+    observer.observe(area)
+    return () => observer.disconnect()
+  }, [])
+  const button = 'inline-flex size-9 shrink-0 items-center justify-center rounded border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40'
+
+  return <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-slate-200/60" aria-label="PDF 阅读器">
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white p-1.5">
+      <div className="flex items-center gap-1">
+        <button type="button" className={button} aria-label="上一页" disabled={pageIndex === 0} onClick={() => setPageIndex(index => index - 1)}><ChevronLeft className="size-4" /></button>
+        <span className="min-w-20 text-center text-xs text-slate-600" aria-live="polite">第 {pageIndex + 1} / {document.numPages} 页</span>
+        <button type="button" className={button} aria-label="下一页" disabled={pageIndex === document.numPages - 1} onClick={() => setPageIndex(index => index + 1)}><ChevronRight className="size-4" /></button>
+      </div>
+      <div className="flex items-center gap-1" aria-label="PDF 缩放">
+        <button type="button" className={button} aria-label="缩小 PDF" disabled={zoom === 1} onClick={() => setZoom(value => Math.max(1, value - 0.25))}><Minus className="size-4" /></button>
+        <button type="button" aria-pressed={zoom === 1} className="min-h-9 rounded border border-slate-200 px-2 text-xs text-slate-700 hover:bg-slate-50" onClick={() => setZoom(1)}>整页{zoom > 1 ? ` · ${zoom}×` : ''}</button>
+        <button type="button" className={button} aria-label="放大 PDF" disabled={zoom === 3} onClick={() => setZoom(value => Math.min(3, value + 0.25))}><Plus className="size-4" /></button>
+      </div>
+    </div>
+    <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+      <nav aria-label="PDF 页码" className="flex shrink-0 gap-1 overflow-auto border-b border-slate-200 bg-white p-1 sm:w-12 sm:flex-col sm:border-b-0 sm:border-r">
+        {Array.from({ length: document.numPages }, (_, index) => <button key={index} type="button"
+          aria-label={`第 ${index + 1} 页`} aria-current={index === pageIndex ? 'page' : undefined}
+          className={`min-h-9 min-w-9 shrink-0 rounded border text-xs ${index === pageIndex ? 'border-emerald-500 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-emerald-500'}`}
+          onClick={() => setPageIndex(index)}>{index + 1}</button>)}
+      </nav>
+      <div ref={viewport} data-testid="pdf-reader-viewport" className="min-h-0 min-w-0 flex-1 overflow-auto p-2">
+        <div className="flex min-h-full min-w-full w-max">
+          <PdfPage key={pageIndex} document={document} pageIndex={pageIndex} placements={noPlacements} editable={false}
+            fitBounds={bounds} zoom={zoom} onMeasured={noAction} onDragStart={noAction} onDrag={noAction} onDragEnd={noAction} />
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
 const PdfPage = memo(function PdfPage({
   document,
   pageIndex,
@@ -228,9 +283,13 @@ const PdfPage = memo(function PdfPage({
   onDragStart,
   onDrag,
   onDragEnd,
+  fitBounds,
+  zoom = 1,
 }: {
   document: PDFDocumentProxy
   pageIndex: number
+  fitBounds?: { width: number; height: number }
+  zoom?: number
   placements: Placement[]
   editable: boolean
   selectedRole?: SignatureRole
@@ -265,7 +324,11 @@ const PdfPage = memo(function PdfPage({
     setSize({ width: viewport.width, height: viewport.height })
     const context = canvas.getContext('2d')
     if (!context) return
+    canvas.setAttribute('aria-busy', 'true')
     const task = page.render({ canvas, canvasContext: context, viewport, transform: [outputScale, 0, 0, outputScale, 0, 0] })
+    // Rapid page/version switches cancel the previous render normally.
+    void task.promise.then(() => canvas.setAttribute('aria-busy', 'false'))
+      .catch(error => { if (error?.name !== 'RenderingCancelledException') throw error })
     return releasePdfCanvas(task, canvas)
     // Deliberately only `page`: re-running this cancels and repaints the canvas,
     // which must not happen just because a parent render produced new callbacks.
@@ -281,12 +344,17 @@ const PdfPage = memo(function PdfPage({
     if (size.width > 1) measuredRef.current(pageIndex, size)
   }, [size, pageIndex])
 
+  const fitScale = fitBounds ? Math.max(0.001, Math.min(fitBounds.width / size.width, (fitBounds.height - 20) / size.height)) * zoom : 1
+  const displayStyle = fitBounds
+    ? { width: size.width * fitScale, height: size.height * fitScale }
+    : pageBoxStyle(size)
+
   return (
-    <div id={`pdf-page-${pageIndex}`} className="mx-auto w-fit max-w-full">
+    <div id={`pdf-page-${pageIndex}`} className={fitBounds ? 'm-auto w-fit shrink-0' : 'mx-auto w-fit max-w-full'}>
       <div className="mb-1 text-center text-xs font-medium text-slate-500">第 {pageIndex + 1} 页</div>
       <div
         className="relative overflow-hidden bg-white shadow-[0_12px_35px_rgb(15_23_42/0.16)]"
-        style={pageBoxStyle(size)}
+        style={displayStyle}
       >
         <canvas ref={canvasRef} className="block h-full w-full" />
         {placements.map((placement) => {
@@ -350,6 +418,9 @@ const PdfPage = memo(function PdfPage({
 }, (previous, next) =>
   previous.document === next.document
   && previous.pageIndex === next.pageIndex
+  && previous.fitBounds?.width === next.fitBounds?.width
+  && previous.fitBounds?.height === next.fitBounds?.height
+  && previous.zoom === next.zoom
   && previous.editable === next.editable
   && previous.selectedRole === next.selectedRole
   && previous.signaturePreview === next.signaturePreview

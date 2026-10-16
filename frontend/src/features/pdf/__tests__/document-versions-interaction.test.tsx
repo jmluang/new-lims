@@ -19,8 +19,8 @@ vi.mock('@tanstack/react-router', async original => ({
   useNavigate: () => server.navigate,
 }))
 vi.mock('../PdfPlacementWorkspace', () => ({
-  PdfPlacementWorkspace: ({ file, editable }: { file: Blob; editable: boolean }) =>
-    <div data-testid="readonly-pdf" data-bytes={file.size} data-editable={String(editable)} />,
+  PdfPlacementWorkspace: ({ file, editable, fitPage }: { file: Blob; editable: boolean; fitPage?: boolean }) =>
+    <div data-testid="readonly-pdf" data-bytes={file.size} data-editable={String(editable)} data-fit-page={String(fitPage)} />,
 }))
 vi.mock('../../auth/useCurrentUser', () => ({
   useEffectivePermissions: () => ({ data: { resources: {
@@ -63,6 +63,7 @@ async function followNavigation() {
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
   server.location = { pathname: '/pdf/documents/doc-1', searchStr: '' }
   server.downloadAllowed = true
   server.download.mockReset().mockImplementation(async uuid => new Blob([`PDF:${uuid}`], { type: 'application/pdf' }))
@@ -102,6 +103,7 @@ describe('standalone report versions', () => {
     expect(container.querySelector('a[href="/pdf/documents"]')?.textContent).toContain('返回列表')
     expect(server.download).toHaveBeenCalledExactlyOnceWith('revision-6')
     expect(container.querySelector('[data-testid=readonly-pdf]')?.getAttribute('data-editable')).toBe('false')
+    expect(container.querySelector('[data-testid=readonly-pdf]')?.getAttribute('data-fit-page')).toBe('true')
     await expand()
     expect(options()).toHaveLength(6)
     expect(options()[0].textContent).toContain('版本 6')
