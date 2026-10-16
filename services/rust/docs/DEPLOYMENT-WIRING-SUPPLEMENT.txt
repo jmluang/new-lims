@@ -65,3 +65,8 @@ PDF_MAX_CONCURRENT_JOBS的应用默认值是1，现有compose默认3；PDF_HTTP_
 - candidate-F2-busy-multipart-20261013/services/rust/crates/execution/src/service.rs、repository.rs、configuration.rs、sql.rs、storage.rs
 - candidate-F2-busy-multipart-20261013/services/rust/crates/signatures/src/service.rs、cms.rs
 - 原F91 services/rust/deploy/compose.yaml（F2未修改该模板）
+
+Deployment prerequisites clarified (see docs/TEST-IDENTITY-AND-READINESS.md):
+- Document leaf: CA=false, RSA>=2048, digitalSignature or nonRepudiation KeyUsage, and documentSigning EKU 1.3.6.1.5.5.7.3.36. A decryptable PFX and health=200 do not prove this policy is satisfied.
+- Minimum pdf_signing_operations column SELECT includes document_evidence_hold_mask and lease_owner; UPDATE remains limited to java_gate_version. See the existing Java/Rust shared SQL grant example. This documentation never authorizes or automatically applies a runtime grant/account change.
+- Static certificate-plan checks generate no credentials. The opt-in generator, new immutable policy alignment, and read-only preflight procedure are documented separately.

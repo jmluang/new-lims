@@ -6,7 +6,8 @@ CREATE USER IF NOT EXISTS 'pdf_java'@'172.18.%' IDENTIFIED BY 'REPLACE_WITH_RAND
 
 GRANT SELECT (
     operation_uuid, java_gate_version, lease_epoch, state, stage, action,
-    lease_expires_at, cancellation_requested_at,
+    lease_expires_at, lease_owner, cancellation_requested_at,
+    document_evidence_hold_mask,
     operation_input_manifest_hash, input_fingerprint, expected_source_sha256,
     signing_policy_version_id, policy_hash, config_bundle_hash,
     appearance_manifest_hash, appearance_sha256, pdf_signature_role,
