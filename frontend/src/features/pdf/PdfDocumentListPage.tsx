@@ -14,7 +14,6 @@ import {
   type SigningDocument,
 } from './handwrittenApi'
 import { editableReason, planReason } from './documentEditable'
-import { PdfDocumentVersions } from './PdfDocumentVersions'
 
 const stageLabels: Record<string, string> = {
   confirmed_awaiting_finalize: '待定稿',
@@ -69,7 +68,6 @@ export function PdfDocumentListPage() {
   const [renameValue, setRenameValue] = useState('')
   const [deleting, setDeleting] = useState<SigningDocument | null>(null)
   const [manualReviewing, setManualReviewing] = useState<SigningDocument | null>(null)
-  const [viewingVersions, setViewingVersions] = useState<SigningDocument | null>(null)
   const [manualReviewDecision, setManualReviewDecision] = useState<ManualReviewDecision>('confirmed_no_usable_result')
 
   const documents = useQuery({
@@ -183,17 +181,18 @@ export function PdfDocumentListPage() {
                   )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                  <button type="button" className="text-emerald-800 underline" onClick={() => setViewingVersions(document)}>
+                  <a className="text-emerald-800 underline" href={`/pdf/documents/${encodeURIComponent(document.document_uuid)}`}>
                     {document.revisions.length} 个版本
-                  </button>
+                  </a>
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-700">{formatDateTime(document.created_at)}</td>
                 <td className="px-3 py-2">
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" title="查看版本与 PDF" aria-label={`查看 ${document.report_number} 的版本与 PDF`}
-                      onClick={() => setViewingVersions(document)}>
+                    <a className="inline-flex min-h-9 items-center rounded-md px-3 text-slate-600 hover:bg-slate-100"
+                      title="查看版本与 PDF" aria-label={`查看 ${document.report_number} 的版本与 PDF`}
+                      href={`/pdf/documents/${encodeURIComponent(document.document_uuid)}`}>
                       <Eye className="size-4" />
-                    </Button>
+                    </a>
                     <PermissionGate resource="pdf.workflow" action="create">
                       <Button
                         variant="ghost"
@@ -268,10 +267,11 @@ export function PdfDocumentListPage() {
                 {document.revisions.length} 个版本 · {formatDateTime(document.created_at)}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => setViewingVersions(document)}>
+                <a className="inline-flex min-h-10 items-center gap-2 rounded-md border border-emerald-900/20 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50"
+                  href={`/pdf/documents/${encodeURIComponent(document.document_uuid)}`}>
                   <Eye className="size-4" />
                   查看版本与 PDF
-                </Button>
+                </a>
                 <PermissionGate resource="pdf.workflow" action="create">
                   <Button
                     variant="secondary"
@@ -335,9 +335,6 @@ export function PdfDocumentListPage() {
           }}
         />
       ) : null}
-
-      {viewingVersions ? <PdfDocumentVersions key={viewingVersions.document_uuid}
-        document={viewingVersions} onClose={() => setViewingVersions(null)} /> : null}
 
       <Modal open={renaming !== null} title="修改报告编号" onClose={() => setRenaming(null)}>
         <p className="mb-3 text-xs leading-5 text-slate-500">

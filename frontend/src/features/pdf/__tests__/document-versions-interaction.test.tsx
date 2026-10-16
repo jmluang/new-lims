@@ -5,10 +5,18 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SigningDocument } from '../handwrittenApi'
 
-const server = vi.hoisted(() => ({ download: vi.fn(), downloadAllowed: true, planningAllowed: true }))
+const server = vi.hoisted(() => ({
+  download: vi.fn(), read: vi.fn(), navigate: vi.fn(), downloadAllowed: true,
+  location: { pathname: '/pdf/documents/doc-1', searchStr: '' },
+}))
 vi.mock('../handwrittenApi', async original => ({
   ...await original<typeof import('../handwrittenApi')>(),
-  downloadRevision: server.download,
+  downloadRevision: server.download, fetchSigningDocument: server.read,
+}))
+vi.mock('@tanstack/react-router', async original => ({
+  ...await original<typeof import('@tanstack/react-router')>(),
+  useRouterState: ({ select }: { select: (state: unknown) => unknown }) => select({ location: server.location }),
+  useNavigate: () => server.navigate,
 }))
 vi.mock('../PdfPlacementWorkspace', () => ({
   PdfPlacementWorkspace: ({ file, editable }: { file: Blob; editable: boolean }) =>
@@ -16,8 +24,7 @@ vi.mock('../PdfPlacementWorkspace', () => ({
 }))
 vi.mock('../../auth/useCurrentUser', () => ({
   useEffectivePermissions: () => ({ data: { resources: {
-    'pdf.document': { actions: { read: true, update: true, delete: true }, fields: {} },
-    'pdf.workflow': { actions: { create: server.planningAllowed }, fields: {} },
+    'pdf.document': { actions: { read: true }, fields: {} },
     'pdf.revision': { actions: { download: server.downloadAllowed }, fields: {} },
   } } }),
 }))
@@ -28,53 +35,52 @@ let client: QueryClient
 let report: SigningDocument
 const createUrl = vi.fn()
 const revokeUrl = vi.fn()
-
 async function settle(action?: () => void) {
   await act(async () => { action?.(); await new Promise(resolve => setTimeout(resolve, 20)) })
 }
+async function until(done: () => boolean) {
+  const deadline = Date.now() + 1500
+  while (!done() && Date.now() < deadline) await settle()
+  expect(done()).toBe(true)
+}
 async function mount() {
-  client.setQueryData(['pdf', 'documents', '', 1, 15], {
-    data: [report], meta: { current_page: 1, per_page: 15, total: 1 },
-  })
-  const { PdfDocumentListPage } = await import('../PdfDocumentListPage')
-  await settle(() => root.render(<StrictMode><QueryClientProvider client={client}><PdfDocumentListPage /></QueryClientProvider></StrictMode>))
+  const { PdfDocumentDetailPage } = await import('../PdfDocumentDetailPage')
+  await settle(() => root.render(<StrictMode><QueryClientProvider client={client}><PdfDocumentDetailPage /></QueryClientProvider></StrictMode>))
+  await until(() => Boolean(combo()) || container.textContent?.includes('报告不存在') === true)
+  await until(() => !container.querySelector('[role=status]'))
 }
-async function openVersions(mobile = false) {
-  const button = mobile
-    ? [...container.querySelectorAll('article button')].find(button => button.textContent?.includes('查看版本与 PDF'))
-    : container.querySelector<HTMLButtonElement>('button[aria-label="查看 XPD20261015-001 的版本与 PDF"]')
-  expect(button).toBeDefined()
-  await settle(() => (button as HTMLButtonElement).click())
-  const deadline = Date.now() + 1000
-  while (dialog().querySelector('[role=status]') && Date.now() < deadline) await settle()
-  expect(dialog().querySelector('[role=status]')).toBeNull()
+function combo() { return container.querySelector<HTMLButtonElement>('[role=combobox]')! }
+function options() { return [...container.querySelectorAll<HTMLButtonElement>('[role=option]')] }
+async function expand() { await settle(() => combo().click()) }
+async function key(name: string) {
+  await settle(() => combo().dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true })))
 }
-function dialog() { return container.querySelector('[role=dialog]')! }
+async function followNavigation() {
+  const destination = server.navigate.mock.lastCall![0]
+  server.location.searchStr = `?revision=${destination.search.revision}`
+  await mount()
+}
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  server.location = { pathname: '/pdf/documents/doc-1', searchStr: '' }
   server.downloadAllowed = true
-  server.planningAllowed = true
   server.download.mockReset().mockImplementation(async uuid => new Blob([`PDF:${uuid}`], { type: 'application/pdf' }))
+  server.navigate.mockReset()
   createUrl.mockReset().mockImplementation(() => `blob:version-${createUrl.mock.calls.length}`)
   revokeUrl.mockReset()
-  vi.stubGlobal('URL', class extends URL {
-    static createObjectURL = createUrl
-    static revokeObjectURL = revokeUrl
-  })
+  vi.stubGlobal('URL', class extends URL { static createObjectURL = createUrl; static revokeObjectURL = revokeUrl })
   report = {
     document_uuid: 'doc-1', report_number: 'XPD20261015-001', status: 'published', stage: 'published',
     published_revision_uuid: 'revision-6', integrity_state: 'ok', evidence_hold_state: 'none',
     has_running_work: false, workflow_uuid: 'workflow-8', workflow_status: 'completed', signers: [],
-    revisions: [
-      { revision_uuid: 'revision-2', revision_number: 2, revision_role: 'prepared', integrity_state: 'ready' },
-      { revision_uuid: 'revision-6', revision_number: 6, revision_role: 'handwritten_signature', integrity_state: 'ready' },
-      // Publication must win over a higher revision number when choosing the initial PDF.
-      { revision_uuid: 'revision-7', revision_number: 7, revision_role: 'prepared', integrity_state: 'ready' },
-    ],
-    created_by_id: 1, is_owner: true, created_at: '2026-10-15T13:16:34Z',
+    revisions: Array.from({ length: 6 }, (_, index) => ({
+      revision_uuid: `revision-${index + 1}`, revision_number: index + 1,
+      revision_role: index === 0 ? 'finalized_unsigned' : index < 3 ? 'prepared' : 'handwritten_signature', integrity_state: 'ready',
+    })), created_by_id: 1, is_owner: true, created_at: '2026-10-15T13:16:34Z',
   }
-  client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } })
+  server.read.mockReset().mockImplementation(async () => report)
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   container = document.createElement('div')
   document.body.append(container)
   root = createRoot(container)
@@ -86,82 +92,125 @@ afterEach(async () => {
   vi.unstubAllGlobals()
 })
 
-describe('document versions access', () => {
-  it('opens a published PDF without enabling any published-document mutation', async () => {
+describe('standalone report versions', () => {
+  it('defaults to the published version, supplies a return link, and opens all six styled options', async () => {
     await mount()
-    const row = container.querySelector('tbody tr')!
-    const mutations = [...row.querySelectorAll('button[title="已发布的报告不可修改"]')]
-    expect(mutations).toHaveLength(3)
-    expect(mutations.every(button => (button as HTMLButtonElement).disabled)).toBe(true)
-    await openVersions()
-    expect(dialog().querySelector('select')?.value).toBe('revision-6')
-    expect(dialog().textContent).toContain('已发布')
+    expect(server.read).toHaveBeenCalledExactlyOnceWith('doc-1')
+    expect(combo().textContent).toContain('版本 6')
+    expect(combo().textContent).toContain('已发布')
+    expect(container.querySelector('[role=dialog],select')).toBeNull()
+    expect(container.querySelector('a[href="/pdf/documents"]')?.textContent).toContain('返回列表')
     expect(server.download).toHaveBeenCalledExactlyOnceWith('revision-6')
-    expect(dialog().querySelector('[data-testid=readonly-pdf]')?.getAttribute('data-editable')).toBe('false')
-    expect(dialog().querySelector('a[download]')?.getAttribute('href')).toMatch(/^blob:/)
-    expect(dialog().querySelector('a[download]')?.getAttribute('download')).toBe('XPD20261015-001-v6.pdf')
-    expect(dialog().querySelector('input[type=password]')).toBeNull()
+    expect(container.querySelector('[data-testid=readonly-pdf]')?.getAttribute('data-editable')).toBe('false')
+    await expand()
+    expect(options()).toHaveLength(6)
+    expect(options()[0].textContent).toContain('版本 6')
+    expect(options()[5].textContent).toContain('版本 1')
+    expect(container.querySelector('[role=listbox]')?.className).toContain('bg-white')
+    expect(options().every(option => option.className.includes('text-sm'))).toBe(true)
   })
 
-  it('switches to an exact older version and releases each preview URL', async () => {
+  it('does not substitute a newer unpublished PDF for the published default', async () => {
+    report.revisions.push({ revision_uuid: 'revision-7', revision_number: 7, revision_role: 'prepared', integrity_state: 'ready' })
     await mount()
-    await openVersions()
-    const firstUrl = dialog().querySelector<HTMLAnchorElement>('a[download]')!.href
-    await settle(() => {
-      const select = dialog().querySelector('select')!
-      select.value = 'revision-2'
-      select.dispatchEvent(new Event('change', { bubbles: true }))
-    })
-    expect(server.download).toHaveBeenLastCalledWith('revision-2')
-    expect(dialog().querySelector('a[download]')?.getAttribute('download')).toBe('XPD20261015-001-v2.pdf')
-    expect(revokeUrl).toHaveBeenCalledWith(firstUrl)
-    const secondUrl = dialog().querySelector<HTMLAnchorElement>('a[download]')!.href
-    await settle(() => dialog().querySelector<HTMLButtonElement>('button[aria-label="关闭"]')!.click())
-    expect(revokeUrl).toHaveBeenCalledWith(secondUrl)
+    expect(server.download).toHaveBeenCalledExactlyOnceWith('revision-6')
   })
 
-  it('keeps version metadata accessible but never fetches bytes without download permission', async () => {
+  it.each([null, 'missing-published-revision'])('does not replace unavailable published metadata %j with another PDF', async published => {
+    report.published_revision_uuid = published
+    await mount()
+    expect(container.querySelector('[role=alert]')?.textContent).toContain('已发布版本不可用')
+    expect(server.download).not.toHaveBeenCalled()
+    expect(container.querySelector('[data-testid=readonly-pdf],a[download]')).toBeNull()
+  })
+
+  it('opens an explicit copied version link directly, retaining the exact version on refresh', async () => {
+    server.location.searchStr = '?revision=revision-4'
+    await mount()
+    expect(combo().textContent).toContain('版本 4')
+    expect(server.download).toHaveBeenCalledExactlyOnceWith('revision-4')
+    expect(container.querySelector('a[download]')?.getAttribute('download')).toBe('XPD20261015-001-v4.pdf')
+    expect(server.download).not.toHaveBeenCalledWith('revision-6')
+  })
+
+  it('changes the URL on selection and releases the previous download URL', async () => {
+    await mount()
+    const previousUrl = container.querySelector<HTMLAnchorElement>('a[download]')!.href
+    await expand()
+    await settle(() => options()[2].click())
+    expect(server.navigate).toHaveBeenCalledWith({ to: '/pdf/documents/$documentUuid', params: { documentUuid: 'doc-1' }, search: { revision: 'revision-4' }, hash: '' })
+    await followNavigation()
+    expect(server.download).toHaveBeenLastCalledWith('revision-4')
+    expect(revokeUrl).toHaveBeenCalledWith(previousUrl)
+    expect(combo().getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(combo())
+  })
+
+  it.each(['other-report-revision', '', 'missing-revision'])('rejects invalid/foreign version %j before requesting any PDF', async revision => {
+    server.location.searchStr = `?revision=${revision}`
+    await mount()
+    expect(container.querySelector('[role=alert]')?.textContent).toContain('不存在或不属于此报告')
+    expect(server.download).not.toHaveBeenCalled()
+    expect(container.querySelector('[data-testid=readonly-pdf],a[download]')).toBeNull()
+    await expand()
+    expect(options()).toHaveLength(6)
+  })
+
+  it('does not request PDF bytes for a missing report', async () => {
+    server.location.pathname = '/pdf/documents/missing'
+    server.read.mockRejectedValue({ response: { status: 404 } })
+    await mount()
+    expect(container.textContent).toContain('报告不存在')
+    expect(server.download).not.toHaveBeenCalled()
+  })
+
+  it('keeps metadata accessible but does not load PDF without download permission', async () => {
     server.downloadAllowed = false
     await mount()
-    await openVersions()
-    expect(dialog().querySelectorAll('option')).toHaveLength(3)
-    expect(dialog().textContent).toContain('没有 PDF 预览或下载权限')
-    expect(dialog().querySelector('[data-testid=readonly-pdf],a[download]')).toBeNull()
+    await expand()
+    expect(options()).toHaveLength(6)
+    expect(container.textContent).toContain('没有 PDF 预览或下载权限')
     expect(server.download).not.toHaveBeenCalled()
   })
 
-  it('allows a document reader to preview without granting signing or planning permission', async () => {
-    server.planningAllowed = false
-    await mount()
-    await openVersions()
-    expect(server.download).toHaveBeenCalledExactlyOnceWith('revision-6')
-    expect(dialog().querySelector('[data-testid=readonly-pdf]')).not.toBeNull()
-  })
-
-  it.each(['revision', 'document'])('does not download when %s integrity is unavailable', async scope => {
-    if (scope === 'revision') report.revisions[1].integrity_state = 'unavailable'
+  it.each(['revision', 'document'])('blocks unavailable %s integrity', async scope => {
+    if (scope === 'revision') report.revisions[5].integrity_state = 'unavailable'
     else report.integrity_state = 'hold'
     await mount()
-    await openVersions()
-    expect(dialog().textContent).toContain('此版本当前不可预览或下载')
+    expect(container.textContent).toContain('此版本当前不可预览或下载')
     expect(server.download).not.toHaveBeenCalled()
   })
 
-  it('offers the same version access on mobile and reuses the immutable PDF on reopening', async () => {
+  it('supports arrow keys, Home/End, Enter/Space, Escape, Tab and blur without native popup', async () => {
     await mount()
-    await openVersions(true)
-    await settle(() => dialog().querySelector<HTMLButtonElement>('button[aria-label="关闭"]')!.click())
-    await openVersions(true)
-    expect(server.download).toHaveBeenCalledExactlyOnceWith('revision-6')
-    expect(dialog().querySelector('a[download]')).not.toBeNull()
+    combo().focus()
+    await key('ArrowDown')
+    expect(combo().getAttribute('aria-expanded')).toBe('true')
+    await key('End')
+    expect(combo().getAttribute('aria-activedescendant')).toBe(options()[5].id)
+    await key('Home')
+    await key('ArrowDown')
+    await key('ArrowUp')
+    await key('Escape')
+    expect(options()).toHaveLength(0)
+    expect(server.navigate).not.toHaveBeenCalled()
+    await key(' ')
+    await key('ArrowDown')
+    await key('Enter')
+    expect(server.navigate.mock.lastCall![0].search.revision).toBe('revision-5')
+    await followNavigation()
+    await key('ArrowUp')
+    await key('Tab')
+    expect(options()).toHaveLength(0)
+    await expand()
+    await settle(() => container.querySelector<HTMLAnchorElement>('a[href="/pdf/documents"]')!.focus())
+    expect(options()).toHaveLength(0)
   })
 
   it('shows a failed download without automatically retrying', async () => {
     server.download.mockRejectedValue(new Error('PDF暂不可用'))
     await mount()
-    await openVersions()
-    expect(dialog().textContent).toContain('PDF 加载失败')
-    expect(dialog().querySelector('[data-testid=readonly-pdf],a[download]')).toBeNull()
+    expect(container.textContent).toContain('PDF 加载失败')
     expect(server.download).toHaveBeenCalledTimes(1)
   })
 })
