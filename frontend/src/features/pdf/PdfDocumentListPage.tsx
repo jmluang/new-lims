@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Clock, FileText, Loader2, PenLine, Pencil, Search, ShieldAlert, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Eye, FileText, Loader2, PenLine, Pencil, Search, ShieldAlert, Trash2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { PermissionGate } from '../../components/app/PermissionGate'
 import { Button, DataTable, EmptyState, ErrorNotice, LoadingState, Modal, PageShell, PaginationControls, Panel } from '../system/shared'
@@ -14,6 +14,7 @@ import {
   type SigningDocument,
 } from './handwrittenApi'
 import { editableReason, planReason } from './documentEditable'
+import { PdfDocumentVersions } from './PdfDocumentVersions'
 
 const stageLabels: Record<string, string> = {
   confirmed_awaiting_finalize: '待定稿',
@@ -68,6 +69,7 @@ export function PdfDocumentListPage() {
   const [renameValue, setRenameValue] = useState('')
   const [deleting, setDeleting] = useState<SigningDocument | null>(null)
   const [manualReviewing, setManualReviewing] = useState<SigningDocument | null>(null)
+  const [viewingVersions, setViewingVersions] = useState<SigningDocument | null>(null)
   const [manualReviewDecision, setManualReviewDecision] = useState<ManualReviewDecision>('confirmed_no_usable_result')
 
   const documents = useQuery({
@@ -180,10 +182,18 @@ export function PdfDocumentListPage() {
                     </div>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-3 py-2 text-slate-700">{document.revisions.length} 个</td>
+                <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                  <button type="button" className="text-emerald-800 underline" onClick={() => setViewingVersions(document)}>
+                    {document.revisions.length} 个版本
+                  </button>
+                </td>
                 <td className="whitespace-nowrap px-3 py-2 text-slate-700">{formatDateTime(document.created_at)}</td>
                 <td className="px-3 py-2">
                   <div className="flex justify-end gap-1">
+                    <Button variant="ghost" title="查看版本与 PDF" aria-label={`查看 ${document.report_number} 的版本与 PDF`}
+                      onClick={() => setViewingVersions(document)}>
+                      <Eye className="size-4" />
+                    </Button>
                     <PermissionGate resource="pdf.workflow" action="create">
                       <Button
                         variant="ghost"
@@ -258,6 +268,10 @@ export function PdfDocumentListPage() {
                 {document.revisions.length} 个版本 · {formatDateTime(document.created_at)}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setViewingVersions(document)}>
+                  <Eye className="size-4" />
+                  查看版本与 PDF
+                </Button>
                 <PermissionGate resource="pdf.workflow" action="create">
                   <Button
                     variant="secondary"
@@ -321,6 +335,9 @@ export function PdfDocumentListPage() {
           }}
         />
       ) : null}
+
+      {viewingVersions ? <PdfDocumentVersions key={viewingVersions.document_uuid}
+        document={viewingVersions} onClose={() => setViewingVersions(null)} /> : null}
 
       <Modal open={renaming !== null} title="修改报告编号" onClose={() => setRenaming(null)}>
         <p className="mb-3 text-xs leading-5 text-slate-500">
