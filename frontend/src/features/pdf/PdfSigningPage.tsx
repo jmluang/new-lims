@@ -18,6 +18,7 @@ import { createCertificateMerger } from './certificateMerge'
 
 /** Match the production signer's three heavy-job slots; extra files wait here. */
 const MAX_CONCURRENT_TASKS = 3
+const DOWNLOAD_CONFIRM_SECONDS = 5
 
 const languageNames: Record<string, string> = { zh: '中文', en: 'English' }
 
@@ -78,6 +79,8 @@ export function PdfSigningPage() {
 
   const [queue, setQueue] = useState<QueuedFile[]>([])
   const [results, setResults] = useState<SignResult[]>([])
+  const [resultsCollapsed, setResultsCollapsed] = useState(false)
+  const [confirmationCountdown, setConfirmationCountdown] = useState<number | null>(null)
   const [tasks, setTasks] = useState<TaskState[]>([])
   const [processedCount, setProcessedCount] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
@@ -311,6 +314,8 @@ export function PdfSigningPage() {
     setSigning(true)
     setError(null)
     setResults([])
+    setResultsCollapsed(false)
+    setConfirmationCountdown(null)
     setTasks([])
 
     const pending = queue.map((item, index) => ({ item, index: index + 1 }))
@@ -349,7 +354,22 @@ export function PdfSigningPage() {
     await queryClient.invalidateQueries({ queryKey: ['pdf', 'files'] })
   }
 
+  // A native download request cannot confirm disk persistence. Only the
+  // operator's explicit acknowledgement starts this presentation-only timer.
+  useEffect(() => {
+    if (confirmationCountdown === null) return
+    const timer = setTimeout(() => {
+      if (confirmationCountdown <= 1) {
+        setResultsCollapsed(true)
+        setConfirmationCountdown(null)
+      } else setConfirmationCountdown(confirmationCountdown - 1)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [confirmationCountdown])
+
   function reset() {
+    setResultsCollapsed(false)
+    setConfirmationCountdown(null)
     setResults([])
     setQueue([])
     setTasks([])
@@ -374,7 +394,7 @@ export function PdfSigningPage() {
       title="PDF防篡改系统"
       description="上传检测报告，套用声明页与印章并写入数字签名，同时把文件摘要登记到防篡改台账。"
       actions={
-        results.length > 0 && !signing ? (
+        results.length > 0 && !resultsCollapsed && !signing ? (
           <Button variant="secondary" onClick={reset}>
             处理新文件
           </Button>
@@ -402,7 +422,12 @@ export function PdfSigningPage() {
 
       {error ? <ErrorNotice error={new Error(error)} /> : null}
 
-      {results.length > 0 ? (
+      {results.length > 0 && resultsCollapsed ? <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-900/10 bg-white px-4 py-2 text-sm text-slate-600">
+        <span>上次 {results.length} 个文件的下载结果已收起。</span>
+        <Button variant="secondary" onClick={() => setResultsCollapsed(false)}>查看下载结果</Button>
+      </div> : null}
+
+      {results.length > 0 && !resultsCollapsed ? (
         <Panel
           title="处理结果"
           description={
@@ -410,8 +435,14 @@ export function PdfSigningPage() {
               ? `共 ${results.length} 个文件，成功 ${successCount} 个，失败 ${failureCount} 个。失败原因会保留在下方。`
               : `共 ${results.length} 个文件全部签章完成。`
           }
+          actions={!signing && failureCount === 0 ? confirmationCountdown === null ? (
+            <Button variant="secondary" onClick={() => setConfirmationCountdown(DOWNLOAD_CONFIRM_SECONDS)}>我已确认全部下载</Button>
+          ) : <div className="flex flex-wrap items-center gap-2">
+            <span role="status" className="text-xs text-slate-500">{confirmationCountdown} 秒后收起结果</span>
+            <Button variant="ghost" onClick={() => setConfirmationCountdown(null)}>取消收起</Button>
+          </div> : undefined}
         >
-          {successCount > 0 ? <p className="mb-3 text-sm text-slate-600">已请求自动下载。若未收到文件，请点击“下载”重试同一文件，无需重新签章。</p> : null}
+          {successCount > 0 ? <p className="mb-3 text-sm text-slate-600">已请求自动下载。若未收到文件，请点击“下载”重试同一文件，无需重新签章。确认浏览器中所有文件均已下载后，可点击“我已确认全部下载”收起结果。</p> : null}
           <ul className="space-y-2">
             {results.map((result) => (
               <SignResultCard key={result.key} result={result} />
