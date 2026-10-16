@@ -52,6 +52,7 @@ use App\Http\Controllers\TestOrderEntrustOrderController;
 use App\Http\Controllers\TestOrderMessageController;
 use App\Http\Controllers\UserMessageController;
 use App\Http\Middleware\EnsurePasswordChangeIsNotRequired;
+use App\Http\Middleware\ValidatePdfDownloadSignature;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -87,7 +88,7 @@ Route::get('/public/pdf/documents/{publicId}', [PdfPublicRevisionController::cla
 // 真实地址处处可用，但普通 <a href> 带不上 SPA 的 bearer token，所以改由链接
 // 自身携带授权：签名只对这一个文件生效，且很快过期。
 Route::get('/pdf/files/{pdfFile}/temporary-download', [PdfFileController::class, 'temporaryDownload'])
-    ->middleware(['signed', 'throttle:pdf-temporary-download'])
+    ->middleware([ValidatePdfDownloadSignature::class, 'throttle:pdf-temporary-download'])
     ->name('pdf.files.temporary-download');
 
 Route::middleware('auth:sanctum')->group(function (): void {

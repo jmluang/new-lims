@@ -18,7 +18,6 @@ import { createCertificateMerger } from './certificateMerge'
 
 /** Match the production signer's three heavy-job slots; extra files wait here. */
 const MAX_CONCURRENT_TASKS = 3
-const SUCCESS_RESET_SECONDS = 5
 
 const languageNames: Record<string, string> = { zh: '中文', en: 'English' }
 
@@ -39,6 +38,7 @@ type SignResult = {
   fileSize?: number | null
   reportNumber?: string | null
   error?: string
+  downloadError?: string
 }
 
 type SigningResponse = {
@@ -83,7 +83,6 @@ export function PdfSigningPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [signing, setSigning] = useState(false)
   const [autoStart, setAutoStart] = useState(false)
-  const [successCountdown, setSuccessCountdown] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [config, setConfig] = useState<SigningConfig | null>(null)
 
@@ -262,22 +261,36 @@ export function PdfSigningPage() {
         },
       })
 
-      const { download_url: downloadUrl, download_name: downloadName } = response.data.data
+      const data = response.data.data
+      // This endpoint returns 200 only after signing has completed. A pending or
+      // malformed response must never become an anchor pointing at "undefined".
+      if (response.status !== 200 || !data || typeof data.download_url !== 'string' || !data.download_url.trim()
+        || typeof data.download_name !== 'string' || !data.download_name.trim()) {
+        throw new Error('尚未收到完整的签章完成结果，未触发下载。请先确认原处理结果，勿重复签章。')
+      }
+      const downloadUrl = api.getUri({ url: data.download_url })
+      const downloadName = data.download_name
+      if (!['http:', 'https:'].includes(new URL(downloadUrl, window.location.href).protocol)) {
+        throw new Error('下载地址无效，未触发下载。请先确认原处理结果，勿重复签章。')
+      }
+      setTask({ progress: 100, status: '签章完成，已请求下载', stage: 'done' })
 
-      setTask({ progress: 100, status: '完成，开始下载', stage: 'done' })
-
-      // A finished file downloads straight away so a large batch does not need
-      // one click per report.
-      //
-      // A real URL also works in browsers that delegate downloads to their own
-      // download manager (360 Browser cannot download a blob: URL).
-      triggerDownload(downloadUrl, downloadName)
+      // A native URL keeps delegated download managers working. Its click does
+      // not prove that the browser accepted it or that its GET succeeded.
+      let downloadError: string | undefined
+      try {
+        triggerDownload(downloadUrl, downloadName)
+      } catch {
+        downloadError = '自动下载未能启动，请点击“下载”重试同一文件。'
+        setTask({ status: '签章完成，请手动下载' })
+      }
 
       return {
         key: item.key,
         originalName: item.file.name,
         downloadName,
         downloadUrl,
+        downloadError,
         sha256: response.data.data.sha256,
         fileSize: response.data.data.file_size,
         reportNumber: response.data.data.report_number,
@@ -299,7 +312,6 @@ export function PdfSigningPage() {
     setError(null)
     setResults([])
     setTasks([])
-    setSuccessCountdown(null)
 
     const pending = queue.map((item, index) => ({ item, index: index + 1 }))
     setTotalCount(pending.length)
@@ -332,22 +344,10 @@ export function PdfSigningPage() {
 
     setSigning(false)
     setQueue([])
-    // Only this signing desk auto-clears a completely successful batch.
-    // Any failed item remains visible until the operator clears it manually.
-    setSuccessCountdown(collected.every((result) => !result.error) ? SUCCESS_RESET_SECONDS : null)
+    // Keep the completed-file links until the operator starts a new batch:
+    // browser download restrictions and GET errors must remain recoverable.
     await queryClient.invalidateQueries({ queryKey: ['pdf', 'files'] })
   }
-
-  useEffect(() => {
-    if (successCountdown === null) return
-    if (successCountdown === 0) {
-      reset()
-      return
-    }
-
-    const timer = setTimeout(() => setSuccessCountdown((current) => current === null ? null : current - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [successCountdown])
 
   function reset() {
     setResults([])
@@ -355,7 +355,6 @@ export function PdfSigningPage() {
     setTasks([])
     setProcessedCount(0)
     setTotalCount(0)
-    setSuccessCountdown(null)
     setError(null)
   }
 
@@ -409,10 +408,10 @@ export function PdfSigningPage() {
           description={
             failureCount > 0
               ? `共 ${results.length} 个文件，成功 ${successCount} 个，失败 ${failureCount} 个。失败原因会保留在下方。`
-              : `共 ${results.length} 个文件全部处理成功，已开始下载。`
+              : `共 ${results.length} 个文件全部签章完成。`
           }
-          actions={successCountdown !== null ? <span className="text-xs text-slate-500">{successCountdown} 秒后自动收起</span> : undefined}
         >
+          {successCount > 0 ? <p className="mb-3 text-sm text-slate-600">已请求自动下载。若未收到文件，请点击“下载”重试同一文件，无需重新签章。</p> : null}
           <ul className="space-y-2">
             {results.map((result) => (
               <SignResultCard key={result.key} result={result} />
@@ -692,6 +691,7 @@ function SignResultCard({ result }: { result: SignResult }) {
         ) : null}
       </div>
 
+      {result.downloadError ? <p className="mt-2 text-amber-800">{result.downloadError}</p> : null}
       {result.error ? (
         <p className="mt-2 text-red-700">{result.error}</p>
       ) : (
@@ -1153,9 +1153,10 @@ function triggerDownload(url: string, fileName: string) {
   anchor.href = url
   anchor.download = fileName
   document.body.appendChild(anchor)
-  anchor.click()
-
-  // Detached on the next tick rather than immediately: some browsers cancel a
-  // download whose anchor leaves the document in the same task as the click.
-  setTimeout(() => anchor.remove(), 0)
+  try {
+    anchor.click()
+  } finally {
+    // Keep the anchor through activation, including when a browser refuses it.
+    setTimeout(() => anchor.remove(), 0)
+  }
 }

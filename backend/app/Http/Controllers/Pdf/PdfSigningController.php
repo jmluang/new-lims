@@ -183,10 +183,13 @@ class PdfSigningController extends Controller
 
         $syncDispatcher->enqueue($result['pdf_file']);
 
+        // HTTPS can terminate before PHP. A signed relative path inherits the
+        // browser's HTTPS/API origin without binding the HMAC to internal HTTP.
         $downloadUrl = URL::temporarySignedRoute(
             'pdf.files.temporary-download',
             now()->addMinutes((int) $signing['download_link_ttl_minutes']),
             ['pdfFile' => $result['pdf_file']->id],
+            absolute: false,
         );
 
         // The signing desk downloads from this signed URL. Returning the PDF

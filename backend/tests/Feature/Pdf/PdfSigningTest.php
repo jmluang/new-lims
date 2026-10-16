@@ -128,6 +128,7 @@ class PdfSigningTest extends TestCase
             ->assertJsonPath('data.file_size', strlen($signedBytes))
             ->assertJsonPath('data.report_number', 'ZS-2026-0007');
         $this->assertStringNotContainsString($signedBytes, $response->getContent());
+        $this->assertStringStartsWith('/api/pdf/files/', $response->json('data.download_url'));
         $this->assertSame($signedBytes, $this->get($response->json('data.download_url'))->streamedContent());
     }
 

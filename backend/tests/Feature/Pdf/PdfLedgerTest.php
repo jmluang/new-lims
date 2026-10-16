@@ -69,6 +69,26 @@ class PdfLedgerTest extends TestCase
         $this->get($url)->assertForbidden();
     }
 
+    public function test_relative_download_links_survive_the_external_https_internal_http_boundary(): void
+    {
+        Storage::disk('pdf')->put('signed/relative.pdf', '%PDF existing signed bytes');
+        $record = $this->ledgerRecord('RELATIVE-1', 'relative.pdf', 'signed/relative.pdf');
+        $other = $this->ledgerRecord('RELATIVE-2', 'other.pdf', 'signed/relative.pdf');
+        $url = URL::temporarySignedRoute('pdf.files.temporary-download', now()->addMinutes(30), ['pdfFile' => $record->id], absolute: false);
+
+        $this->assertStringStartsWith('/api/pdf/files/', $url);
+        $response = $this->get('https://external.example.test'.$url);
+        $response->assertOk();
+        $this->assertSame('%PDF existing signed bytes', $response->streamedContent());
+        $this->get('http://internal.example.test'.$url)->assertOk();
+        $this->get(str_replace("/{$record->id}/", "/{$other->id}/", $url))->assertForbidden();
+        $this->get($url.'&extra=1')->assertForbidden();
+        $this->get($url.'x')->assertForbidden();
+        $this->get("/api/pdf/files/{$record->id}/temporary-download")->assertForbidden();
+        $this->travel(31)->minutes();
+        $this->get($url)->assertForbidden();
+    }
+
     public function test_the_temporary_link_delivers_the_signed_file_name(): void
     {
         Storage::disk('pdf')->put('signed/2026/08/report.pdf', '%PDF signed');
