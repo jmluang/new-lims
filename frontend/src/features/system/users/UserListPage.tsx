@@ -60,17 +60,23 @@ export function UserListPage() {
       return response.data.data
     },
   })
+  function refreshUser(user: SystemUser) {
+    queryClient.setQueryData(['system-user', user.id], user)
+    return queryClient.invalidateQueries({ queryKey: ['system-users'] })
+  }
   const lockUser = useMutation({
     mutationFn: async (user: SystemUser) => {
-      await api.post(`/api/system/users/${user.id}/lock`, { reason: 'Manual administrator lock' })
+      const response = await api.post<{ data: SystemUser }>(`/api/system/users/${user.id}/lock`, { reason: 'Manual administrator lock' })
+      return response.data.data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['system-users'] }),
+    onSuccess: refreshUser,
   })
   const unlockUser = useMutation({
     mutationFn: async (user: SystemUser) => {
-      await api.post(`/api/system/users/${user.id}/unlock`)
+      const response = await api.post<{ data: SystemUser }>(`/api/system/users/${user.id}/unlock`)
+      return response.data.data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['system-users'] }),
+    onSuccess: refreshUser,
   })
   const resetPassword = useMutation({
     mutationFn: async (user: SystemUser) => {
@@ -80,13 +86,13 @@ export function UserListPage() {
       })
 
       return {
-        user,
+        user: response.data.data,
         temporaryPassword: response.data.meta?.temporary_password ?? temporaryResetPassword,
       }
     },
     onSuccess: async ({ user, temporaryPassword }) => {
       setResetNotice({ userName: user.name, password: temporaryPassword })
-      await queryClient.invalidateQueries({ queryKey: ['system-users'] })
+      await refreshUser(user)
     },
   })
   const users = usersQuery.data?.data ?? []

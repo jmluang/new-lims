@@ -12,6 +12,7 @@ import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, SampleFlowLedgerTab
 import { availableSampleFlowActions } from './sampleFlowAvailability'
 import { visibleSampleFlowActions } from './sampleFlowPermissions'
 import { sampleFlowSchema, type SampleFlowValues } from './sampleSchema'
+import { invalidateSampleFlowQueries } from './sampleQueries'
 import type { Sample } from './SampleListPage'
 
 type SampleFlow = {
@@ -88,10 +89,7 @@ export function SampleDetailPage() {
     },
     onSuccess: async () => {
       setFlowForm(emptyFlow)
-      await queryClient.invalidateQueries({ queryKey: ['sample', sampleId] })
-      await queryClient.invalidateQueries({ queryKey: ['sample-flows', sampleId] })
-      await queryClient.invalidateQueries({ queryKey: ['sample-flow-card', sampleId] })
-      await queryClient.invalidateQueries({ queryKey: ['samples'] })
+      if (sampleId !== null) await invalidateSampleFlowQueries(queryClient, sampleId)
     },
   })
   const sample = sampleQuery.data

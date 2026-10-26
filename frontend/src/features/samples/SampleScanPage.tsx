@@ -9,6 +9,7 @@ import { type ApiCollection, type ApiResource, inputClass, textareaClass } from 
 import { useCurrentUser, useEffectivePermissions } from '../auth/useCurrentUser'
 import type { EquipmentLocation } from '../equipment/EquipmentListPage'
 import { visibleSampleFlowActions } from './sampleFlowPermissions'
+import { invalidateSampleFlowQueries } from './sampleQueries'
 import { buildLocationSelection, changeLocationSelection, findLocationSelectionIdsByLabel, type LocationSelection } from './sampleScanLocations'
 import {
   buildSampleScanFlowPayload,
@@ -91,9 +92,7 @@ export function SampleScanPage() {
     onSuccess: async () => {
       if (lookup) {
         setDone(lookup.sample.sample_no)
-        await queryClient.invalidateQueries({ queryKey: ['samples'] })
-        await queryClient.invalidateQueries({ queryKey: ['sample-flows', lookup.sample.id] })
-        await queryClient.invalidateQueries({ queryKey: ['sample-flow-card', lookup.sample.id] })
+        await invalidateSampleFlowQueries(queryClient, lookup.sample.id)
       }
 
       setLookup(null)

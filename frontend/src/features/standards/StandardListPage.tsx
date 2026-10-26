@@ -81,7 +81,11 @@ export function StandardListPage() {
     mutationFn: async (standard: Standard) => {
       await api.delete(`/api/standards/${standard.id}`)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['standards'] }),
+    onSuccess: (_result, standard) => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['standards'] }),
+      queryClient.invalidateQueries({ queryKey: ['standard', standard.id], exact: true }),
+      queryClient.invalidateQueries({ queryKey: ['test-order-form-options'], exact: true }),
+    ]),
   })
   const standards = standardsQuery.data?.data ?? []
 

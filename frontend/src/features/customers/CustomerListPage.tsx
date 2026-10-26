@@ -81,7 +81,11 @@ export function CustomerListPage() {
     mutationFn: async (customer: Customer) => {
       await api.delete(`/api/customers/${customer.id}`)
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['customers'] }),
+    onSuccess: (_result, customer) => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['customers'] }),
+      queryClient.invalidateQueries({ queryKey: ['customer', customer.id], exact: true }),
+      queryClient.invalidateQueries({ queryKey: ['test-order-form-options'], exact: true }),
+    ]),
   })
   const customers = customersQuery.data?.data ?? []
   const fieldPermissions = (customersQuery.data?.meta?.fields ?? selectedCustomer?._field_permissions) as FieldPermissionMeta | undefined

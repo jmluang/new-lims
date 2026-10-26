@@ -12,6 +12,7 @@ import { SampleFlowCardPrintArea, SampleFlowCardPrintStyles, SampleFlowLedgerTab
 import { SampleLabelPrintArea, SampleLabelPrintStyles, type SampleLabelPreview } from './SampleLabelPrintArea'
 import { visibleSampleListActions, type SampleListAction } from './sampleListActions'
 import { sampleLabelSpec } from './sampleLabelSpec'
+import { invalidateSampleFlowQueries } from './sampleQueries'
 
 export type Sample = {
   id: number
@@ -104,9 +105,7 @@ export function SampleListPage() {
     mutationFn: async (input: { sampleId: number; payload: Record<string, string> }) => {
       await api.post(`/api/samples/${input.sampleId}/scan-flow`, input.payload)
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['samples'] })
-    },
+    onSuccess: (_result, { sampleId }) => invalidateSampleFlowQueries(queryClient, sampleId),
   })
   const returnClientFlow = useMutation({
     mutationFn: async (input: { sampleId: number; remark?: string }) => {
@@ -115,10 +114,10 @@ export function SampleListPage() {
         ...(input.remark?.trim() ? { remark: input.remark.trim() } : {}),
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, { sampleId }) => {
       setReturnClientSample(null)
       setReturnClientRemark('')
-      await queryClient.invalidateQueries({ queryKey: ['samples'] })
+      await invalidateSampleFlowQueries(queryClient, sampleId)
     },
   })
   const samples = samplesQuery.data?.data ?? []
